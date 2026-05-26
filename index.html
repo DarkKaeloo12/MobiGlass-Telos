@@ -1144,7 +1144,7 @@ body::before {
   <div class="tb-right">
     <div class="tb-clock">
       <div class="time" id="clock">--:--:--</div>
-      <div class="date" id="dateline">-- / -- / 2954</div>
+      <div class="date" id="dateline">-- / -- / 2956</div>
     </div>
     <div class="tb-net">
       <div class="wifi"><span></span><span></span><span></span></div>
@@ -1217,7 +1217,7 @@ body::before {
       </div>
       <div class="rep-bar"><div class="rep-fill" id="sb-rep-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div class="sb-version">VERSION 1.0.7 — © 2954 UEE</div>
+        <div class="sb-version">VERSION v0.1 — © 2956 UEE</div>
         <button id="sb-auth-btn" onclick="SESSION ? logout() : openLoginModal()" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;">CONNEXION</button>
       </div>
     </div>
@@ -1996,7 +1996,7 @@ body::before {
 const ADMIN_ID = 'p_admin'; // DarkKaeloo admin
 let SESSION = null; // { pid, name, isAdmin }
 // Code d'accès Gestionnaire — modifiable par l'Admin
-// SHA-256 de "TELOS-CORP-2954" (changeable via les paramètres admin)
+// SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
 const GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
 let _gestionnaireCodeHash = null;
 
@@ -2005,8 +2005,8 @@ async function getGestionnaireHash() {
   // Charger depuis DB ou utiliser le hash par défaut
   const stored = await DB.get(GESTIONNAIRE_CODE_KEY);
   if (stored) { _gestionnaireCodeHash = stored; return stored; }
-  // Hash par défaut : SHA-256("TELOS-CORP-2954")
-  const defaultHash = await sha256('TELOS-CORP-2954');
+  // Hash par défaut : SHA-256("TELOS-CORP-2956")
+  const defaultHash = await sha256('TELOS-CORP-2956');
   _gestionnaireCodeHash = defaultHash;
   return defaultHash;
 }
@@ -2265,10 +2265,10 @@ const STATIC_PARTNERS = [
 ];
 
 const MISSIONS = [
-  { icon:'📦', title:'Livraison Titanium — Lorville', desc:'Transporter 340 unités de Titanium de Area18 vers Lorville avant le 25/05.', reward:'+272 000 aUEC', status:'ms-progress', dl:'25/05/2954' },
-  { icon:'💎', title:'Acquisition Bexalite Premium',  desc:'Obtenir 50 unités de Bexalite grade A sur New Babbage pour TradeFleet_Corp.', reward:'+518 000 aUEC', status:'ms-open', dl:'28/05/2954' },
-  { icon:'🤝', title:'Contrat partenariat Volkov',    desc:'Négocier un contrat de distribution exclusif Quantanium avec Volkov_Trade.', reward:'+150 000 aUEC', status:'ms-done', dl:'21/05/2954' },
-  { icon:'⚠️', title:'Stock critique — Laranite',     desc:'Réapprovisionner le stock de Laranite (actuellement <10 unités).', reward:'Éviter -320 000 aUEC', status:'ms-open', dl:'24/05/2954' },
+  { icon:'📦', title:'Livraison Titanium — Lorville', desc:'Transporter 340 unités de Titanium de Area18 vers Lorville avant le 25/05.', reward:'+272 000 aUEC', status:'ms-progress', dl:'25/05/2956' },
+  { icon:'💎', title:'Acquisition Bexalite Premium',  desc:'Obtenir 50 unités de Bexalite grade A sur New Babbage pour TradeFleet_Corp.', reward:'+518 000 aUEC', status:'ms-open', dl:'28/05/2956' },
+  { icon:'🤝', title:'Contrat partenariat Volkov',    desc:'Négocier un contrat de distribution exclusif Quantanium avec Volkov_Trade.', reward:'+150 000 aUEC', status:'ms-done', dl:'21/05/2956' },
+  { icon:'⚠️', title:'Stock critique — Laranite',     desc:'Réapprovisionner le stock de Laranite (actuellement <10 unités).', reward:'Éviter -320 000 aUEC', status:'ms-open', dl:'24/05/2956' },
 ];
 
 // Journal d'activité dynamique — alimenté par les vraies opérations
@@ -2335,7 +2335,7 @@ function pad(v){ return String(v).padStart(2,'0'); }
 function tick(){
   const n = new Date();
   document.getElementById('clock').textContent    = `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
-  document.getElementById('dateline').textContent = `${pad(n.getDate())} / ${pad(n.getMonth()+1)} / 2954`;
+  document.getElementById('dateline').textContent = `${pad(n.getDate())} / ${pad(n.getMonth()+1)} / 2956`;
 }
 
 
