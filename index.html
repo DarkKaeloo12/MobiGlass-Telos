@@ -1217,7 +1217,7 @@ body::before {
       </div>
       <div class="rep-bar"><div class="rep-fill" id="sb-rep-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div class="sb-version">VERSION v0.1 — © 2956 UEE</div>
+        <div class="sb-version">VERSION v 0.1 — © 2956 UEE</div>
         <button id="sb-auth-btn" onclick="SESSION ? logout() : openLoginModal()" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;">CONNEXION</button>
       </div>
     </div>
@@ -2219,23 +2219,102 @@ async function doLogin() {
   if (_loginTarget?.action) _loginTarget.action();
 }
 
+/* ════════════════════════════════════════════════════════════
+   PERSISTANCE — Triple couche : localStorage + window.storage + export JSON
+   Clé préfixée 'telos_' pour isoler les données TELOS
+════════════════════════════════════════════════════════════ */
 const DB = {
   async get(k) {
+    // 1. window.storage (Claude artifact — survit entre sessions)
     try {
-      if (window.storage) { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
+      if (window.storage) {
+        const r = await window.storage.get('telos_' + k);
+        if (r?.value) return JSON.parse(r.value);
+      }
     } catch(e) {}
-    try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; }
+    // 2. localStorage (navigateur — survit aux rechargements)
+    try {
+      const v = localStorage.getItem('telos_' + k);
+      if (v) return JSON.parse(v);
+    } catch(e) {}
+    return null;
   },
   async set(k, v) {
     const s = JSON.stringify(v);
-    try { if (window.storage) { await window.storage.set(k, s); return; } } catch(e) {}
-    localStorage.setItem(k, s);
+    // Écriture simultanee dans les deux stockages
+    try { localStorage.setItem('telos_' + k, s); } catch(e) {}
+    try { if (window.storage) await window.storage.set('telos_' + k, s); } catch(e) {}
   },
   async del(k) {
-    try { if (window.storage) { await window.storage.delete(k); return; } } catch(e) {}
-    localStorage.removeItem(k);
+    try { localStorage.removeItem('telos_' + k); } catch(e) {}
+    try { if (window.storage) await window.storage.delete('telos_' + k); } catch(e) {}
+  },
+  // Liste toutes les clés TELOS dans localStorage
+  listLocal() {
+    const keys = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('telos_')) keys.push(k.slice(6));
+      }
+    } catch(e) {}
+    return keys;
   }
 };
+
+/* ════════════════════════════════════════════════════════════
+   EXPORT / IMPORT — Sauvegarde de secours en JSON
+════════════════════════════════════════════════════════════ */
+async function exportData() {
+  const data = { version: 1, exported: new Date().toISOString(), players: [], stocks: {} };
+  data.players = (await DB.get('uex-players')) || [];
+  for (const p of data.players) {
+    data.stocks[p.id] = (await DB.get('uex-stocks-' + p.id)) || [];
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'telos-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
+  toast('Export réussi', 'Sauvegarde JSON téléchargée.', 'success');
+}
+
+async function importData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.players || !data.stocks) throw new Error('Format invalide');
+      await DB.set('uex-players', data.players);
+      for (const [pid, stocks] of Object.entries(data.stocks)) {
+        await DB.set('uex-stocks-' + pid, stocks);
+      }
+      // Recharger
+      players = data.players;
+      renderPlayerList(); updateBadges(); updateGlobalFilter();
+      renderStocksFromPlayers(); renderPartners(); renderAuthBar();
+      toast('Import réussi', data.players.length + ' joueurs restaurés.', 'success');
+      pushLog('system', 'SYSTEM', 'Import données TELOS — ' + data.players.length + ' joueurs restaurés.');
+    } catch(err) {
+      toast('Erreur import', err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* Sauvegarde auto toutes les 60s */
+function startAutoSave() {
+  setInterval(async () => {
+    try {
+      await DB.set('uex-players', players);
+      for (const p of players) {
+        const stocks = await DB.get('uex-stocks-' + p.id);
+        if (stocks) await DB.set('uex-stocks-' + p.id, stocks);
+      }
+    } catch(e) {}
+  }, 60000);
+}
 
 /* ════════════════════════════════════════════════════════════
    STATIC DATA (dashboard demo)
@@ -3556,10 +3635,11 @@ const MODALS = {
   },
   'settings':{
     title:'⚙ PARAMÈTRES',
-    body: (()=>{
-      const adminSection = isAdmin() ? '<div style="border-top:1px solid rgba(247,140,30,0.22);padding-top:14px;margin-top:6px;"><div style="font-size:11px;letter-spacing:2px;color:var(--orange);text-transform:uppercase;margin-bottom:10px;">⬡ ADMIN — Code Gestionnaire</div><div class="form-field" style="margin-bottom:8px;"><label class="form-lbl">Nouveau code d\'acc&egrave;s</label><input class="form-input" type="password" id="new-gest-code" placeholder="Nouveau code (min. 4 car.)..." maxlength="64"></div><div class="form-field"><label class="form-lbl">Confirmer le code</label><input class="form-input" type="password" id="new-gest-code2" placeholder="Confirmer..." maxlength="64"></div><div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Code par d&eacute;faut : TELOS-CORP-2954</div></div>' : '';
-      return '<div class="form-field"><label class="form-lbl">Langue</label><select class="form-input"><option>Fran&ccedil;ais</option><option>English</option></select></div><div class="form-field"><label class="form-lbl">Mise &agrave; jour auto</label><select class="form-input"><option>Toutes les 30s</option><option>Toutes les 60s</option><option>Manuelle</option></select></div><div class="form-field"><label class="form-lbl">Profil</label><input class="form-input" type="text" value="DARKKAELOO"></div>' + adminSection;
-    })(),
+    body: ()=>{
+      const adminSection = isAdmin() ? '<div style="border-top:1px solid rgba(247,140,30,0.22);padding-top:14px;margin-top:6px;"><div style="font-size:11px;letter-spacing:2px;color:var(--orange);text-transform:uppercase;margin-bottom:10px;">⬡ ADMIN — Code Gestionnaire</div><div class="form-field" style="margin-bottom:8px;"><label class="form-lbl">Nouveau code d\'acc&egrave;s</label><input class="form-input" type="password" id="new-gest-code" placeholder="Nouveau code (min. 4 car.)..." maxlength="64"></div><div class="form-field"><label class="form-lbl">Confirmer le code</label><input class="form-input" type="password" id="new-gest-code2" placeholder="Confirmer..." maxlength="64"></div><div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Code par d&eacute;faut : TELOS-CORP-2956</div></div>' : '';
+      const backupSection = '<div style="border-top:1px solid rgba(247,140,30,0.22);padding-top:14px;margin-top:6px;"><div style="font-size:11px;letter-spacing:2px;color:var(--orange);text-transform:uppercase;margin-bottom:10px;">◈ Sauvegarde des données</div><div style="display:flex;gap:8px;"><button class="btn primary" onclick="exportData()" style="flex:1;padding:8px;font-size:12px;letter-spacing:1px;">↓ EXPORTER JSON</button><label class="btn" style="flex:1;padding:8px;font-size:12px;letter-spacing:1px;text-align:center;cursor:pointer;">↑ IMPORTER JSON<input type="file" accept=".json" style="display:none;" onchange="importData(this.files[0])"></label></div><div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Exportez régulièrement vos données comme sauvegarde de secours.</div></div>';
+      return '<div class="form-field"><label class="form-lbl">Langue</label><select class="form-input"><option>Fran&ccedil;ais</option><option>English</option></select></div><div class="form-field"><label class="form-lbl">Mise &agrave; jour auto</label><select class="form-input"><option>Toutes les 30s</option><option>Toutes les 60s</option><option>Manuelle</option></select></div>' + backupSection + adminSection;
+    },
     ok: async ()=>{
       if(isAdmin()){
         const c1=(document.getElementById('new-gest-code')||{}).value?.trim()||'';
@@ -3579,7 +3659,7 @@ const MODALS = {
 
 };
 let currentModal=null;
-function openModal(id){ const m=MODALS[id]; if(!m) return; currentModal=m; document.getElementById('modal-title').textContent=m.title; document.getElementById('modal-body').innerHTML=m.body; document.getElementById('modal-overlay').classList.add('open'); }
+function openModal(id){ const m=MODALS[id]; if(!m) return; currentModal=m; document.getElementById('modal-title').textContent=m.title; document.getElementById('modal-body').innerHTML=typeof m.body==='function'?m.body():m.body; document.getElementById('modal-overlay').classList.add('open'); }
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); currentModal=null; }
 async function confirmModal(){ if(currentModal?.ok) await currentModal.ok(); closeModal(); }
 
@@ -4555,20 +4635,13 @@ function loop(t) {
    RESET COMPLET — vide tous les joueurs et stocks
 ════════════════════════════════════════════════════════════ */
 async function resetAll() {
-  // Supprimer les stocks de chaque joueur connu
+  // Sauvegarde préalable avant reset
+  await exportData();
   const existingPlayers = (await DB.get('uex-players')) || [];
-  for (const p of existingPlayers) {
-    await DB.del('uex-stocks-' + p.id);
-  }
-  // Vider la liste joueurs
+  for (const p of existingPlayers) { await DB.del('uex-stocks-' + p.id); }
   await DB.set('uex-players', []);
-  // Vider aussi le localStorage au cas où
-  try {
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('uex-'))
-      .forEach(k => localStorage.removeItem(k));
-  } catch(e) {}
   players = [];
+  pushLog('system','SYSTEM','Reset complet — sauvegarde exportée avant suppression.');
 }
 
 
@@ -4602,6 +4675,7 @@ async function init(){
   requestAnimationFrame(loop);
   renderAuthBar();
   // Boot toasts
+  startAutoSave();
   setTimeout(()=>toast('UEE NETWORK ONLINE','Synchronisation sécurisée établie.','success'),600);
   setTimeout(()=>toast('⚠ 3 alertes actives','Consultez le panneau Alertes.','warn'),1800);
 }
