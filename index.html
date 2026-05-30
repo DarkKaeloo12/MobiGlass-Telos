@@ -1197,66 +1197,55 @@ body::before {
       <div class="n-icon">⬡</div>
       <div><div class="n-main">HUB</div><div class="n-sub">Tableau de bord</div></div>
     </div>
-	
     <div class="nav-item" onclick="goPanel('inscription',this)">
       <div class="n-icon">✦</div>
       <div><div class="n-main">INSCRIPTION</div><div class="n-sub">Rejoindre le réseau</div></div>
     </div>
-	
-	<div class="nav-item" onclick="goPanel('partners',this)">
-      <div class="n-icon">⬡</div>
-      <div><div class="n-main">PARTENAIRES</div><div class="n-sub">Réseau commercial</div></div>
-      <span class="nav-badge" id="badge-joueurs">0</span>
-    </div>
-	
     <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
       <div class="n-icon">📦</div>
       <div><div class="n-main">STOCK</div><div class="n-sub">Par partenaire</div></div>
+
     </div>
-	
-	<div class="nav-item" onclick="goPanel('objectifs',this)" id="nav-objectifs">
-      <div class="n-icon">🎯</div>
-      <div><div class="n-main">OBJECTIFS</div><div class="n-sub">Missions & Craft</div></div>
-      <span class="nav-badge" id="badge-objectifs" style="display:none;">0</span>
-    </div>
-	
-    <div class="nav-item" onclick="goPanel('commandes',this)" id="nav-commandes">
-      <div class="n-icon">📋</div>
-      <div><div class="n-main">COMMANDES</div><div class="n-sub">Interne & Externe</div></div>
-      <span class="nav-badge" id="badge-commandes" style="display:none;">0</span>
-    </div>
-	
-	<div class="nav-item" onclick="goPanel('missions',this)">
-      <div class="n-icon">☰</div>
-      <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
-    </div>
-	
     <div class="nav-item" onclick="goPanel('commerce',this)">
       <div class="n-icon">◈</div>
       <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
     </div>
-	
     <div class="nav-item" onclick="goPanel('map',this)">
       <div class="n-icon">◎</div>
       <div><div class="n-main">CARTE STANTON</div><div class="n-sub">Navigation</div></div>
     </div>
-		
+    <div class="nav-item" onclick="goPanel('missions',this)">
+      <div class="n-icon">☰</div>
+      <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
+    </div>
+    <div class="nav-item" onclick="goPanel('partners',this)">
+      <div class="n-icon">⬡</div>
+      <div><div class="n-main">PARTENAIRES</div><div class="n-sub">Réseau commercial</div></div>
+      <span class="nav-badge" id="badge-joueurs">0</span>
+    </div>
     <div class="nav-item" onclick="goPanel('stocks',this)">
       <div class="n-icon">▤</div>
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
-		
-    <div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
-      <div class="n-icon">◈</div>
-      <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
-    </div>
-	
     <div class="nav-divider"></div>
     <div class="nav-item" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
       <div><div class="n-main">LOGS</div><div class="n-sub">Historique système</div></div>
     </div>
-	
+    <div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
+      <div class="n-icon">◈</div>
+      <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
+    </div>
+    <div class="nav-item" onclick="goPanel('objectifs',this)" id="nav-objectifs">
+      <div class="n-icon">🎯</div>
+      <div><div class="n-main">OBJECTIFS</div><div class="n-sub">Missions & Craft</div></div>
+      <span class="nav-badge" id="badge-objectifs" style="display:none;">0</span>
+    </div>
+    <div class="nav-item" onclick="goPanel('commandes',this)" id="nav-commandes">
+      <div class="n-icon">📋</div>
+      <div><div class="n-main">COMMANDES</div><div class="n-sub">Interne & Externe</div></div>
+      <span class="nav-badge" id="badge-commandes" style="display:none;">0</span>
+    </div>
     <div class="nav-item" onclick="openModal('settings')">
       <div class="n-icon">⚙</div>
       <div><div class="n-main">PARAMÈTRES</div><div class="n-sub">Configuration</div></div>
@@ -1277,7 +1266,7 @@ body::before {
       </div>
       <div class="rep-bar"><div class="rep-fill" id="sb-rep-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div class="sb-version">VERSION v0.7 — © 2956 UEE</div>
+        <div class="sb-version">VERSION 1.0.7 — © 2956 UEE</div>
         <button id="sb-auth-btn" onclick="SESSION ? logout() : openLoginModal()" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;">CONNEXION</button>
       </div>
     </div>
@@ -1907,7 +1896,7 @@ body::before {
         <select class="form-input" id="ps-quality" style="height:auto;padding:9px 11px;" onchange="updateQualityBadge(this)">
           <option value="">— Non spécifié —</option>
           <option value="mediocre">💀 Qualité Médiocre  (&lt;500)</option>
-          <option value="faible">🔴 Qualité Basique  (500–600)</option>
+          <option value="faible">🔴 Qualité Faible  (500–600)</option>
           <option value="acceptable">🟠 Qualité Acceptable  (600–700)</option>
           <option value="honnete">🟡 Qualité Honnête  (700–800)</option>
           <option value="moyenne">🟢 Qualité Moyenne  (800–900)</option>
