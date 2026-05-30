@@ -1090,6 +1090,61 @@ body::before {
   100% { box-shadow: 0 0 0 rgba(255,153,0,0); }
 }
 
+
+/* ── OBJECTIFS ── */
+.obj-tab {
+  padding: 6px 16px; border: none; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--text-dim); font-family: var(--ui);
+  font-size: 12px; font-weight: 600; letter-spacing: 1px; cursor: pointer;
+  text-transform: uppercase; transition: all 0.15s;
+}
+.obj-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+.obj-tab:hover  { color: var(--text-bright); }
+
+.obj-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 14px 16px; margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.obj-card:hover { border-color: rgba(247,140,30,0.35); }
+.obj-card.done  { opacity: 0.55; border-color: var(--green); }
+
+.obj-title { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+.obj-desc  { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.6; }
+.obj-meta  { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.obj-badge { font-size: 10px; padding: 2px 8px; border: 1px solid; letter-spacing: 1px;
+             font-family: var(--ui); text-transform: uppercase; }
+.obj-prog-wrap { flex: 1; min-width: 120px; }
+.obj-prog-bg   { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+.obj-prog-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--green)); border-radius: 3px; transition: width 0.4s ease; }
+
+/* ── COMMANDES ── */
+.cmd-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 14px 16px; margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.cmd-card:hover { border-color: rgba(247,140,30,0.35); }
+.cmd-card.livree  { opacity: 0.55; border-color: var(--green); }
+.cmd-card.annulee { opacity: 0.45; border-color: var(--red); }
+
+.cmd-type-interne { border-left: 3px solid #818cf8; }
+.cmd-type-externe { border-left: 3px solid var(--orange); }
+
+.cmd-header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+.cmd-title  { font-size:14px; font-weight:700; color:var(--text-bright); }
+.cmd-ref    { font-size:10px; font-family:var(--mono); color:var(--text-dim); margin-top:2px; }
+.cmd-body   { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+.cmd-field  { min-width:120px; }
+.cmd-lbl    { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:2px; }
+.cmd-val    { font-size:12px; font-family:var(--mono); color:var(--text-bright); }
+.cmd-footer { display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid rgba(247,140,30,0.08); padding-top:8px; margin-top:4px; }
+
+.cmd-status { display:inline-block; padding:2px 9px; font-size:10px; letter-spacing:1px; font-family:var(--ui); text-transform:uppercase; font-weight:700; border:1px solid; }
+.cmd-status-attente   { color:var(--blue);   border-color:var(--blue);   background:rgba(89,208,255,0.07); }
+.cmd-status-en_cours  { color:var(--orange); border-color:var(--orange); background:rgba(247,140,30,0.07); }
+.cmd-status-livree    { color:var(--green);  border-color:var(--green);  background:rgba(0,255,163,0.07); }
+.cmd-status-annulee   { color:var(--red);    border-color:var(--red);    background:rgba(255,68,68,0.07); }
 </style>
 
 
@@ -1142,45 +1197,66 @@ body::before {
       <div class="n-icon">⬡</div>
       <div><div class="n-main">HUB</div><div class="n-sub">Tableau de bord</div></div>
     </div>
+	
     <div class="nav-item" onclick="goPanel('inscription',this)">
       <div class="n-icon">✦</div>
       <div><div class="n-main">INSCRIPTION</div><div class="n-sub">Rejoindre le réseau</div></div>
     </div>
-    <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
-      <div class="n-icon">📦</div>
-      <div><div class="n-main">STOCK</div><div class="n-sub">Par partenaire</div></div>
-
-    </div>
-    <div class="nav-item" onclick="goPanel('commerce',this)">
-      <div class="n-icon">◈</div>
-      <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
-    </div>
-    <div class="nav-item" onclick="goPanel('map',this)">
-      <div class="n-icon">◎</div>
-      <div><div class="n-main">CARTE STANTON</div><div class="n-sub">Navigation</div></div>
-    </div>
-    <div class="nav-item" onclick="goPanel('missions',this)">
-      <div class="n-icon">☰</div>
-      <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
-    </div>
-    <div class="nav-item" onclick="goPanel('partners',this)">
+	
+	<div class="nav-item" onclick="goPanel('partners',this)">
       <div class="n-icon">⬡</div>
       <div><div class="n-main">PARTENAIRES</div><div class="n-sub">Réseau commercial</div></div>
       <span class="nav-badge" id="badge-joueurs">0</span>
     </div>
+	
+    <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
+      <div class="n-icon">📦</div>
+      <div><div class="n-main">STOCK</div><div class="n-sub">Par partenaire</div></div>
+    </div>
+	
+	<div class="nav-item" onclick="goPanel('objectifs',this)" id="nav-objectifs">
+      <div class="n-icon">🎯</div>
+      <div><div class="n-main">OBJECTIFS</div><div class="n-sub">Missions & Craft</div></div>
+      <span class="nav-badge" id="badge-objectifs" style="display:none;">0</span>
+    </div>
+	
+    <div class="nav-item" onclick="goPanel('commandes',this)" id="nav-commandes">
+      <div class="n-icon">📋</div>
+      <div><div class="n-main">COMMANDES</div><div class="n-sub">Interne & Externe</div></div>
+      <span class="nav-badge" id="badge-commandes" style="display:none;">0</span>
+    </div>
+	
+	<div class="nav-item" onclick="goPanel('missions',this)">
+      <div class="n-icon">☰</div>
+      <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
+    </div>
+	
+    <div class="nav-item" onclick="goPanel('commerce',this)">
+      <div class="n-icon">◈</div>
+      <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
+    </div>
+	
+    <div class="nav-item" onclick="goPanel('map',this)">
+      <div class="n-icon">◎</div>
+      <div><div class="n-main">CARTE STANTON</div><div class="n-sub">Navigation</div></div>
+    </div>
+		
     <div class="nav-item" onclick="goPanel('stocks',this)">
       <div class="n-icon">▤</div>
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
+		
+    <div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
+      <div class="n-icon">◈</div>
+      <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
+    </div>
+	
     <div class="nav-divider"></div>
     <div class="nav-item" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
       <div><div class="n-main">LOGS</div><div class="n-sub">Historique système</div></div>
     </div>
-    <div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
-      <div class="n-icon">◈</div>
-      <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
-    </div>
+	
     <div class="nav-item" onclick="openModal('settings')">
       <div class="n-icon">⚙</div>
       <div><div class="n-main">PARAMÈTRES</div><div class="n-sub">Configuration</div></div>
@@ -1201,7 +1277,7 @@ body::before {
       </div>
       <div class="rep-bar"><div class="rep-fill" id="sb-rep-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div class="sb-version">VERSION 1.0.7 — © 2956 UEE</div>
+        <div class="sb-version">VERSION v0.7 — © 2956 UEE</div>
         <button id="sb-auth-btn" onclick="SESSION ? logout() : openLoginModal()" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;">CONNEXION</button>
       </div>
     </div>
@@ -1610,6 +1686,10 @@ body::before {
           <button class="filter-btn" onclick="setResFilter('equipements',this)">🛡 Équipements</button>
           <button class="filter-btn" onclick="setResFilter('armement',this)">⚔ Armement</button>
           <span id="res-count" style="margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--mono);"></span>
+          <button onclick="syncFromUEX()" id="btn-uex-sync" style="padding:3px 12px;border:1px solid rgba(89,208,255,0.4);background:transparent;color:var(--blue);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;white-space:nowrap;" title="Synchroniser avec UEXCorp.space">
+            ↻ SYNC UEX
+          </button>
+          <span id="uex-sync-status" style="font-size:9px;color:var(--text-dim);font-family:var(--mono);"></span>
         </div>
 
         <!-- Table -->
@@ -1619,6 +1699,7 @@ body::before {
               <th>Ressource</th>
               <th>Catégorie</th>
               <th>Qualité par défaut</th>
+              <th>Classement UEX</th>
               <th>Prix réf. achat</th>
               <th>Prix réf. vente</th>
               <th>En stock (réseau)</th>
@@ -1628,6 +1709,71 @@ body::before {
             <tbody id="res-tbody"></tbody>
           </table>
         </div>
+      </div>
+
+
+      <!-- ══ OBJECTIFS ══ -->
+      <div class="panel" id="panel-objectifs" style="flex-direction:column;gap:0;">
+
+        <!-- Header + tabs -->
+        <div class="sec-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;">
+          <div style="display:flex;gap:0;">
+            <button class="obj-tab active" id="objtab-tous"    onclick="setObjTab('tous',this)"   >◈ Tous</button>
+            <button class="obj-tab"        id="objtab-ressource" onclick="setObjTab('ressource',this)">📦 Ressource</button>
+            <button class="obj-tab"        id="objtab-craft"   onclick="setObjTab('craft',this)"  >🔧 Craft</button>
+          </div>
+          <button class="btn primary" onclick="openAddObjectif()" style="font-size:11px;padding:4px 14px;letter-spacing:1px;">+ CRÉER</button>
+        </div>
+
+        <!-- Barre de progression globale -->
+        <div id="obj-progress-bar" style="flex-shrink:0;padding:6px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px;white-space:nowrap;">PROGRESSION GLOBALE</span>
+          <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;">
+            <div id="obj-progress-fill" style="height:100%;background:linear-gradient(90deg,var(--orange),var(--green));border-radius:2px;width:0%;transition:width 0.5s ease;"></div>
+          </div>
+          <span id="obj-progress-label" style="font-size:10px;font-family:var(--mono);color:var(--orange);white-space:nowrap;">0 / 0</span>
+        </div>
+
+        <!-- Liste objectifs -->
+        <div style="flex:1;overflow-y:auto;padding:14px 18px;" id="obj-list"></div>
+      </div>
+
+
+      <!-- ══ COMMANDES ══ -->
+      <div class="panel" id="panel-commandes" style="flex-direction:column;gap:0;">
+
+        <!-- Header + tabs -->
+        <div class="sec-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;">
+          <div style="display:flex;gap:0;">
+            <button class="obj-tab active" id="cmdtab-toutes"   onclick="setCmdTab('toutes',this)" >📋 Toutes</button>
+            <button class="obj-tab"        id="cmdtab-interne"  onclick="setCmdTab('interne',this)" >🏛 Interne</button>
+            <button class="obj-tab"        id="cmdtab-externe"  onclick="setCmdTab('externe',this)" >🌐 Externe</button>
+          </div>
+          <button class="btn primary" onclick="openAddCommande()" style="font-size:11px;padding:4px 14px;letter-spacing:1px;">+ COMMANDE</button>
+        </div>
+
+        <!-- Stats rapides -->
+        <div id="cmd-stats-bar" style="flex-shrink:0;display:flex;gap:0;border-bottom:1px solid var(--border);">
+          <div style="flex:1;padding:8px 16px;border-right:1px solid var(--border);text-align:center;">
+            <div style="font-size:18px;font-family:var(--mono);color:var(--orange);" id="cmd-stat-total">0</div>
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">Total</div>
+          </div>
+          <div style="flex:1;padding:8px 16px;border-right:1px solid var(--border);text-align:center;">
+            <div style="font-size:18px;font-family:var(--mono);color:var(--blue);" id="cmd-stat-attente">0</div>
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">En attente</div>
+          </div>
+          <div style="flex:1;padding:8px 16px;border-right:1px solid var(--border);text-align:center;">
+            <div style="font-size:18px;font-family:var(--mono);color:var(--orange);" id="cmd-stat-cours">0</div>
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">En cours</div>
+          </div>
+          <div style="flex:1;padding:8px 16px;text-align:center;">
+            <div style="font-size:18px;font-family:var(--mono);color:var(--green);" id="cmd-stat-livrees">0</div>
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">Livrées</div>
+          </div>
+        </div>
+
+        <!-- Liste commandes -->
+        <div style="flex:1;overflow-y:auto;padding:14px 18px;" id="cmd-list"></div>
       </div>
 
     </div><!-- /panels -->
@@ -1761,7 +1907,7 @@ body::before {
         <select class="form-input" id="ps-quality" style="height:auto;padding:9px 11px;" onchange="updateQualityBadge(this)">
           <option value="">— Non spécifié —</option>
           <option value="mediocre">💀 Qualité Médiocre  (&lt;500)</option>
-          <option value="faible">🔴 Qualité Faible  (500–600)</option>
+          <option value="faible">🔴 Qualité Basique  (500–600)</option>
           <option value="acceptable">🟠 Qualité Acceptable  (600–700)</option>
           <option value="honnete">🟡 Qualité Honnête  (700–800)</option>
           <option value="moyenne">🟢 Qualité Moyenne  (800–900)</option>
@@ -2078,7 +2224,8 @@ function setSession(player) {
   pushLog('system', 'SYSTEM', `Connexion établie : ${player.name} — Accès TELOS ${player.isAdmin?'ADMIN':'standard'}.`);
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
-  updateNavRessources(); // Afficher l'onglet RESSOURCES si Admin/Gestionnaire
+  updateNavRessources();
+  renderObjectifs();
   toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
   refreshStockPanel();
 }
@@ -2090,7 +2237,8 @@ function logout() {
   pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
-  updateNavRessources(); // Masquer l'onglet RESSOURCES
+  updateNavRessources();
+  renderObjectifs();
   const _sb = document.querySelector('.pl-sidebar');
   if (_sb) _sb.style.display = '';
   toast('Déconnexion', 'Session TELOS fermée.', 'info');
@@ -2509,7 +2657,8 @@ function setSession(player) {
   pushLog('system', 'SYSTEM', `Connexion établie : ${player.name} — Accès TELOS ${player.isAdmin?'ADMIN':'standard'}.`);
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
-  updateNavRessources(); // Afficher l'onglet RESSOURCES si Admin/Gestionnaire
+  updateNavRessources();
+  renderObjectifs();
   toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
   refreshStockPanel();
 }
@@ -3636,6 +3785,14 @@ function openTelosPopup(key) {
             <td style="padding:9px 14px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text-dim);">${p.buyVal?Math.round(p.buyVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
             <td style="padding:9px 14px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--green);">${p.sellVal?Math.round(p.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
             <td style="padding:9px 14px;text-align:right;font-family:var(--mono);font-size:11px;color:${pc};">${pp!==0?(pp>=0?'+':'')+Math.round(pp).toLocaleString('fr-FR')+' aUEC':'—'}${pm!==null?' ('+(pm>=0?'+':'')+pm.toFixed(1)+'%)':''}</td>
+            <td style="padding:9px 14px;">
+              ${(()=>{ const _q = p.lines.find(l=>l.quality)?.quality || ''; return _q && QUALITY_META[_q] ? '<span style="font-size:10px;color:'+QUALITY_META[_q].color+';font-weight:600;">'+QUALITY_META[_q].label+'</span>' : '<span style="font-size:10px;color:var(--text-dim);">—</span>'; })()}
+            </td>
+
+
+            <td style="padding:9px 14px;">
+              ${(()=>{ const _t=getUexTier(g.name); return _t ? '<span style="font-size:10px;color:'+_t.color+';font-weight:600;">'+_t.label+'</span>' : '<span style="font-size:10px;color:var(--text-dim);">—</span>'; })()}
+            </td>
             <td style="padding:9px 14px;font-size:10px;color:var(--text-dim);">${esc(locs)}</td>
           </tr>`;
         }).join('')}
@@ -3643,7 +3800,7 @@ function openTelosPopup(key) {
         <tfoot><tr style="background:var(--bg2);border-top:2px solid var(--border);">
           <td style="padding:8px 14px;font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:1px;">TOTAL</td>
           <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:var(--orange);font-weight:700;">${g.totalQty.toLocaleString('fr-FR')}</td>
-          <td colspan="2"></td>
+          <td colspan="4"></td>
           <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:var(--text-dim);font-weight:700;">${Math.round(g.totalBuyVal).toLocaleString('fr-FR')} aUEC</td>
           <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:var(--green);font-weight:700;">${Math.round(g.totalSellVal).toLocaleString('fr-FR')} aUEC</td>
           <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:${pCls};font-weight:700;">${profit>=0?'+':''}${Math.round(profit).toLocaleString('fr-FR')} aUEC</td>
@@ -3810,6 +3967,7 @@ async function renderPartners(){
             <div style="display:flex;align-items:center;gap:6px;">
               <span class="cat-badge cat-${s.cat}" style="font-size:7px;padding:1px 5px;">${catLbl(s.cat)}</span>
               <span style="font-size:11px;color:var(--text-bright);font-weight:600;">◈ ${esc(s.res)}</span>${s.quality&&QUALITY_META[s.quality]?.label?`<div style='font-size:9px;margin-top:1px;color:${QUALITY_META[s.quality].color};'>${QUALITY_META[s.quality].label}</div>`:''}
+              ${(()=>{const _t=getUexTier(s.res);return _t?`<div style='font-size:9px;margin-top:1px;color:${_t.color};letter-spacing:0.5px;'>${_t.label}</div>`:'';})()} 
             </div>
             <div style="text-align:right;">
               <span style="font-family:var(--mono);font-size:10px;color:var(--orange);">${Number(s.qty).toLocaleString('fr-FR')} SCU</span>
@@ -4233,7 +4391,7 @@ async function renderRessources() {
   const tbody = document.getElementById('res-tbody');
   if (!tbody) return;
   if (!canManageRoles()) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-dim);">Acces reserve aux Admins et Gestionnaires.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-dim);">Acces reserve aux Admins et Gestionnaires.</td></tr>';
     return;
   }
   const search = (document.getElementById('res-search')?.value||'').toLowerCase();
@@ -4244,7 +4402,7 @@ async function renderRessources() {
   const countEl = document.getElementById('res-count');
   if (countEl) countEl.textContent = data.length + ' ressource'+(data.length>1?'s':'');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune ressource — cliquez sur + AJOUTER</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune ressource — cliquez sur + AJOUTER</td></tr>';
     return;
   }
   const stockStats = {};
@@ -4266,9 +4424,10 @@ async function renderRessources() {
     const st = stockStats[key]||{qty:0,partners:new Set()};
     const margin = r.buyRef>0&&r.sellRef>0 ? ((r.sellRef-r.buyRef)/r.buyRef*100).toFixed(1) : null;
     return '<tr>'
-      +'<td style="font-weight:700;color:var(--text-bright);">◈ '+esc(r.name)+(r.desc?'<div style="font-size:10px;color:var(--text-dim);">'+esc(r.desc)+'</div>':'')+'</td>'
+      +'<td style="font-weight:700;color:var(--text-bright);">◈ '+esc(r.name)+(r.fromUEX?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">UEX</span>':'')+(r.desc?'<div style="font-size:10px;color:var(--text-dim);">'+esc(r.desc)+'</div>':'')+'</td>'
       +'<td><span style="font-size:11px;padding:2px 7px;border:1px solid var(--border);color:var(--text-dim);">'+(CAT_LABELS[r.cat]||r.cat)+'</span></td>'
       +'<td>'+qBadge(r.quality)+'</td>'
+      +(()=>{const _t=getUexTier(r.name);return _t?'<td><span style="font-size:10px;color:'+_t.color+';font-weight:600;">'+_t.label+'<div style="font-size:9px;color:var(--text-dim);">'+_t.range+'</div></span></td>':'<td style="color:var(--text-dim);">—</td>';})()
       +'<td class="td-dim">'+(r.buyRef?r.buyRef.toFixed(2)+' aUEC':'—')+'</td>'
       +'<td style="color:var(--green);">'+(r.sellRef?r.sellRef.toFixed(2)+' aUEC':'—')+(margin?'<div style="font-size:9px;color:var(--orange);">+'+margin+'%</div>':'')+'</td>'
       +'<td class="td-orange">'+(st.qty?st.qty.toLocaleString('fr-FR')+' SCU':'—')+'</td>'
@@ -4367,6 +4526,725 @@ async function refreshDatalist() {
   dl.innerHTML = sorted.map(r=>'<option value="'+esc(r)+'">').join('');
 }
 
+/* ════════════════════════════════════════════════════════════
+   OBJECTIFS — Système de suivi par onglet
+════════════════════════════════════════════════════════════ */
+let OBJECTIFS = [];
+let _objTab = 'tous';
+let _editObjId = null;
+
+const OBJ_CAT_LABELS = { ressource:'📦 Ressource', craft:'🔧 Craft', autre:'○ Autre' };
+const OBJ_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', critique:'var(--red)' };
+const OBJ_PRIO_LABELS = { normale:'⚪ Normale', haute:'🟠 Haute', critique:'🔴 Critique' };
+
+async function loadObjectifs() {
+  OBJECTIFS = (await DB.get('telos-objectifs')) || [];
+  renderObjectifs();
+}
+
+async function saveObjectifs() {
+  await DB.set('telos-objectifs', OBJECTIFS);
+}
+
+function setObjTab(tab, btn) {
+  _objTab = tab;
+  document.querySelectorAll('.obj-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderObjectifs();
+}
+
+function renderObjectifs() {
+  const el = document.getElementById('obj-list');
+  if (!el) return;
+
+  let data = [...OBJECTIFS];
+  if (_objTab !== 'tous') data = data.filter(o => o.cat === _objTab);
+
+  // Trier : en cours en haut, terminés en bas, puis par priorité
+  const prioOrder = { critique: 0, haute: 1, normale: 2 };
+  data.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (prioOrder[a.priority] || 2) - (prioOrder[b.priority] || 2);
+  });
+
+  // Barre de progression globale
+  const total = OBJECTIFS.length;
+  const done  = OBJECTIFS.filter(o => o.done).length;
+  const pct   = total ? Math.round(done / total * 100) : 0;
+  const fill  = document.getElementById('obj-progress-fill');
+  const lbl   = document.getElementById('obj-progress-label');
+  if (fill) fill.style.width = pct + '%';
+  if (lbl)  lbl.textContent  = done + ' / ' + total + ' (' + pct + '%)';
+
+  // Badge nav
+  const inProgress = OBJECTIFS.filter(o => !o.done).length;
+  const badge = document.getElementById('badge-objectifs');
+  if (badge) {
+    badge.textContent = inProgress;
+    badge.style.display = inProgress > 0 ? '' : 'none';
+  }
+
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:12px;letter-spacing:1px;">' +
+      '🎯<br><br>Aucun objectif' + (_objTab !== 'tous' ? ' dans cette catégorie' : '') + '.<br>' +
+      '<span style="color:var(--orange);cursor:pointer;" onclick="openAddObjectif()">+ Créer le premier objectif</span></div>';
+    return;
+  }
+
+  el.innerHTML = data.map(o => {
+    const pct2 = o.target > 0 ? Math.min(100, Math.round((o.current || 0) / o.target * 100)) : (o.done ? 100 : 0);
+    const col  = OBJ_PRIO_COLORS[o.priority] || 'var(--text-dim)';
+    const dl   = o.dl ? '<span style="font-size:10px;color:var(--text-dim);">⏱ ' + o.dl + '</span>' : '';
+    const rew  = o.reward ? '<span style="font-size:10px;color:var(--green);">◈ ' + esc(o.reward) + '</span>' : '';
+    const progBar = o.target > 0 ? `
+      <div class="obj-prog-wrap">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-dim);">
+          <span>${(o.current||0).toLocaleString('fr-FR')} ${esc(o.unit||'')} / ${Number(o.target).toLocaleString('fr-FR')} ${esc(o.unit||'')}</span>
+          <span style="color:${pct2>=100?'var(--green)':'var(--orange)'};">${pct2}%</span>
+        </div>
+        <div class="obj-prog-bg"><div class="obj-prog-fill" style="width:${pct2}%;"></div></div>
+      </div>` : '';
+    return `<div class="obj-card ${o.done?'done':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;">
+          <div class="obj-title">${o.done?'✓ ':''} ${esc(o.title)}</div>
+          ${o.desc ? '<div class="obj-desc">' + esc(o.desc) + '</div>' : ''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;">
+          ${SESSION ? '<button onclick="editObjectif('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✏ ÉDITER</button>' : ''}
+          ${!o.done && SESSION ? '<button onclick="toggleObjDone('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ VALIDER</button>' : ''}
+          ${o.done && SESSION ? '<button onclick="toggleObjDone('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">↺ RÉACTIVER</button>' : ''}
+          ${canManageRoles() ? '<button onclick="deleteObjectif('+JSON.stringify(o.id)+')" style="padding:3px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>' : ''}
+        </div>
+      </div>
+      <div class="obj-meta">
+        <span class="obj-badge" style="color:${col};border-color:${col};">${OBJ_PRIO_LABELS[o.priority]||o.priority}</span>
+        <span class="obj-badge" style="color:var(--blue);border-color:var(--blue);">${OBJ_CAT_LABELS[o.cat]||o.cat}</span>
+        ${dl} ${rew}
+      </div>
+      ${progBar}
+      ${o.target > 0 && !o.done && SESSION ? `
+      <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+        <input type="number" min="0" max="${o.target}" step="1" value="${o.current||0}"
+          style="width:90px;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text-bright);font-family:var(--mono);font-size:11px;"
+          onchange="updateObjProgress('${o.id}', this.value)">
+        <span style="font-size:10px;color:var(--text-dim);">${esc(o.unit||'unités')}</span>
+        <button onclick="updateObjProgress('${o.id}', document.querySelector('[data-obj-id=\'${o.id}\']')?.value || this.previousElementSibling.previousElementSibling.value)"
+          data-obj-id="${o.id}"
+          style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">Mettre à jour</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openAddObjectif(editId) {
+  editId = editId || null;
+  _editObjId = editId;
+  const o = editId ? OBJECTIFS.find(x => x.id === editId) : null;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('obj-title',    o?.title    || '');
+  set('obj-cat',      o?.cat      || 'ressource');
+  set('obj-priority', o?.priority || 'normale');
+  set('obj-desc',     o?.desc     || '');
+  set('obj-target',   o?.target   || '');
+  set('obj-unit',     o?.unit     || '');
+  set('obj-current',  o?.current  || 0);
+  set('obj-dl',       o?.dl       || '');
+  set('obj-reward',   o?.reward   || '');
+  const title = document.getElementById('obj-modal-title');
+  if (title) title.textContent = editId ? '✏ MODIFIER L&#39;OBJECTIF' : '🎯 CRÉER UN OBJECTIF';
+  document.getElementById('obj-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('obj-title')?.focus(), 80);
+}
+
+function closeAddObjectif() {
+  document.getElementById('obj-overlay').classList.remove('open');
+  _editObjId = null;
+}
+
+async function saveObjectif() {
+  const title = document.getElementById('obj-title')?.value.trim();
+  if (!title) { toast('Titre requis', '', 'error'); return; }
+  const entry = {
+    id:       _editObjId || ('obj_' + Date.now()),
+    title,
+    cat:      document.getElementById('obj-cat')?.value      || 'ressource',
+    priority: document.getElementById('obj-priority')?.value || 'normale',
+    desc:     document.getElementById('obj-desc')?.value.trim()   || '',
+    target:   parseFloat(document.getElementById('obj-target')?.value) || 0,
+    unit:     document.getElementById('obj-unit')?.value.trim()   || '',
+    current:  parseFloat(document.getElementById('obj-current')?.value) || 0,
+    dl:       document.getElementById('obj-dl')?.value || '',
+    reward:   document.getElementById('obj-reward')?.value.trim() || '',
+    done:     _editObjId ? (OBJECTIFS.find(x => x.id === _editObjId)?.done || false) : false,
+    createdAt: _editObjId ? (OBJECTIFS.find(x => x.id === _editObjId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+  };
+  if (_editObjId) {
+    OBJECTIFS = OBJECTIFS.map(x => x.id === _editObjId ? entry : x);
+  } else {
+    OBJECTIFS.push(entry);
+  }
+  await saveObjectifs();
+  closeAddObjectif();
+  renderObjectifs();
+  pushActivity('🎯', (_editObjId ? 'Objectif modifié : ' : 'Nouvel objectif : ') + title, '', true);
+  toast(_editObjId ? 'Objectif modifié' : 'Objectif créé', title, 'success');
+}
+
+function editObjectif(id) { openAddObjectif(id); }
+
+async function deleteObjectif(id) {
+  const o = OBJECTIFS.find(x => x.id === id);
+  if (!o || !confirm('Supprimer "' + o.title + '" ?')) return;
+  OBJECTIFS = OBJECTIFS.filter(x => x.id !== id);
+  await saveObjectifs();
+  renderObjectifs();
+  toast('Objectif supprimé', o.title, 'success');
+}
+
+async function toggleObjDone(id) {
+  const o = OBJECTIFS.find(x => x.id === id);
+  if (!o) return;
+  o.done = !o.done;
+  if (o.done) { o.current = o.target || o.current; o.doneAt = new Date().toISOString(); }
+  await saveObjectifs();
+  renderObjectifs();
+  pushActivity(o.done ? '✅' : '↺', (o.done ? 'Objectif terminé : ' : 'Objectif réactivé : ') + o.title, o.reward || '', o.done);
+  toast(o.done ? 'Objectif terminé !' : 'Objectif réactivé', o.title, o.done ? 'success' : 'info');
+}
+
+async function updateObjProgress(id, val) {
+  const o = OBJECTIFS.find(x => x.id === id);
+  if (!o) return;
+  o.current = Math.max(0, Math.min(parseFloat(val) || 0, o.target || Infinity));
+  if (o.target > 0 && o.current >= o.target) {
+    o.done = true; o.doneAt = new Date().toISOString();
+    toast('Objectif atteint !', o.title, 'success');
+    pushActivity('✅', 'Objectif atteint : ' + o.title, o.reward || '', true);
+  }
+  await saveObjectifs();
+  renderObjectifs();
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMMANDES — Système interne & externe
+════════════════════════════════════════════════════════════ */
+let COMMANDES = [];
+let _cmdTab = 'toutes';
+let _cmdType = 'interne';
+let _editCmdId = null;
+
+const CMD_STATUS_LABELS = {
+  attente:'En attente', en_cours:'En cours', livree:'Livrée', annulee:'Annulée'
+};
+const CMD_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', urgente:'var(--red)' };
+const CMD_PRIO_ICONS  = { normale:'⚪', haute:'🟠', urgente:'🔴' };
+
+async function loadCommandes() {
+  COMMANDES = (await DB.get('telos-commandes')) || [];
+  renderCommandes();
+}
+
+async function saveCommandes() {
+  await DB.set('telos-commandes', COMMANDES);
+}
+
+function setCmdTab(tab, btn) {
+  _cmdTab = tab;
+  document.querySelectorAll('#panel-commandes .obj-tab').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderCommandes();
+}
+
+function setCmdType(type) {
+  _cmdType = type;
+  const hints = {
+    interne: 'Commande entre membres de la corpo TELOS',
+    externe: 'Commande passée par un client extérieur à la corpo'
+  };
+  const colors = { interne:'#818cf8', externe:'var(--orange)' };
+  ['interne','externe'].forEach(t => {
+    const btn = document.getElementById('cmd-type-'+t);
+    if (btn) btn.className = 'btn' + (t===type?' primary':'');
+  });
+  const hint = document.getElementById('cmd-type-hint');
+  if (hint) { hint.textContent = hints[type]; hint.style.borderColor = colors[type]; }
+}
+
+function renderCommandes() {
+  const el = document.getElementById('cmd-list');
+  if (!el) return;
+
+  // Stats
+  const stats = { total:0, attente:0, en_cours:0, livree:0, annulee:0 };
+  COMMANDES.forEach(c => {
+    stats.total++;
+    if (stats[c.status] !== undefined) stats[c.status]++;
+  });
+  const set = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('cmd-stat-total',   stats.total);
+  set('cmd-stat-attente', stats.attente);
+  set('cmd-stat-cours',   stats.en_cours);
+  set('cmd-stat-livrees', stats.livree);
+
+  // Badge nav
+  const pending = COMMANDES.filter(c=>c.status==='attente'||c.status==='en_cours').length;
+  const badge = document.getElementById('badge-commandes');
+  if (badge) { badge.textContent=pending; badge.style.display=pending>0?'':'none'; }
+
+  // Filter
+  let data = [...COMMANDES];
+  if (_cmdTab !== 'toutes') data = data.filter(c=>c.type===_cmdTab);
+
+  // Sort: en cours > attente > livrée > annulée, puis priorité
+  const sOrd = {en_cours:0, attente:1, livree:2, annulee:3};
+  const pOrd = {urgente:0, haute:1, normale:2};
+  data.sort((a,b)=> (sOrd[a.status]||0)-(sOrd[b.status]||0) || (pOrd[a.priority]||2)-(pOrd[b.priority]||2));
+
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:12px;letter-spacing:1px;">'
+      +'📋<br><br>Aucune commande' + (_cmdTab!=='toutes'?' '+_cmdTab:'')+'.<br>'
+      +'<span style="color:var(--orange);cursor:pointer;" onclick="openAddCommande()">+ Créer la première commande</span></div>';
+    return;
+  }
+
+  const fmtPrice = p => p>0 ? Number(p).toLocaleString('fr-FR')+' aUEC' : '—';
+  const typeColor = { interne:'#818cf8', externe:'var(--orange)' };
+  const typeLabel = { interne:'🏛 Interne', externe:'🌐 Externe' };
+
+  el.innerHTML = data.map(c => {
+    const tc = typeColor[c.type]||'var(--border)';
+    const assignedName = c.assigned ? (players.find(p=>p.id===c.assigned)?.name || c.assigned) : '—';
+    const total = c.qty>0&&c.price>0 ? Number(c.qty)*Number(c.price) : 0;
+    return `<div class="cmd-card cmd-type-${c.type} ${c.status==='livree'?'livree':c.status==='annulee'?'annulee':''}">
+      <div class="cmd-header">
+        <div style="flex:1;">
+          <div class="cmd-title">${esc(c.title)}</div>
+          <div class="cmd-ref">REF-${c.id.slice(-6).toUpperCase()} · ${typeLabel[c.type]||c.type} · ${c.dl?'⏱ '+c.dl:''}</div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:flex-start;">
+          <span class="cmd-status cmd-status-${c.status}">${CMD_STATUS_LABELS[c.status]||c.status}</span>
+          <span style="font-size:11px;color:${CMD_PRIO_COLORS[c.priority]||'var(--text-dim)'};">${CMD_PRIO_ICONS[c.priority]||''}</span>
+        </div>
+      </div>
+
+      <div class="cmd-body">
+        <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(c.client||'—')}</div></div>
+        <div class="cmd-field"><div class="cmd-lbl">Assigné à</div><div class="cmd-val" style="color:var(--blue);">${esc(assignedName)}</div></div>
+        ${c.resource ? '<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ '+esc(c.resource)+(c.qty?' · '+Number(c.qty).toLocaleString('fr-FR')+' SCU':'')+'</div></div>' : ''}
+        ${c.price>0 ? '<div class="cmd-field"><div class="cmd-lbl">Prix / SCU</div><div class="cmd-val">'+fmtPrice(c.price)+'</div></div>' : ''}
+        ${total>0 ? '<div class="cmd-field"><div class="cmd-lbl">Total</div><div class="cmd-val" style="color:var(--green);">'+Number(total).toLocaleString('fr-FR')+' aUEC</div></div>' : ''}
+      </div>
+      ${c.notes ? '<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;padding:6px 10px;background:var(--bg3);border-left:2px solid var(--border);">'+esc(c.notes)+'</div>' : ''}
+
+      <div class="cmd-footer">
+        <!-- Changer statut -->
+        ${SESSION ? (()=>{
+          let _s='';
+          if(c.status==='attente') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'en_cours\')" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">▶ EN COURS</button>';
+          if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
+          if(c.status==='livree'||c.status==='annulee') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'attente\')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">↺ ROUVRIR</button>';
+          _s+='<button onclick="editCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
+          if(canManageRoles()) _s+='<button onclick="cancelCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
+          return _s;
+        })() : ''}
+        <span style="margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);">${new Date(c.createdAt).toLocaleDateString('fr-FR')}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddCommande(editId) {
+  editId = editId||null;
+  _editCmdId = editId;
+  const c = editId ? COMMANDES.find(x=>x.id===editId) : null;
+
+  // Populate assigned select
+  const sel = document.getElementById('cmd-assigned');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Non assigné —</option>'
+      + players.map(p=>'<option value="'+p.id+'"'+(c?.assigned===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  }
+
+  setCmdType(c?.type||'interne');
+  const set = (id,v)=>{ const e=document.getElementById(id); if(e)e.value=v; };
+  set('cmd-title',    c?.title    ||'');
+  set('cmd-client',   c?.client   ||'');
+  set('cmd-resource', c?.resource ||'');
+  set('cmd-qty',      c?.qty      ||'');
+  set('cmd-price',    c?.price    ||'');
+  set('cmd-priority', c?.priority ||'normale');
+  set('cmd-dl',       c?.dl       ||'');
+  set('cmd-notes',    c?.notes    ||'');
+
+  const title = document.getElementById('cmd-modal-title');
+  if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
+  document.getElementById('cmd-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('cmd-title')?.focus(),80);
+}
+
+function closeAddCommande() {
+  document.getElementById('cmd-overlay').classList.remove('open');
+  _editCmdId = null;
+}
+
+function editCommande(id) { openAddCommande(id); }
+
+async function saveCommande() {
+  const title = document.getElementById('cmd-title')?.value.trim();
+  if (!title) { toast('Titre requis','','error'); return; }
+
+  const entry = {
+    id:       _editCmdId||('cmd_'+Date.now()),
+    type:     _cmdType,
+    title,
+    client:   document.getElementById('cmd-client')?.value.trim()||'',
+    assigned: document.getElementById('cmd-assigned')?.value||'',
+    resource: document.getElementById('cmd-resource')?.value.trim()||'',
+    qty:      parseFloat(document.getElementById('cmd-qty')?.value)||0,
+    price:    parseFloat(document.getElementById('cmd-price')?.value)||0,
+    priority: document.getElementById('cmd-priority')?.value||'normale',
+    dl:       document.getElementById('cmd-dl')?.value||'',
+    notes:    document.getElementById('cmd-notes')?.value.trim()||'',
+    status:   _editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.status||'attente'):'attente',
+    createdAt:_editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.createdAt||new Date().toISOString()):new Date().toISOString(),
+  };
+
+  if (_editCmdId) {
+    COMMANDES = COMMANDES.map(x=>x.id===_editCmdId?entry:x);
+  } else {
+    COMMANDES.push(entry);
+  }
+  await saveCommandes();
+  closeAddCommande();
+  renderCommandes();
+  const icon = entry.type==='interne'?'🏛':'🌐';
+  pushActivity(icon, (_editCmdId?'Commande modifiée : ':'Nouvelle commande : ')+title, entry.price>0?Number(entry.price*entry.qty).toLocaleString('fr-FR')+' aUEC':'', true);
+  pushLog('trade','TRADE',(_editCmdId?'Commande modifiée':'Nouvelle commande')+' ['+entry.type+']: '+title);
+  toast(_editCmdId?'Commande modifiée':'Commande créée', title, 'success');
+}
+
+async function setCmdStatus(id, status) {
+  const c = COMMANDES.find(x=>x.id===id);
+  if (!c) return;
+  const oldStatus = c.status;
+  c.status = status;
+  if (status==='livree') c.deliveredAt = new Date().toISOString();
+  await saveCommandes();
+  renderCommandes();
+  const statusLabels = {livree:'Livrée ✓', en_cours:'En cours ▶', attente:'Rouverte ↺'};
+  pushActivity('📋', 'Commande '+statusLabels[status]+' : '+c.title, '', status==='livree');
+  toast('Statut mis à jour', statusLabels[status]||status, status==='livree'?'success':'info');
+}
+
+async function cancelCommande(id) {
+  const c = COMMANDES.find(x=>x.id===id);
+  if (!c) return;
+  if (!confirm('Annuler la commande "'+c.title+'" ?')) return;
+  c.status = 'annulee';
+  await saveCommandes();
+  renderCommandes();
+  toast('Commande annulée', c.title, 'info');
+}
+
+/* ════════════════════════════════════════════════════════════
+   UEX API SYNC — Synchronisation temps réel du catalogue
+   API : https://api.uexcorp.uk/2.0/commodities
+════════════════════════════════════════════════════════════ */
+const UEX_API_BASE = 'https://api.uexcorp.uk/2.0';
+let _uexSyncRunning = false;
+
+async function syncFromUEX() {
+  if (_uexSyncRunning) return;
+  if (!canManageRoles()) { toast('Accès refusé','','error'); return; }
+
+  _uexSyncRunning = true;
+  const btn    = document.getElementById('btn-uex-sync');
+  const status = document.getElementById('uex-sync-status');
+  if (btn)    btn.textContent = '⏳ Sync...';
+  if (status) status.textContent = 'Connexion à UEXCorp API...';
+
+  const BEARER   = '0b7797b0ee37052d9c8dfe493305b7a2d1ab8f43';
+  const API_BASE = 'https://api.uexcorp.uk/2.0';
+  const PROXIES  = [
+    u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://proxy.cors.sh/' + u,
+    u => u,
+  ];
+
+  async function apiFetch(endpoint) {
+    const url = API_BASE + '/' + endpoint;
+    let lastErr;
+    for (const makeUrl of PROXIES) {
+      try {
+        const r = await fetch(makeUrl(url), {
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BEARER }
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        if (j.status === 'ok' && j.data !== undefined) return j.data;
+        if (Array.isArray(j)) return j;
+        throw new Error(j.message || 'Réponse invalide');
+      } catch(e) { lastErr = e; }
+    }
+    throw lastErr || new Error('Échec');
+  }
+
+  try {
+    // ── ÉTAPE 1 : Liste des commodités ──
+    if (status) status.textContent = 'Récupération des commodités...';
+    const commodities = await apiFetch('commodities');
+    if (!commodities || !commodities.length) throw new Error('Aucune commodité reçue');
+
+    if (status) status.textContent = '0 / ' + commodities.length + ' prix récupérés...';
+
+    // ── ÉTAPE 2 : Prix moyens par commodité (commodities_averages?id_commodity=X) ──
+    const priceMap = {};
+    let done = 0;
+    const BATCH = 5; // requêtes parallèles par lot
+
+    for (let i = 0; i < commodities.length; i += BATCH) {
+      const batch = commodities.slice(i, i + BATCH);
+      await Promise.all(batch.map(async c => {
+        const cid = c.id || c.id_commodity;
+        if (!cid) return;
+        try {
+          const avg = await apiFetch('commodities_averages?id_commodity=' + cid);
+          // avg peut être un tableau ou un objet
+          const entry = Array.isArray(avg) ? avg[0] : avg;
+          if (entry) {
+            priceMap[cid] = {
+              buy:  Number(entry.price_buy  || entry.trade_price_buy  || 0),
+              sell: Number(entry.price_sell || entry.trade_price_sell || 0),
+            };
+          }
+        } catch(e) { /* pas de prix pour cette commodité */ }
+        done++;
+      }));
+      if (status) status.textContent = done + ' / ' + commodities.length + ' prix récupérés...';
+      // Pause pour ne pas dépasser le rate limit (120 req/min)
+      if (i + BATCH < commodities.length) await new Promise(r => setTimeout(r, 350));
+    }
+
+    // ── ÉTAPE 3 : Mapping catégories UEX → TELOS ──
+    const catMap = {
+      'Mineral':'mineral','Gas':'mineral','Metal':'mineral','Ore':'mineral',
+      'Salvage':'salvage','Scrap':'salvage',
+      'Agricultural':'ressources','Food':'ressources','Medical':'ressources',
+      'Drug':'ressources','Liquid':'ressources',
+      'Weapon':'armement','Ammunition':'armement',
+      'Armor':'equipements','Component':'equipements','Electronics':'equipements',
+      'Consumable':'accessoires','Personal':'accessoires',
+      'Other':'autre','Data':'autre',
+    };
+
+    const now = new Date().toISOString();
+    let added = 0, updated = 0;
+
+    commodities.forEach(c => {
+      const name  = (c.name || c.commodity_name || '').trim();
+      if (!name) return;
+      const cid   = c.id || c.id_commodity;
+      const cat   = catMap[c.kind || c.category] || 'autre';
+      const pData = priceMap[cid] || {};
+      const buyRef  = pData.buy  || Number(c.price_buy  || 0);
+      const sellRef = pData.sell || Number(c.price_sell || 0);
+
+      const existing = RESSOURCE_CATALOGUE.find(x => x.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        if (buyRef  > 0) existing.buyRef  = buyRef;
+        if (sellRef > 0) existing.sellRef = sellRef;
+        existing.cat       = existing.cat || cat;
+        existing.fromUEX   = true;
+        existing.uexId     = cid;
+        existing.updatedAt = now;
+        updated++;
+      } else {
+        RESSOURCE_CATALOGUE.push({
+          id:      'r_uex_' + (cid || Date.now() + '_' + Math.random().toString(36).slice(2,5)),
+          name, cat, quality: '', buyRef, sellRef, desc: c.description || '',
+          fromUEX: true, uexId: cid, addedAt: now, updatedAt: now
+        });
+        added++;
+      }
+    });
+
+    // ── ÉTAPE 4 : Sauvegarde & mise à jour UI ──
+    await DB.set('telos-ressource-catalogue', RESSOURCE_CATALOGUE);
+    await DB.set('telos-last-uex-sync', String(Date.now()));
+    await refreshDatalist();
+    populateResSelect();
+    renderRessources();
+
+    const priced = Object.keys(priceMap).length;
+    const msg = added + ' ajoutées, ' + updated + ' mises à jour (' + priced + ' prix récupérés)';
+    if (status) status.textContent = '✓ ' + msg + ' · ' + new Date().toLocaleTimeString('fr-FR');
+    if (btn)    btn.textContent = '↻ SYNC UEX';
+    pushLog('system','SYSTEM','Sync UEX API : ' + msg);
+    toast('Catalogue UEX synchronisé', msg, 'success');
+
+  } catch(err) {
+    if (status) status.textContent = '⚠ API inaccessible — fallback local';
+    if (btn)    btn.textContent = '↻ SYNC UEX';
+    pushLog('system','SYSTEM','Sync UEX échoué : ' + err.message + ' — fallback local');
+    toast('API inaccessible', err.message, 'info');
+    syncFromUEXLocal();
+  } finally {
+    _uexSyncRunning = false;
+  }
+}
+
+// Fallback avec données embarquées (si CORS bloque)
+async function syncFromUEXLocal() {
+  const now = new Date().toISOString();
+  const LOCAL_DATA = [
+    {name:'Agricium',cat:'mineral',buyRef:9700,sellRef:9700},
+    {name:'Agricultural Supplies',cat:'ressources',buyRef:1400,sellRef:1400},
+    {name:'Aluminum',cat:'mineral',buyRef:3700,sellRef:3700},
+    {name:'Amioshi Plague',cat:'ressources',buyRef:24000,sellRef:24000},
+    {name:'Ammonia',cat:'mineral',buyRef:1000,sellRef:1000},
+    {name:'Aphorite',cat:'mineral',buyRef:101100,sellRef:101100},
+    {name:'Argon',cat:'mineral',buyRef:446,sellRef:446},
+    {name:'Aslarite',cat:'mineral',buyRef:5100,sellRef:5100},
+    {name:'Astatine',cat:'mineral',buyRef:3500,sellRef:3500},
+    {name:'Atlasium',cat:'mineral',buyRef:91900,sellRef:91900},
+    {name:'Audio Visual Equipment',cat:'equipements',buyRef:35400,sellRef:35400},
+    {name:'Altruciatoxin',cat:'ressources',buyRef:6400,sellRef:6400},
+    {name:'Beradom',cat:'mineral',buyRef:144200,sellRef:144200},
+    {name:'Beryl',cat:'mineral',buyRef:19900,sellRef:19900},
+    {name:'Bexalite',cat:'mineral',buyRef:28800,sellRef:28800},
+    {name:'Bioplastic',cat:'ressources',buyRef:7600,sellRef:7600},
+    {name:'Borase',cat:'mineral',buyRef:27600,sellRef:27600},
+    {name:'Carbon',cat:'mineral',buyRef:357,sellRef:357},
+    {name:'Carbon Silk',cat:'ressources',buyRef:20800,sellRef:20800},
+    {name:'Cave Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
+    {name:'CK13 Gid Seed Blend',cat:'ressources',buyRef:533,sellRef:533},
+    {name:'Chlorine',cat:'mineral',buyRef:1500,sellRef:1500},
+    {name:'Cobalt',cat:'mineral',buyRef:20800,sellRef:20800},
+    {name:'Compboard',cat:'equipements',buyRef:29600,sellRef:29600},
+    {name:'Construction Materials',cat:'equipements',buyRef:12500,sellRef:12500},
+    {name:'Copper',cat:'mineral',buyRef:3700,sellRef:3700},
+    {name:'Corundum',cat:'mineral',buyRef:3700,sellRef:3700},
+    {name:'DCSR2',cat:'ressources',buyRef:1200,sellRef:1200},
+    {name:'Degnous Root',cat:'ressources',buyRef:60300,sellRef:60300},
+    {name:'Diamond Laminate',cat:'mineral',buyRef:87300,sellRef:87300},
+    {name:'Diamond',cat:'mineral',buyRef:7500,sellRef:7500},
+    {name:'Distilled Spirits',cat:'ressources',buyRef:1900,sellRef:1900},
+    {name:'Dolivine',cat:'mineral',buyRef:146300,sellRef:146300},
+    {name:'Dymantium',cat:'mineral',buyRef:22800,sellRef:22800},
+    {name:'Dynaflex',cat:'equipements',buyRef:1900,sellRef:1900},
+    {name:'Etam',cat:'mineral',buyRef:23200,sellRef:23200},
+    {name:'Feynmaline',cat:'mineral',buyRef:341500,sellRef:341500},
+    {name:'Fresh Food',cat:'ressources',buyRef:24800,sellRef:24800},
+    {name:'Fluorine',cat:'mineral',buyRef:1300,sellRef:1300},
+    {name:'Foam',cat:'equipements',buyRef:6300,sellRef:6300},
+    {name:'Gasping Weevil Eggs',cat:'ressources',buyRef:63900,sellRef:63900},
+    {name:'Glacosite',cat:'mineral',buyRef:98600,sellRef:98600},
+    {name:'Gold',cat:'mineral',buyRef:30000,sellRef:30000},
+    {name:'Golden Medmon',cat:'ressources',buyRef:59200,sellRef:59200},
+    {name:'Hadanite',cat:'mineral',buyRef:544300,sellRef:544300},
+    {name:'Heart Of The Woods',cat:'ressources',buyRef:35800,sellRef:35800},
+    {name:'Helium',cat:'mineral',buyRef:1000,sellRef:1000},
+    {name:'Hephaestanite',cat:'mineral',buyRef:4600,sellRef:4600},
+    {name:'Human Food Bars',cat:'ressources',buyRef:487,sellRef:487},
+    {name:'Hydrogen Fuel',cat:'mineral',buyRef:180,sellRef:180},
+    {name:'Hydrogen',cat:'mineral',buyRef:1000,sellRef:1000},
+    {name:'Irradiated Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
+    {name:'Iodine',cat:'mineral',buyRef:11500,sellRef:11500},
+    {name:'Iron',cat:'mineral',buyRef:3400,sellRef:3400},
+    {name:'Janalite',cat:'mineral',buyRef:2900000,sellRef:2900000},
+    {name:'Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
+    {name:'Laranite',cat:'mineral',buyRef:8600,sellRef:8600},
+    {name:'Lindinium',cat:'mineral',buyRef:47000,sellRef:47000},
+    {name:'Luminalia Gift',cat:'autre',buyRef:5100000,sellRef:5100000},
+    {name:'Marok Gem',cat:'mineral',buyRef:52900,sellRef:52900},
+    {name:'Maze',cat:'ressources',buyRef:230000,sellRef:230000},
+    {name:'Medical Supplies',cat:'ressources',buyRef:5200,sellRef:5200},
+    {name:'Mercury',cat:'mineral',buyRef:1000,sellRef:1000},
+    {name:'Methane',cat:'mineral',buyRef:3600,sellRef:3600},
+    {name:'Neograph',cat:'mineral',buyRef:93900,sellRef:93900},
+    {name:'Neon',cat:'mineral',buyRef:18500,sellRef:18500},
+    {name:'Nitrogen',cat:'mineral',buyRef:3000,sellRef:3000},
+    {name:'Omnapoxy',cat:'equipements',buyRef:4600,sellRef:4600},
+    {name:'Organics',cat:'ressources',buyRef:12800,sellRef:12800},
+    {name:'Osoian Hides',cat:'ressources',buyRef:870000,sellRef:870000},
+    {name:'Ouratite',cat:'mineral',buyRef:42300,sellRef:42300},
+    {name:'Partillium',cat:'mineral',buyRef:89900,sellRef:89900},
+    {name:'Party Favors',cat:'accessoires',buyRef:4900,sellRef:4900},
+    {name:'Pitambu',cat:'mineral',buyRef:60300,sellRef:60300},
+    {name:'Potassium',cat:'mineral',buyRef:569,sellRef:569},
+    {name:'Pressurized Ice',cat:'autre',buyRef:5300,sellRef:5300},
+    {name:'Processed Food',cat:'ressources',buyRef:1400,sellRef:1400},
+    {name:'Prota',cat:'ressources',buyRef:62400,sellRef:62400},
+    {name:'Quantanium',cat:'mineral',buyRef:150400,sellRef:150400},
+    {name:'Quantum Fuel',cat:'mineral',buyRef:928,sellRef:928},
+    {name:'Quartz',cat:'mineral',buyRef:4300,sellRef:4300},
+    {name:'Ranta Dung',cat:'ressources',buyRef:37100,sellRef:37100},
+    {name:'Recycled Material Composite',cat:'salvage',buyRef:7200,sellRef:7200},
+    {name:'Revenant Pod',cat:'ressources',buyRef:9600,sellRef:9600},
+    {name:'Revenant Tree Pollen',cat:'ressources',buyRef:1200,sellRef:1200},
+    {name:'Riccite',cat:'mineral',buyRef:67900,sellRef:67900},
+    {name:'Sadaryx',cat:'mineral',buyRef:500000,sellRef:500000},
+    {name:'Savrilium',cat:'mineral',buyRef:123200,sellRef:123200},
+    {name:'Scrap',cat:'salvage',buyRef:3500,sellRef:3500},
+    {name:'Silicon',cat:'mineral',buyRef:2400,sellRef:2400},
+    {name:'Slam',cat:'ressources',buyRef:37900,sellRef:37900},
+    {name:'Souvenirs',cat:'accessoires',buyRef:19000,sellRef:19000},
+    {name:'Steel',cat:'mineral',buyRef:2000,sellRef:2000},
+    {name:'Stileron',cat:'mineral',buyRef:136700,sellRef:136700},
+    {name:'Stims',cat:'ressources',buyRef:5400,sellRef:5400},
+    {name:'Sunset Berries',cat:'ressources',buyRef:82100,sellRef:82100},
+    {name:'Taranite',cat:'mineral',buyRef:25800,sellRef:25800},
+    {name:'Tin',cat:'mineral',buyRef:4000,sellRef:4000},
+    {name:'Titanium',cat:'mineral',buyRef:8100,sellRef:8100},
+    {name:'Torite',cat:'mineral',buyRef:7700,sellRef:7700},
+    {name:'Tritium',cat:'mineral',buyRef:33300,sellRef:33300},
+    {name:'Tungsten',cat:'mineral',buyRef:10300,sellRef:10300},
+    {name:'Waste',cat:'salvage',buyRef:342,sellRef:342},
+    {name:'Widow',cat:'ressources',buyRef:7400,sellRef:7400},
+    {name:'Xapyen',cat:'mineral',buyRef:4800,sellRef:4800},
+  ];
+
+  let added=0, updated=0;
+  LOCAL_DATA.forEach(c => {
+    const existing = RESSOURCE_CATALOGUE.find(x => x.name.toLowerCase()===c.name.toLowerCase());
+    if (existing) {
+      if (c.buyRef  > 0) existing.buyRef  = c.buyRef;
+      if (c.sellRef > 0) existing.sellRef = c.sellRef;
+      existing.fromUEX=true; existing.updatedAt=now; updated++;
+    } else {
+      RESSOURCE_CATALOGUE.push({
+        id:'r_uex_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+        name:c.name, cat:c.cat, quality:'',
+        buyRef:c.buyRef, sellRef:c.sellRef, desc:'',
+        fromUEX:true, addedAt:now, updatedAt:now
+      });
+      added++;
+    }
+  });
+  await DB.set('telos-ressource-catalogue', RESSOURCE_CATALOGUE);
+  await DB.set('telos-last-uex-sync', String(Date.now()));
+  await refreshDatalist();
+  populateResSelect();
+  renderRessources();
+  const msg = added+' ajoutées, '+updated+' mises à jour (données locales v4.8.0)';
+  const status = document.getElementById('uex-sync-status');
+  if (status) status.textContent = '✓ '+msg;
+  toast('Catalogue mis à jour', msg, 'success');
+}
+
+/* Lance une sync auto au chargement du panel ressources */
+async function autoSyncUEX() {
+  const lastSync = await DB.get('telos-last-uex-sync');
+  const now = Date.now();
+  // Sync auto si la dernière sync date de plus de 30 minutes
+  if (!lastSync || now - parseInt(lastSync) > 30 * 60 * 1000) {
+    await DB.set('telos-last-uex-sync', String(now));
+    syncFromUEX();
+  }
+}
+
 function goPanel(id, el) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -4383,7 +5261,9 @@ function goPanel(id, el) {
   if (id==='stocks')   { renderStocksFromPlayers(); }
   if (id==='partners') { renderPartners(); }
   if (id==='missions') { renderMissions(); }
-  if (id==='ressources') { renderRessources(); }
+  if (id==='ressources') { renderRessources(); if(canManageRoles()) autoSyncUEX(); }
+  if (id==='objectifs') { renderObjectifs(); }
+  if (id==='commandes') { renderCommandes(); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -4840,6 +5720,25 @@ function populateResSelect() {
   sel.innerHTML = html;
 }
 
+function autofillPrices(resName) {
+  if (!resName) return;
+  // Chercher dans le catalogue TELOS
+  const entry = RESSOURCE_CATALOGUE.find(r => r.name.toLowerCase() === resName.toLowerCase());
+  if (!entry) return;
+
+  const buyField  = document.getElementById('ps-price');
+  const sellField = document.getElementById('ps-sellprice');
+
+  if (buyField  && entry.buyRef  > 0 && (!buyField.value  || buyField.value  === '0' || buyField.value  === '0.00'))
+    buyField.value  = entry.buyRef.toFixed(2);
+
+  if (sellField && entry.sellRef > 0 && (!sellField.value || sellField.value === '0' || sellField.value === '0.00'))
+    sellField.value = entry.sellRef.toFixed(2);
+
+  // Mettre à jour le preview total si la fonction existe
+  if (typeof updatePreview === 'function') updatePreview();
+}
+
 function onResSelectChange(sel) {
   const val = sel.value;
   const resInput = document.getElementById('ps-res');
@@ -4860,6 +5759,7 @@ function onResSelectChange(sel) {
       if (qSel) { qSel.value = quality; updateQualityBadge(qSel); }
     }
     checkUexName(val);
+    autofillPrices(val);
   } else {
     resInput.value = '';
     document.getElementById('ps-uex-hint').style.display = 'none';
@@ -4871,6 +5771,8 @@ function onResInputChange(val) {
   const sel = document.getElementById('ps-res-select');
   if (sel && sel.value !== val) sel.value = '';
   checkUexName(val);
+  // Auto-renseigner les prix si la ressource correspond au catalogue
+  autofillPrices(val);
 }
 
 function ncSetRewardType(type) {
@@ -5409,7 +6311,7 @@ function shortUrl(url){ try{ const u=new URL(url); const parts=u.pathname.replac
    KEYBOARD SHORTCUTS
 ════════════════════════════════════════════════════════════ */
 document.addEventListener('keydown',e=>{
-  if (e.key==='Escape'){ closeModal(); closeConfirm(); closePSModal(); closeEditStock(); closeAvatarPicker(); closeEditRole(); closeAddRessource(); }
+  if (e.key==='Escape'){ closeModal(); closeConfirm(); closePSModal(); closeEditStock(); closeAvatarPicker(); closeEditRole(); closeAddRessource(); closeAddObjectif(); closeAddCommande(); }
   if (e.key==='Enter'&&document.getElementById('ps-overlay').classList.contains('open')) addPlayerStock();
 });
 
@@ -5455,6 +6357,8 @@ async function init(){
   renderCommerce();
   await loadMissions();
   await loadRessourceCatalogue();
+  await loadObjectifs();
+  await loadCommandes();
   await refreshDatalist(); // Pré-remplir la datalist au démarrage
   drawChart(7);
   // Live prices
@@ -5613,5 +6517,163 @@ window.addEventListener('resize', () => {
 </div>
 
 <datalist id="ps-datalist"></datalist>
+
+<!-- ══════════════ OBJECTIF MODAL ══════════════ -->
+<div class="overlay" id="obj-overlay" onclick="if(event.target===this)closeAddObjectif()">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-head">
+      <span class="modal-title" id="obj-modal-title">🎯 CRÉER UN OBJECTIF</span>
+      <button class="modal-close" onclick="closeAddObjectif()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:13px;">
+      <div class="grid2">
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Titre <span class="req">*</span></label>
+          <input class="form-input" type="text" id="obj-title" placeholder="ex: Accumuler 500 SCU de Quantanium" maxlength="100">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Catégorie <span class="req">*</span></label>
+          <select class="form-input" id="obj-cat" style="height:auto;padding:9px 11px;">
+            <option value="ressource">📦 Ressource</option>
+            <option value="craft">🔧 Craft</option>
+            <option value="autre">○ Autre</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Priorité</label>
+          <select class="form-input" id="obj-priority" style="height:auto;padding:9px 11px;">
+            <option value="normale">⚪ Normale</option>
+            <option value="haute">🟠 Haute</option>
+            <option value="critique">🔴 Critique</option>
+          </select>
+        </div>
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Description</label>
+          <textarea class="form-input" id="obj-desc" rows="2" placeholder="Détails de l'objectif..." style="resize:vertical;min-height:60px;"></textarea>
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Quantité cible</label>
+          <input class="form-input" type="number" id="obj-target" min="1" step="1" placeholder="ex: 500">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Unité</label>
+          <input class="form-input" type="text" id="obj-unit" placeholder="SCU, unités, k aUEC..." maxlength="20">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Progression actuelle</label>
+          <input class="form-input" type="number" id="obj-current" min="0" step="1" placeholder="0" value="0">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Date limite</label>
+          <input class="form-input" type="date" id="obj-dl">
+        </div>
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Récompense</label>
+          <input class="form-input" type="text" id="obj-reward" placeholder="ex: +50 000 aUEC, +5 🫆 Empreinte...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeAddObjectif()">Annuler</button>
+      <button class="btn success" onclick="saveObjectif()" style="letter-spacing:1px;">🎯 ENREGISTRER</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ COMMANDE MODAL ══════════════ -->
+<div class="overlay" id="cmd-overlay" onclick="if(event.target===this)closeAddCommande()">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <span class="modal-title" id="cmd-modal-title">📋 CRÉER UNE COMMANDE</span>
+      <button class="modal-close" onclick="closeAddCommande()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:13px;">
+
+      <!-- Type interne / externe -->
+      <div class="form-field">
+        <label class="form-lbl">Type de commande <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="cmd-type-interne" onclick="setCmdType('interne')"
+            class="btn primary" style="flex:1;padding:8px;font-size:12px;letter-spacing:1px;">
+            🏛 INTERNE CORPO
+          </button>
+          <button type="button" id="cmd-type-externe" onclick="setCmdType('externe')"
+            class="btn" style="flex:1;padding:8px;font-size:12px;letter-spacing:1px;">
+            🌐 EXTERNE
+          </button>
+        </div>
+        <div id="cmd-type-hint" style="font-size:10px;color:var(--text-dim);margin-top:4px;padding:4px 8px;border-left:2px solid var(--border);">
+          Commande entre membres de la corpo TELOS
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Titre / Objet <span class="req">*</span></label>
+          <input class="form-input" type="text" id="cmd-title" placeholder="ex: 500 SCU Quantanium pour DarkKaeloo" maxlength="120">
+        </div>
+
+        <!-- Commanditaire -->
+        <div class="form-field">
+          <label class="form-lbl">Commanditaire <span class="req">*</span></label>
+          <input class="form-input" type="text" id="cmd-client" placeholder="Nom / Org / Partenaire...">
+        </div>
+
+        <!-- Assigné à -->
+        <div class="form-field">
+          <label class="form-lbl">Assigné à</label>
+          <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;">
+            <option value="">— Non assigné —</option>
+          </select>
+        </div>
+
+        <!-- Ressource -->
+        <div class="form-field">
+          <label class="form-lbl">Ressource demandée</label>
+          <input class="form-input" type="text" id="cmd-resource" placeholder="ex: Quantanium" list="ps-datalist">
+        </div>
+
+        <!-- Quantité -->
+        <div class="form-field">
+          <label class="form-lbl">Quantité (SCU)</label>
+          <input class="form-input" type="number" id="cmd-qty" min="1" step="1" placeholder="0">
+        </div>
+
+        <!-- Prix convenu -->
+        <div class="form-field">
+          <label class="form-lbl">Prix convenu (aUEC)</label>
+          <input class="form-input" type="number" id="cmd-price" min="0" step="1000" placeholder="0">
+        </div>
+
+        <!-- Priorité -->
+        <div class="form-field">
+          <label class="form-lbl">Priorité</label>
+          <select class="form-input" id="cmd-priority" style="height:auto;padding:9px 11px;">
+            <option value="normale">⚪ Normale</option>
+            <option value="haute">🟠 Haute</option>
+            <option value="urgente">🔴 Urgente</option>
+          </select>
+        </div>
+
+        <!-- Date limite -->
+        <div class="form-field">
+          <label class="form-lbl">Date limite</label>
+          <input class="form-input" type="date" id="cmd-dl">
+        </div>
+
+        <!-- Notes -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Notes / Conditions</label>
+          <textarea class="form-input" id="cmd-notes" rows="2" placeholder="Conditions particulières, lieu de livraison, qualité requise..." style="resize:vertical;min-height:55px;"></textarea>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeAddCommande()">Annuler</button>
+      <button class="btn success" onclick="saveCommande()" style="letter-spacing:1px;">📋 ENREGISTRER</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
