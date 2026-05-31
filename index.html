@@ -5403,8 +5403,8 @@ async function renderBlueprints() {
         const myBps=(window._playerBpCache&&window._playerBpCache[SESSION?.pid])||[];
         const isOwner=myBps.includes(b.id);
         let td='<td style="min-width:150px;">';
-        if(SESSION) td+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:5px;"><input type="checkbox" '+(isOwner?'checked':'')+' style="width:14px;height:14px;accent-color:var(--orange);cursor:pointer;" onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)"><span>'+(isOwner?'✓ Je possède':'○ Je possède')+'</span></label>';
-        if(canManageRoles()) td+='<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:3px 10px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✕ Supprimer</button>';
+        if(SESSION) td+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:5px;"><input type="checkbox" '+(isOwner?'checked':'')+' data-bpid="'+b.id.replace(/"/g,'')+'" style="width:14px;height:14px;accent-color:var(--orange);cursor:pointer;" class="bp-own-cb"><span>'+(isOwner?'✓ Je possède':'○ Je possède')+'</span></label>';
+        if(canManageRoles()) td+='<button data-delbp="'+b.id.replace(/"/g,'')+'" style="padding:3px 10px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✕ Supprimer</button>';
         td+='</td>';
         return td;
       })()
@@ -6867,6 +6867,21 @@ function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p
 const ROLE_COLORS={Trader:'var(--blue)',Mineur:'var(--orange)',Transporteur:'var(--green)',Explorateur:'var(--purple)',Gestionnaire:'var(--red)'};
 
 function startAutoSave() { /* Supabase gère la persistance automatiquement */ }
+
+/* ════ Blueprint table event delegation ════ */
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('bp-own-cb')) {
+    const bpId = e.target.dataset.bpid;
+    if (bpId) toggleBpOwner(bpId, e.target.checked);
+  }
+});
+document.addEventListener('click', function(e) {
+  const delBtn = e.target.closest('[data-delbp]');
+  if (delBtn) {
+    const bpId = delBtn.dataset.delbp;
+    if (bpId) deleteBlueprint(bpId);
+  }
+});
 
 async function init(){
   await testSupabaseConnection();
