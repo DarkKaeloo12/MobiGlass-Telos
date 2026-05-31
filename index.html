@@ -1292,7 +1292,7 @@ body::before {
       </div>
       <div class="rep-bar"><div class="rep-fill" id="sb-rep-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div class="sb-version">VERSION v0.8 — © 2956 UEE</div>
+        <div class="sb-version">VERSION 1.0.7 — © 2956 UEE</div>
         <button id="sb-auth-btn" onclick="SESSION ? logout() : openLoginModal()" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;">CONNEXION</button>
       </div>
     </div>
@@ -5675,10 +5675,20 @@ async function renderBlueprints() {
         return '<td style="font-size:11px;"><div>'+cls+'</div><div style="color:var(--text-dim);font-size:10px;">'+sz+'</div></td>';
       })()
       +'<td>'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
-      +'<td style="display:flex;gap:4px;">'
-      +'<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>'
-      +'<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>'
-      +'</td></tr>';
+      +(()=>{
+        const isOwner = SESSION && (b.owners||[]).includes(SESSION.pid);
+        let td = '<td style="min-width:160px;">';
+        if(SESSION) td += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
+          +'<input type="checkbox" '+(isOwner?'checked':'')+' style="accent-color:var(--orange);cursor:pointer;"'
+          +' onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)">'
+          +(isOwner?'✓ Je possède':'○ Je possède')+'</label>';
+        td += '<div style="display:flex;gap:4px;">';
+        if(SESSION) td += '<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
+        if(canManageRoles()) td += '<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
+        td += '</div></td>';
+        return td;
+      })()
+      +'</tr>';
   }).join('');
 }
 
@@ -5747,6 +5757,23 @@ function openAddBlueprint(editId) {
 function closeAddBlueprint() {
   document.getElementById('bp-overlay').classList.remove('open');
   _editBpId = null;
+}
+
+
+async function toggleBpOwner(bpId, checked) {
+  if (!SESSION) return;
+  const bp = BLUEPRINTS.find(x => x.id === bpId);
+  if (!bp) return;
+  if (!bp.owners) bp.owners = [];
+  if (checked) {
+    if (!bp.owners.includes(SESSION.pid)) bp.owners.push(SESSION.pid);
+  } else {
+    bp.owners = bp.owners.filter(id => id !== SESSION.pid);
+  }
+  await saveBlueprints();
+  renderBlueprints();
+  toast(checked ? 'Blueprint ajouté' : 'Blueprint retiré',
+        checked ? 'Vous possédez : ' + bp.name : bp.name + ' retiré de votre collection', 'success');
 }
 
 function editBlueprint(id) { openAddBlueprint(id); }
