@@ -5761,43 +5761,76 @@ function closeAddBlueprint() {
 
 
 async function toggleBpOwner(bpId, checked) {
-  if (!SESSION) return;
-  const bp = BLUEPRINTS.find(x => x.id === bpId);
-  if (!bp) return;
-  if (!bp.owners) bp.owners = [];
+  if (!SESSION) { toast('Connexion requise', 'Connectez-vous pour gérer vos blueprints.', 'error'); return; }
+
+  const pid = SESSION.pid;
+
+  // 1. Charger la liste perso du joueur
+  let myBps = (await DB.get('player-blueprints-' + pid)) || [];
 
   if (checked) {
-    if (!bp.owners.includes(SESSION.pid)) bp.owners.push(SESSION.pid);
+    if (!myBps.includes(bpId)) myBps.push(bpId);
   } else {
-    bp.owners = bp.owners.filter(id => id !== SESSION.pid);
+    myBps = myBps.filter(id => id !== bpId);
   }
 
-  // Sauvegarde dans IndexedDB
-  await saveBlueprints();
+  // 2. Sauvegarder dans le profil du joueur (clé dédiée)
+  await DB.set('player-blueprints-' + pid, myBps);
 
-  // Mettre à jour l'affichage des propriétaires dans la ligne sans re-render
+  // 3. Mettre à jour BLUEPRINTS en mémoire (owners array)
+  const bp = BLUEPRINTS.find(x => x.id === bpId);
+  if (bp) {
+    if (!bp.owners) bp.owners = [];
+    if (checked) {
+      if (!bp.owners.includes(pid)) bp.owners.push(pid);
+    } else {
+      bp.owners = bp.owners.filter(id => id !== pid);
+    }
+    await saveBlueprints();
+  }
+
+  // 4. Mettre à jour l'affichage ciblé (sans re-render complet)
   const row = document.querySelector('[data-bp-id="'+bpId+'"]');
   if (row) {
-    // Mettre à jour le label checkbox
     const lbl = row.querySelector('.bp-own-label');
     if (lbl) {
       lbl.style.color = checked ? 'var(--green)' : 'var(--text-dim)';
-      lbl.querySelector('span')?.replaceWith(Object.assign(document.createElement('span'), { textContent: checked ? '✓ Je possède' : '○ Je possède' }));
+      const spn = lbl.querySelector('span');
+      if (spn) spn.textContent = checked ? '✓ Je possède' : '○ Je possède';
+      const cb = lbl.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = checked;
     }
-    // Mettre à jour la colonne propriétaires
     const ownersTd = row.querySelector('.bp-owners-td');
-    if (ownersTd) {
+    if (ownersTd && bp) {
       const names = (bp.owners||[]).map(oid => {
-        const p = players.find(x=>x.id===oid);
-        return p ? '<span style="font-size:10px;color:var(--blue);">'+esc(p.name)+'</span>' : '';
+        const p = players.find(x => x.id === oid);
+        return p ? '<span style="font-size:10px;color:var(--blue);">' + esc(p.name) + '</span>' : '';
       }).filter(Boolean).join(', ');
       ownersTd.innerHTML = names || '<span style="color:var(--text-dim);">—</span>';
     }
   }
 
-  toast(checked ? '✓ Blueprint ajouté' : 'Blueprint retiré',
-        checked ? bp.name : bp.name + ' retiré de votre collection',
+  toast(checked ? '✓ Blueprint ajouté à votre profil' : 'Blueprint retiré',
+        checked ? (bp?.name || '') : (bp?.name || '') + ' retiré de votre collection',
         checked ? 'success' : 'info');
+}
+
+/* Charger les blueprints possédés par le joueur connecté */
+async function loadPlayerOwnedBlueprints() {
+  if (!SESSION) return;
+  const pid    = SESSION.pid;
+  const myBps  = (await DB.get('player-blueprints-' + pid)) || [];
+
+  // Synchroniser avec le champ owners de chaque blueprint
+  let changed = false;
+  BLUEPRINTS.forEach(bp => {
+    if (!bp.owners) bp.owners = [];
+    const owned = myBps.includes(bp.id);
+    const inOwners = bp.owners.includes(pid);
+    if (owned && !inOwners)  { bp.owners.push(pid); changed = true; }
+    if (!owned && inOwners)  { bp.owners = bp.owners.filter(id => id !== pid); changed = true; }
+  });
+  if (changed) await saveBlueprints();
 }
 
 function editBlueprint(id) { openAddBlueprint(id); }
@@ -6008,7 +6041,7 @@ function goPanel(id, el) {
   if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
-  if (id==='blueprints') { renderBlueprints(); }
+  if (id==='blueprints') { loadPlayerOwnedBlueprints().then(renderBlueprints); }
 }
 
 /* ════════════════════════════════════════════════════════════
