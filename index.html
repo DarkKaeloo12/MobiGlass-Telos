@@ -2515,8 +2515,17 @@ const DB = {
     try {
       const sb = getSB(); if (!sb) throw new Error('no client');
       const { error } = await sb.from('telos_store').upsert({ key: k, value: v, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-      if (error) console.warn('[DB.set]', error.message);
-    } catch(e) { console.warn('[DB.set]', e.message); }
+      if (error) {
+        console.error('[DB.set] Supabase ERROR:', error.message, error.details, error.hint);
+        // Afficher une notification visible
+        const d = document.createElement('div');
+        d.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:8px 16px;z-index:99999;font-size:12px;border-radius:4px;';
+        d.textContent = '⚠ DB Error: ' + error.message;
+        document.body.appendChild(d); setTimeout(()=>d.remove(), 5000);
+      } else {
+        console.log('[DB.set] ✅ saved:', k);
+      }
+    } catch(e) { console.error('[DB.set] Exception:', e.message); }
     try { localStorage.setItem('telos_'+k, JSON.stringify(v)); } catch(e) {}
   },
   async del(k) {
