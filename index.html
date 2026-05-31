@@ -5330,7 +5330,7 @@ async function loadBlueprints() {
   BLUEPRINTS = (await DB.get('telos-blueprints')) || [];
   renderBlueprints();
   const badgeBp = document.getElementById('badge-blueprints');
-  if (badgeBp) { badgeBp.textContent = BLUEPRINTS.length; badgeBp.style.display = BLUEPRINTS.length > 0 ? '' : 'none'; }
+  if (badgeBp) { const myBps=SESSION?((window._playerBpCache&&window._playerBpCache[SESSION.pid])||[]):[];badgeBp.textContent=myBps.length;badgeBp.style.display=myBps.length>0?'':'none'; }
 }
 
 async function saveBlueprints() {
@@ -5365,11 +5365,12 @@ async function renderBlueprints() {
 
   const countEl = document.getElementById('bp-count');
   if (countEl) countEl.textContent = data.length + ' blueprint'+(data.length>1?'s':'');
-  // Badge sur la nav
+  // Badge = blueprints possédés par le joueur connecté
   const badgeBp = document.getElementById('badge-blueprints');
   if (badgeBp) {
-    badgeBp.textContent = BLUEPRINTS.length;
-    badgeBp.style.display = BLUEPRINTS.length > 0 ? '' : 'none';
+    const myBps = SESSION ? ((window._playerBpCache&&window._playerBpCache[SESSION.pid])||[]) : [];
+    badgeBp.textContent = myBps.length;
+    badgeBp.style.display = myBps.length > 0 ? '' : 'none';
   }
 
   if (!data.length) {
@@ -6859,6 +6860,8 @@ async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCac
 const UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
 function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟠 Craft Vaisseau',color:'#f97316',range:'500–600'};return{key:'craft_fps',label:'💎 Craft FPS',color:'#60a5fa',range:'600+'};}
 const ROLE_COLORS={Trader:'var(--blue)',Mineur:'var(--orange)',Transporteur:'var(--green)',Explorateur:'var(--purple)',Gestionnaire:'var(--red)'};
+
+function startAutoSave() { /* Supabase gère la persistance automatiquement */ }
 
 async function init(){
   await testSupabaseConnection();
