@@ -618,9 +618,9 @@ a { color: inherit; text-decoration: none; }
 
 /* Profile hero */
 .prof-hero {
-  padding: 18px 22px; background: linear-gradient(135deg, var(--bg2), var(--bg3));
+  background: linear-gradient(135deg, var(--bg2), var(--bg3));
   border-bottom: 1px solid var(--border);
-  display: flex; gap: 16px; align-items: flex-start; flex-shrink: 0;
+  display: flex; flex-direction: column; flex-shrink: 0;
 }
 .prof-avatar {
   width: 56px; height: 56px; flex-shrink: 0; background: var(--bg);
@@ -5797,26 +5797,66 @@ async function selectPlayer(id){
   // Hero
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
   const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
+  // Calcul valeur marché
+  const marketVal = stocks.reduce((a,s)=>{ const m=MARKET_PRICES[s.res.toLowerCase()]; return a+(m?m.sell*s.qty:(s.sellprice||s.price||0)*s.qty); }, 0);
+  const plMarket  = marketVal - tv;
+  const plSign    = plMarket >= 0 ? '+' : '';
+  const plCol     = plMarket >= 0 ? 'var(--green)' : 'var(--red)';
+
   document.getElementById('prof-hero').innerHTML=`
-    <div class="prof-avatar" style="overflow:hidden;">${avHtml(p)}</div>
-    <div style="flex:1">
-      <div class="prof-name">${esc(p.name)}</div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
-        ${p.isAdmin
-          ? `<span style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border:1px solid #ffffff;color:#ffffff;font-family:var(--ui);">ADMIN</span>`
-          : `<span style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border:1px solid ${ROLE_COLORS[p.role]||'var(--orange)'};color:${ROLE_COLORS[p.role]||'var(--orange)'};font-family:var(--ui);">${p.role||'—'}</span>
-             ${canManageRoles()?`<button onclick="openEditRole('${p.id}')" style="padding:2px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.color='var(--orange)';this.style.borderColor='var(--orange)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">✏ Modifier</button>`:''}`
-        }
+    <div style="display:flex;flex-direction:column;width:100%;">
+
+      <!-- Ligne 1 : avatar + infos + stock count -->
+      <div style="display:flex;align-items:flex-start;gap:13px;padding:14px 18px 10px;">
+        <div style="width:52px;height:52px;flex-shrink:0;background:var(--bg3);border:2px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--orange);font-weight:700;clip-path:polygon(10% 0%,90% 0%,100% 10%,100% 90%,90% 100%,10% 100%,0% 90%,0% 10%);overflow:hidden;">${avHtml(p,52)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:20px;font-weight:700;color:var(--text-bright);letter-spacing:1px;line-height:1.1;">${esc(p.name)}</div>
+          <div style="display:flex;align-items:center;gap:7px;margin-top:5px;flex-wrap:wrap;">
+            ${p.isAdmin
+              ? `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border:1px solid #ffffff;color:#ffffff;font-family:var(--ui);">ADMIN</span>`
+              : `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border:1px solid ${ROLE_COLORS[p.role]||'var(--orange)'};color:${ROLE_COLORS[p.role]||'var(--orange)'};font-family:var(--ui);">${p.role||'—'}</span>
+                 ${canManageRoles()?`<button onclick="openEditRole('${p.id}')" style="padding:2px 7px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;cursor:pointer;" onmouseover="this.style.color='var(--orange)';this.style.borderColor='var(--orange)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">✏</button>`:''}`
+            }
+            <span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);letter-spacing:1px;">depuis ${fmtDate(p.joinedAt)}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;">
+            <a class="prof-link" href="${esc(p.rsi)}" target="_blank" rel="noopener" style="font-size:10px;padding:2px 7px;"><span class="ll">RSI</span>${shortUrl(p.rsi)}</a>
+            ${p.uex?`<a class="prof-link" href="${esc(p.uex)}" target="_blank" rel="noopener" style="font-size:10px;padding:2px 7px;"><span class="ll">UEX</span>${shortUrl(p.uex)}</a>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">STOCK</div>
+          <div style="font-family:var(--mono);font-size:18px;color:${stocks.length?'var(--orange)':'var(--text-dim)'};">${stocks.length} res.</div>
+        </div>
       </div>
-      <div class="prof-links">
-        <a class="prof-link" href="${esc(p.rsi)}" target="_blank" rel="noopener"><span class="ll">RSI</span>${shortUrl(p.rsi)}</a>
-        ${p.uex?`<a class="prof-link" href="${esc(p.uex)}" target="_blank" rel="noopener"><span class="ll">UEX</span>${shortUrl(p.uex)}</a>`:''}
+
+      <!-- Ligne 2 : 3 stats -->
+      <div style="display:flex;border-top:1px solid var(--border);">
+        <div style="flex:1;padding:8px 14px;border-right:1px solid var(--border);">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">SCU TOTAL</div>
+          <div style="font-family:var(--mono);font-size:16px;color:var(--text-bright);">${tu.toLocaleString('fr-FR')}</div>
+        </div>
+        <div style="flex:1;padding:8px 14px;border-right:1px solid var(--border);">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">VALEUR ACHAT</div>
+          <div style="font-family:var(--mono);font-size:16px;color:var(--text-bright);">${tv?Math.round(tv).toLocaleString('fr-FR'):'0'}</div>
+        </div>
+        <div style="flex:1;padding:8px 14px;">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">P/L MARCHÉ</div>
+          <div style="font-family:var(--mono);font-size:16px;color:${plCol};">${plSign}${Math.round(plMarket).toLocaleString('fr-FR')}</div>
+        </div>
       </div>
-      <div class="prof-stats">
-        <div><div class="pst-v">${stocks.length}</div><div class="pst-l">Ressources</div></div>
-        <div><div class="pst-v">${tu.toLocaleString('fr-FR')}</div><div class="pst-l">SCU</div></div>
-        <div><div class="pst-v" style="color:var(--green)">${Math.round(tv).toLocaleString('fr-FR')} aUEC</div><div class="pst-l">Valeur</div></div>
+
+      <!-- Ligne 3 : valeur marché -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(247,140,30,0.04);border-top:1px solid var(--border);">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">VALEUR MARCHÉ</div>
+        <div style="font-family:var(--mono);font-size:17px;color:var(--orange);letter-spacing:1px;">${marketVal?Math.round(marketVal).toLocaleString('fr-FR')+' aUEC':'<span style="color:var(--text-dim)">0 aUEC</span>'}</div>
       </div>
+
+      <!-- Voir stock complet -->
+      <div style="padding:6px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+        <span style="font-size:10px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;opacity:0.7;">VOIR STOCK COMPLET →</span>
+      </div>
+
     </div>`;
   renderStockTable(stocks);
 }
@@ -6739,8 +6779,10 @@ async function renderGlobal(){
     const stocks=(await DB.get('uex-stocks-'+p.id))||[];
     stocks.forEach(s=>all.push({p,s}));
   }
-  // KPI
-  document.getElementById('gkpi-strip').innerHTML=`
+  // KPI — guard si le panel Global n'est pas actif dans le DOM
+  const kpiStrip=document.getElementById('gkpi-strip');
+  if (!kpiStrip) return;
+  kpiStrip.innerHTML=`
     <div class="gkpi"><div class="gkpi-lbl">Joueurs</div><div class="gkpi-val orange">${players.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Ressources enregistrées</div><div class="gkpi-val">${all.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Unités totales (SCU)</div><div class="gkpi-val">${all.reduce((a,r)=>a+Number(r.s.qty),0).toLocaleString('fr-FR')}</div></div>
@@ -6750,6 +6792,7 @@ async function renderGlobal(){
   if (fc) rows=rows.filter(r=>r.s.cat===fc);
   const body=document.getElementById('global-body');
   const empty=document.getElementById('global-empty');
+  if (!body || !empty) return;
   if (!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
   body.innerHTML=rows.map(({p,s})=>`
