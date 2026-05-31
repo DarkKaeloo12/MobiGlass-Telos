@@ -2516,14 +2516,7 @@ const DB = {
       const sb = getSB(); if (!sb) throw new Error('no client');
       const { error } = await sb.from('telos_store').upsert({ key: k, value: v, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       if (error) {
-        console.error('[DB.set] Supabase ERROR:', error.message, error.details, error.hint);
-        // Afficher une notification visible
-        const d = document.createElement('div');
-        d.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:8px 16px;z-index:99999;font-size:12px;border-radius:4px;';
-        d.textContent = '⚠ DB Error: ' + error.message;
-        document.body.appendChild(d); setTimeout(()=>d.remove(), 5000);
-      } else {
-        console.log('[DB.set] ✅ saved:', k);
+        console.warn('[DB.set]', error.message);
       }
     } catch(e) { console.error('[DB.set] Exception:', e.message); }
     try { localStorage.setItem('telos_'+k, JSON.stringify(v)); } catch(e) {}
@@ -5459,13 +5452,8 @@ async function syncFromUEXLocal() {
 
 /* Lance une sync auto au chargement du panel ressources */
 async function autoSyncUEX() {
-  const lastSync = await DB.get('telos-last-uex-sync');
-  const now = Date.now();
-  // Sync auto si la dernière sync date de plus de 30 minutes
-  if (!lastSync || now - parseInt(lastSync) > 30 * 60 * 1000) {
-    await DB.set('telos-last-uex-sync', String(now));
-    syncFromUEX();
-  }
+  // Sync manuelle uniquement via le bouton ↻ SYNC UEX
+  // La sync automatique est désactivée pour éviter les erreurs CORS
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -5825,7 +5813,7 @@ function goPanel(id, el) {
   if (id==='stocks')   { renderStocksFromPlayers(); }
   if (id==='partners') { renderPartners(); }
   if (id==='missions') { renderMissions(); }
-  if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
+  if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); }
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
   if (id==='blueprints') { renderBlueprints(); }
