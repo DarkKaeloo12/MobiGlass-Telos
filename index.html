@@ -3911,11 +3911,16 @@ async function renderPartners(){
             <span style="font-size:9px;color:var(--text-dim);font-family:var(--mono);">depuis ${fmtDate(p.joinedAt)}</span>
           </div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">STOCK</div>
-          <div style="font-family:var(--mono);font-size:13px;color:var(--orange);">${stocks.length} res.</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">STOCK</div>
+            <div style="font-family:var(--mono);font-size:14px;color:var(--orange);">${stocks.length} res.</div>
           </div>
-          <div style="text-align:right;margin-left:8px;"><div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">BLUEPRINTS</div><div style="font-family:var(--mono);font-size:13px;color:#60a5fa;">${((window._playerBpCache&&window._playerBpCache[p.id])||[]).length}📐</div></div>
+          ${((window._playerBpCache&&window._playerBpCache[p.id])||[]).length>0?`
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;">BLUEPRINTS</div>
+            <div style="font-family:var(--mono);font-size:14px;color:#60a5fa;">${((window._playerBpCache&&window._playerBpCache[p.id])||[]).length} 📐</div>
+          </div>`:''}
         </div>
       </div>
 
@@ -5790,6 +5795,11 @@ async function selectPlayer(id){
   const jtabName = document.getElementById('jtab-partner-name');
   if (jtabName) jtabName.textContent = p.name;
   renderPlayerList(document.getElementById('pl-search').value);
+  // Badge blueprints
+  if (!window._playerBpCache) window._playerBpCache = {};
+  if (!window._playerBpCache[id]) window._playerBpCache[id] = (await DB.get('player-blueprints-'+id)) || [];
+  const bpBadge = document.getElementById('badge-blueprints');
+  if (bpBadge) { const _n=window._playerBpCache[id].length; bpBadge.textContent=_n; bpBadge.style.display=_n>0?'':'none'; }
   const stocks=(await DB.get('uex-stocks-'+id))||[];
   document.getElementById('pl-placeholder').style.display='none';
   const content=document.getElementById('pl-content');
@@ -6808,6 +6818,7 @@ async function renderGlobal(){
   if (fc) rows=rows.filter(r=>r.s.cat===fc);
   const body=document.getElementById('global-body');
   const empty=document.getElementById('global-empty');
+  if (!body || !empty) return;
   if (!body || !empty) return;
   if (!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
