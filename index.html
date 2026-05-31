@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MobiGlass Telos — Unified Exchange Network</title>
 <style>
@@ -1272,7 +1273,7 @@ body::before {
       <div><div class="n-main">LOGS</div><div class="n-sub">Historique système</div></div>
     </div>
 	
-    <div class="nav-item" onclick="openModal('settings')">
+    <div class="nav-item" onclick="openSettings()">
       <div class="n-icon">⚙</div>
       <div><div class="n-main">PARAMÈTRES</div><div class="n-sub">Configuration</div></div>
     </div>
@@ -2576,148 +2577,102 @@ function startFileSaveReminder() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   PERSISTANCE — IndexedDB (permanent) + localStorage (fallback)
-   IndexedDB survit aux fermetures de navigateur, effacements de cache,
-   rechargements. Les données ne disparaissent JAMAIS automatiquement.
+   DATABASE — Supabase (ykdamleudeatahrxicgk.supabase.co)
+   Table : telos_store (key TEXT PK, value JSONB, updated_at)
+   Fallback : localStorage si Supabase inaccessible
 ════════════════════════════════════════════════════════════ */
-const DB = (() => {
-  const DB_NAME    = 'TelosCorporation';
-  const DB_VERSION = 1;
-  const STORE      = 'telos_store';
-  let _db = null;
+const SUPABASE_URL = 'https://ykdamleudeatahrxicgk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_NFoB7dh06yovIPrwrxSj4w_Pf50D76g';
+let _sb = null;
 
-  function openDB() {
-    return new Promise((resolve, reject) => {
-      if (_db) return resolve(_db);
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE);
-        }
-      };
-      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-      req.onerror   = e => reject(e.target.error);
-    });
-  }
-
-  async function idbGet(k) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx  = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).get(k);
-      req.onsuccess = () => resolve(req.result ?? null);
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  async function idbSet(k, v) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx  = db.transaction(STORE, 'readwrite');
-      const req = tx.objectStore(STORE).put(v, k);
-      req.onsuccess = () => resolve();
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  async function idbDel(k) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx  = db.transaction(STORE, 'readwrite');
-      const req = tx.objectStore(STORE).delete(k);
-      req.onsuccess = () => resolve();
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  async function idbKeys() {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx  = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).getAllKeys();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  return {
-    async get(k) {
-      // 1. IndexedDB (priorité — persistance totale)
-      try {
-        const v = await idbGet('telos_' + k);
-        if (v !== null) return v;
-      } catch(e) {}
-      // 2. localStorage (fallback)
-      try {
-        const v = localStorage.getItem('telos_' + k);
-        if (v) {
-          const parsed = JSON.parse(v);
-          // Migrer vers IndexedDB silencieusement
-          idbSet('telos_' + k, parsed).catch(()=>{});
-          return parsed;
-        }
-      } catch(e) {}
-      // 3. window.storage (Claude artifact)
-      try {
-        if (window.storage) {
-          const r = await window.storage.get('telos_' + k);
-          if (r?.value) return JSON.parse(r.value);
-        }
-      } catch(e) {}
-      return null;
-    },
-
-    async set(k, v) {
-      // Écriture simultanée IndexedDB + localStorage
-      try { await idbSet('telos_' + k, v); } catch(e) {}
-      try { localStorage.setItem('telos_' + k, JSON.stringify(v)); } catch(e) {}
-      try { if (window.storage) await window.storage.set('telos_' + k, JSON.stringify(v)); } catch(e) {}
-    },
-
-    async del(k) {
-      try { await idbDel('telos_' + k); } catch(e) {}
-      try { localStorage.removeItem('telos_' + k); } catch(e) {}
-      try { if (window.storage) await window.storage.delete('telos_' + k); } catch(e) {}
-    },
-
-    async keys() {
-      try { return (await idbKeys()).map(k => k.replace(/^telos_/, '')); } catch(e) {}
-      return [];
-    },
-
-    listLocal() {
-      const keys = [];
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k?.startsWith('telos_')) keys.push(k.slice(6));
-        }
-      } catch(e) {}
-      return keys;
-    }
-  };
-})();
-
-/* Migration automatique localStorage → IndexedDB au premier lancement */
-async function migrateToIndexedDB() {
+function getSB() {
+  if (_sb) return _sb;
   try {
-    const testKey = await DB.get('uex-players');
-    if (testKey !== null) return; // déjà des données IndexedDB
-    // Migrer depuis localStorage
-    let migrated = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith('telos_')) {
-        try {
-          const v = JSON.parse(localStorage.getItem(k));
-          await DB.set(k.slice(6), v);
-          migrated++;
-        } catch(e) {}
-      }
-    }
-    if (migrated > 0) console.log('[TELOS] Migration localStorage → IndexedDB:', migrated, 'clés');
-  } catch(e) {}
+    const { createClient } = window.supabase;
+    _sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch(e) { console.warn('[TELOS] Supabase init failed:', e); }
+  return _sb;
+}
+
+const DB = {
+  async get(k) {
+    try {
+      const sb = getSB(); if (!sb) throw new Error('no client');
+      const { data, error } = await sb.from('telos_store').select('value').eq('key', k).maybeSingle();
+      if (!error && data) { try { localStorage.setItem('telos_'+k, JSON.stringify(data.value)); } catch(e) {} return data.value; }
+    } catch(e) { console.warn('[DB.get]', e.message); }
+    try { const v = localStorage.getItem('telos_'+k); if (v) return JSON.parse(v); } catch(e) {}
+    return null;
+  },
+  async set(k, v) {
+    try {
+      const sb = getSB(); if (!sb) throw new Error('no client');
+      const { error } = await sb.from('telos_store').upsert({ key: k, value: v, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (error) console.warn('[DB.set]', error.message);
+    } catch(e) { console.warn('[DB.set]', e.message); }
+    try { localStorage.setItem('telos_'+k, JSON.stringify(v)); } catch(e) {}
+  },
+  async del(k) {
+    try { const sb = getSB(); if (sb) await sb.from('telos_store').delete().eq('key', k); } catch(e) {}
+    try { localStorage.removeItem('telos_'+k); } catch(e) {}
+  },
+  async keys() {
+    try {
+      const sb = getSB();
+      if (sb) { const { data } = await sb.from('telos_store').select('key'); if (data) return data.map(r => r.key); }
+    } catch(e) {}
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('telos_')) keys.push(k.slice(6)); }
+    return keys;
+  }
+};
+
+async function testSupabaseConnection() {
+  try {
+    const sb = getSB(); if (!sb) throw new Error('Client non initialisé');
+    const { error } = await sb.from('telos_store').select('key').limit(1);
+    if (error) throw new Error(error.message);
+    console.log('[TELOS] ✅ Supabase connecté'); return true;
+  } catch(e) { console.warn('[TELOS] ⚠', e.message); return false; }
+}
+
+async function migrateLocalStorageToSupabase() {
+  const btn = document.getElementById('btn-migrate');
+  const status = document.getElementById('migrate-status');
+  if (btn) { btn.disabled=true; btn.textContent='⏳ Migration...'; }
+  const keys = [];
+  for (let i=0; i<localStorage.length; i++) { const k=localStorage.key(i); if (k?.startsWith('telos_')) keys.push(k.slice(6)); }
+  if (!keys.length) { if(status) status.textContent='⚠ Aucune donnée locale.'; if(btn){btn.disabled=false;btn.textContent='📤 MIGRER';} return; }
+  let done=0;
+  for (const k of keys) {
+    try { const raw=localStorage.getItem('telos_'+k); if(raw) { await DB.set(k, JSON.parse(raw)); done++; } } catch(e) {}
+    if(status) status.textContent = done+' / '+keys.length+' clés...';
+  }
+  if(status) status.textContent='✅ '+done+' clés migrées';
+  if(btn) { btn.disabled=false; btn.textContent='✅ MIGRÉ'; }
+  toast('Migration terminée', done+' clés migrées vers Supabase', 'success');
+}
+
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('open');
+  testSupabaseConnection().then(ok => {
+    const el=document.getElementById('supa-status');
+    if(el) { el.textContent=ok?'✅ Connecté':'⚠ Hors ligne (fallback localStorage)'; el.style.color=ok?'var(--green)':'var(--orange)'; }
+  });
+  const adminSec=document.getElementById('settings-admin-section');
+  if(adminSec) adminSec.style.display=SESSION?.isAdmin?'':'none';
+}
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+async function saveGestCode() {
+  if(!SESSION?.isAdmin) return;
+  const c1=document.getElementById('new-gest-code')?.value.trim();
+  const c2=document.getElementById('confirm-gest-code')?.value.trim();
+  const msg=document.getElementById('gest-code-msg');
+  if(!c1) { if(msg){msg.textContent='Code requis';msg.style.color='var(--red)';} return; }
+  if(c1!==c2) { if(msg){msg.textContent='Codes différents';msg.style.color='var(--red)';} return; }
+  await DB.set('telos-gestionnaire-code-hash', await sha256(c1));
+  if(msg){msg.textContent='✓ Mis à jour';msg.style.color='var(--green)';}
+  toast('Code gestionnaire','Mis à jour.','success');
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -5675,20 +5630,10 @@ async function renderBlueprints() {
         return '<td style="font-size:11px;"><div>'+cls+'</div><div style="color:var(--text-dim);font-size:10px;">'+sz+'</div></td>';
       })()
       +'<td>'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
-      +(()=>{
-        const isOwner = SESSION && (b.owners||[]).includes(SESSION.pid);
-        let td = '<td style="min-width:160px;">';
-        if(SESSION) td += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
-          +'<input type="checkbox" '+(isOwner?'checked':'')+' style="accent-color:var(--orange);cursor:pointer;"'
-          +' onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)">'
-          +(isOwner?'✓ Je possède':'○ Je possède')+'</label>';
-        td += '<div style="display:flex;gap:4px;">';
-        if(SESSION) td += '<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
-        if(canManageRoles()) td += '<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
-        td += '</div></td>';
-        return td;
-      })()
-      +'</tr>';
+      +'<td style="display:flex;gap:4px;">'
+      +'<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>'
+      +'<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>'
+      +'</td></tr>';
   }).join('');
 }
 
@@ -5757,23 +5702,6 @@ function openAddBlueprint(editId) {
 function closeAddBlueprint() {
   document.getElementById('bp-overlay').classList.remove('open');
   _editBpId = null;
-}
-
-
-async function toggleBpOwner(bpId, checked) {
-  if (!SESSION) return;
-  const bp = BLUEPRINTS.find(x => x.id === bpId);
-  if (!bp) return;
-  if (!bp.owners) bp.owners = [];
-  if (checked) {
-    if (!bp.owners.includes(SESSION.pid)) bp.owners.push(SESSION.pid);
-  } else {
-    bp.owners = bp.owners.filter(id => id !== SESSION.pid);
-  }
-  await saveBlueprints();
-  renderBlueprints();
-  toast(checked ? 'Blueprint ajouté' : 'Blueprint retiré',
-        checked ? 'Vous possédez : ' + bp.name : bp.name + ' retiré de votre collection', 'success');
 }
 
 function editBlueprint(id) { openAddBlueprint(id); }
@@ -7154,7 +7082,7 @@ async function resetAll() {
 
 
 async function init(){
-  await migrateToIndexedDB();
+  await testSupabaseConnection();
   // Clock
   tick(); setInterval(tick,1000);
   // Static renders
@@ -7513,6 +7441,39 @@ window.addEventListener('resize', () => {
       <button class="btn" onclick="closeAddBlueprint()">Annuler</button>
       <button class="btn success" onclick="saveBlueprint()" style="letter-spacing:1px;">📐 ENREGISTRER</button>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════ SETTINGS OVERLAY ══════════════ -->
+<div class="overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-head">
+      <span class="modal-title">⚙ PARAMÈTRES — TELOS CORPORATION</span>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:14px;">
+      <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
+        <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">◈ Base de données Supabase</div>
+        <div style="font-size:11px;color:var(--text-dim);">ykdamleudeatahrxicgk.supabase.co</div>
+        <div id="supa-status" style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">Vérification...</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);">
+        <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;margin-bottom:6px;">📤 Migration données locales → Supabase</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.6;">Transférez vos données existantes vers la base de données cloud.</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button id="btn-migrate" onclick="migrateLocalStorageToSupabase()" style="padding:6px 16px;border:1px solid var(--orange);background:rgba(247,140,30,0.08);color:var(--orange);font-family:var(--ui);font-size:11px;letter-spacing:1px;cursor:pointer;">📤 MIGRER MES DONNÉES</button>
+          <span id="migrate-status" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);"></span>
+        </div>
+      </div>
+      <div id="settings-admin-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--red);">
+        <div style="font-size:9px;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;margin-bottom:8px;">⬡ ADMIN — Code Gestionnaire</div>
+        <div class="form-field"><label class="form-lbl">Nouveau code</label><input class="form-input" type="password" id="new-gest-code" placeholder="Nouveau code..." maxlength="40"></div>
+        <div class="form-field"><label class="form-lbl">Confirmer</label><input class="form-input" type="password" id="confirm-gest-code" placeholder="Confirmer..." maxlength="40"></div>
+        <button onclick="saveGestCode()" style="margin-top:6px;padding:5px 14px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;letter-spacing:1px;">⬡ ENREGISTRER</button>
+        <span id="gest-code-msg" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeSettings()">Fermer</button></div>
   </div>
 </div>
 </body>
