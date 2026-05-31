@@ -2278,7 +2278,12 @@ function setSession(player) {
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
   updateNavRessources();
+  const plSbOut = document.getElementById('pl-sidebar');
+  if (plSbOut) plSbOut.style.display = 'none';
   renderObjectifs();
+  // Masquer la sidebar joueurs — l'onglet Stock est personnel
+  const plSb = document.getElementById('pl-sidebar');
+  if (plSb) plSb.style.display = 'none';
   toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
   refreshStockPanel();
 }
@@ -5365,13 +5370,6 @@ async function renderBlueprints() {
 
   const countEl = document.getElementById('bp-count');
   if (countEl) countEl.textContent = data.length + ' blueprint'+(data.length>1?'s':'');
-  // Badge = blueprints possédés par le joueur connecté
-  const badgeBp = document.getElementById('badge-blueprints');
-  if (badgeBp) {
-    const myBps = SESSION ? ((window._playerBpCache&&window._playerBpCache[SESSION.pid])||[]) : [];
-    badgeBp.textContent = myBps.length;
-    badgeBp.style.display = myBps.length > 0 ? '' : 'none';
-  }
 
   if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">Aucun blueprint — cliquez sur + AJOUTER</td></tr>';
@@ -5401,18 +5399,18 @@ async function renderBlueprints() {
         return '<td style="font-size:11px;"><div>'+cls+'</div><div style="color:var(--text-dim);font-size:10px;">'+sz+'</div></td>';
       })()
       +'<td>'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
-      +'<td style="display:flex;gap:4px;">'
-      +'<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>'
-      +'<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>'
-      +'</td></tr>';
+      +(()=>{
+        const myBps=(window._playerBpCache&&window._playerBpCache[SESSION?.pid])||[];
+        const isOwner=myBps.includes(b.id);
+        let td='<td style="min-width:150px;">';
+        if(SESSION) td+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:5px;"><input type="checkbox" '+(isOwner?'checked':'')+' style="width:14px;height:14px;accent-color:var(--orange);cursor:pointer;" onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)"><span>'+(isOwner?'✓ Je possède':'○ Je possède')+'</span></label>';
+        if(canManageRoles()) td+='<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:3px 10px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✕ Supprimer</button>';
+        td+='</td>';
+        return td;
+      })()
+      +'</tr>';
   }).join('');
 }
-
-function addBpIngredient(name, qty) {
-  _bpIngredients.push({ id: Date.now(), name: name||'', qty: qty||1, unit: 'SCU' });
-  refreshBpIngredients();
-}
-
 function removeBpIngredient(id) {
   _bpIngredients = _bpIngredients.filter(i=>i.id!==id);
   refreshBpIngredients();
@@ -5677,7 +5675,14 @@ function goPanel(id, el) {
   if (p) p.classList.add('active');
   if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); resizeCanvas(c); }, 60); }
   if (id==='joueurs')  { (async()=>renderGlobal())(); updateGlobalFilter(); }
-  if (id==='stocks')   { renderStocksFromPlayers(); }
+  if (id==='stocks')   {
+    renderStocksFromPlayers();
+    // Auto-sélectionner le joueur connecté
+    if (SESSION) {
+      const me = players.find(p => p.id === SESSION.pid);
+      if (me) { selectedPid = me.id; renderStockTable((async()=>{ return (await DB.get('uex-stocks-'+me.id))||[]; })()); selectPlayer(me.id); }
+    }
+  }
   if (id==='partners') { renderPartners(); }
   if (id==='missions') { renderMissions(); }
   if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
