@@ -574,7 +574,7 @@ a { color: inherit; text-decoration: none; }
 /* ═══════════════════════════════════════════════════════
    PANEL: JOUEURS  ← NOUVEAU
 ═══════════════════════════════════════════════════════ */
-/* #panel-joueurs flex-direction gérée par .active */
+/* flex-direction géré par .active */
 
 /* Left sidebar: player list */
 .pl-sidebar {
@@ -4928,6 +4928,16 @@ function openAddCommande(editId) {
       + players.map(p=>'<option value="'+p.id+'"'+(c?.assigned===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('');
   }
 
+  // Populate blueprint select
+  const bpSel = document.getElementById('cmd-blueprint');
+  if (bpSel) {
+    bpSel.innerHTML = '<option value="">— Aucun blueprint —</option>'
+      + (BLUEPRINTS||[]).map(b=>`<option value="${b.id}"${c?.bpId===b.id?' selected':''}>${esc(b.name)}${b.ingredients?.length?' ('+b.ingredients.length+' ingrédients)':''}</option>`).join('');
+    // Afficher le preview si blueprint déjà sélectionné
+    if (c?.bpId) { setTimeout(onCmdBlueprintChange, 50); }
+    else { const prev=document.getElementById('cmd-bp-preview'); if(prev) prev.style.display='none'; }
+  }
+
   setCmdType(c?.type||'interne');
   const set = (id,v)=>{ const e=document.getElementById(id); if(e)e.value=v; };
   set('cmd-title',    c?.title    ||'');
@@ -4943,6 +4953,40 @@ function openAddCommande(editId) {
   if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
   document.getElementById('cmd-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('cmd-title')?.focus(),80);
+}
+
+function onCmdBlueprintChange() {
+  const bpSel = document.getElementById('cmd-blueprint');
+  const prev  = document.getElementById('cmd-bp-preview');
+  if (!bpSel || !prev) return;
+  const bpId = bpSel.value;
+  if (!bpId) { prev.style.display='none'; return; }
+  const bp = (BLUEPRINTS||[]).find(x=>x.id===bpId);
+  if (!bp) { prev.style.display='none'; return; }
+
+  // Remplir les champs automatiquement
+  const titleEl = document.getElementById('cmd-title');
+  if (titleEl && !titleEl.value.trim()) titleEl.value = 'Craft : ' + bp.name;
+
+  if (bp.ingredients?.length) {
+    // Première ressource dans le champ ressource, liste complète dans notes
+    const firstIng = bp.ingredients[0];
+    const resEl = document.getElementById('cmd-resource');
+    const qtyEl = document.getElementById('cmd-qty');
+    if (resEl && !resEl.value.trim()) resEl.value = firstIng.name;
+    if (qtyEl && !qtyEl.value) qtyEl.value = firstIng.qty||'';
+
+    // Preview de tous les ingrédients
+    prev.style.display = 'block';
+    prev.innerHTML = '<div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">📐 Ingrédients requis</div>'
+      + bp.ingredients.map(i=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(96,165,250,0.08);">
+          <span style="color:var(--text-bright);">◈ ${esc(i.name)}</span>
+          <span style="font-family:var(--mono);color:var(--orange);">× ${i.qty}</span>
+        </div>`).join('');
+  } else {
+    prev.style.display = 'block';
+    prev.innerHTML = '<span style="color:var(--text-dim);font-size:10px;">Aucun ingrédient défini pour ce blueprint.</span>';
+  }
 }
 
 function closeAddCommande() {
@@ -4962,6 +5006,7 @@ async function saveCommande() {
     title,
     client:   document.getElementById('cmd-client')?.value.trim()||'',
     assigned: document.getElementById('cmd-assigned')?.value||'',
+    bpId:     document.getElementById('cmd-blueprint')?.value||'',
     resource: document.getElementById('cmd-resource')?.value.trim()||'',
     qty:      parseFloat(document.getElementById('cmd-qty')?.value)||0,
     price:    parseFloat(document.getElementById('cmd-price')?.value)||0,
@@ -7152,6 +7197,16 @@ window.addEventListener('resize', () => {
           <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;">
             <option value="">— Non assigné —</option>
           </select>
+        </div>
+
+        <!-- Blueprint lié -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">📐 Blueprint lié <span style="color:var(--text-dim);font-size:10px;">optionnel — remplit les ressources automatiquement</span></label>
+          <select class="form-input" id="cmd-blueprint" style="height:auto;padding:9px 11px;" onchange="onCmdBlueprintChange()">
+            <option value="">— Aucun blueprint —</option>
+          </select>
+          <!-- Preview ingrédients -->
+          <div id="cmd-bp-preview" style="display:none;margin-top:6px;padding:8px 10px;background:var(--bg);border:1px solid rgba(96,165,250,0.3);border-left:3px solid #60a5fa;font-size:11px;color:var(--text-dim);line-height:1.8;"></div>
         </div>
 
         <!-- Ressource -->
