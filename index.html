@@ -4677,7 +4677,7 @@ async function renderRessources() {
     const key = r.name.toLowerCase().trim();
     const st = stockStats[key]||{qty:0,partners:new Set()};
     const margin = r.buyRef>0&&r.sellRef>0 ? ((r.sellRef-r.buyRef)/r.buyRef*100).toFixed(1) : null;
-    return '<tr>'
+    return '<tr data-bp-id="'+b.id+'" style="cursor:default;">'
       +'<td style="font-weight:700;color:var(--text-bright);">◈ '+esc(r.name)+(r.fromUEX?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">UEX</span>':'')+(r.desc?'<div style="font-size:10px;color:var(--text-dim);">'+esc(r.desc)+'</div>':'')+'</td>'
       +'<td><span style="font-size:11px;padding:2px 7px;border:1px solid var(--border);color:var(--text-dim);">'+(CAT_LABELS[r.cat]||r.cat)+'</span></td>'
       +'<td>'+qBadge(r.quality)+'</td>'
@@ -5674,14 +5674,14 @@ async function renderBlueprints() {
         const sz  = b.level ? 'Taille '+b.level : '—';
         return '<td style="font-size:11px;"><div>'+cls+'</div><div style="color:var(--text-dim);font-size:10px;">'+sz+'</div></td>';
       })()
-      +'<td>'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
+      +'<td class="bp-owners-td">'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
       +(()=>{
         const isOwner = SESSION && (b.owners||[]).includes(SESSION.pid);
         let td = '<td style="min-width:160px;">';
-        if(SESSION) td += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
+        if(SESSION) td += '<label class="bp-own-label" style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
           +'<input type="checkbox" '+(isOwner?'checked':'')+' style="accent-color:var(--orange);cursor:pointer;"'
           +' onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)">'
-          +(isOwner?'✓ Je possède':'○ Je possède')+'</label>';
+          +'<span>'+(isOwner?'✓ Je possède':'○ Je possède')+'</span></label>';
         td += '<div style="display:flex;gap:4px;">';
         if(SESSION) td += '<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
         if(canManageRoles()) td += '<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
@@ -5765,15 +5765,39 @@ async function toggleBpOwner(bpId, checked) {
   const bp = BLUEPRINTS.find(x => x.id === bpId);
   if (!bp) return;
   if (!bp.owners) bp.owners = [];
+
   if (checked) {
     if (!bp.owners.includes(SESSION.pid)) bp.owners.push(SESSION.pid);
   } else {
     bp.owners = bp.owners.filter(id => id !== SESSION.pid);
   }
+
+  // Sauvegarde dans IndexedDB
   await saveBlueprints();
-  renderBlueprints();
-  toast(checked ? 'Blueprint ajouté' : 'Blueprint retiré',
-        checked ? 'Vous possédez : ' + bp.name : bp.name + ' retiré de votre collection', 'success');
+
+  // Mettre à jour l'affichage des propriétaires dans la ligne sans re-render
+  const row = document.querySelector('[data-bp-id="'+bpId+'"]');
+  if (row) {
+    // Mettre à jour le label checkbox
+    const lbl = row.querySelector('.bp-own-label');
+    if (lbl) {
+      lbl.style.color = checked ? 'var(--green)' : 'var(--text-dim)';
+      lbl.querySelector('span')?.replaceWith(Object.assign(document.createElement('span'), { textContent: checked ? '✓ Je possède' : '○ Je possède' }));
+    }
+    // Mettre à jour la colonne propriétaires
+    const ownersTd = row.querySelector('.bp-owners-td');
+    if (ownersTd) {
+      const names = (bp.owners||[]).map(oid => {
+        const p = players.find(x=>x.id===oid);
+        return p ? '<span style="font-size:10px;color:var(--blue);">'+esc(p.name)+'</span>' : '';
+      }).filter(Boolean).join(', ');
+      ownersTd.innerHTML = names || '<span style="color:var(--text-dim);">—</span>';
+    }
+  }
+
+  toast(checked ? '✓ Blueprint ajouté' : 'Blueprint retiré',
+        checked ? bp.name : bp.name + ' retiré de votre collection',
+        checked ? 'success' : 'info');
 }
 
 function editBlueprint(id) { openAddBlueprint(id); }
@@ -5935,7 +5959,7 @@ async function syncBlueprintsFromWiki() {
           level:       size,
           notes:       bp.craft_time_label ? 'Temps de craft : ' + bp.craft_time_label : '',
           ingredients,
-          owners:      [],
+          owners:      [], // les owners sont définis par les joueurs, jamais écrasés par la sync
           craftTime,
           wikiUuid:    bp.uuid,
           fromWiki:    true,
