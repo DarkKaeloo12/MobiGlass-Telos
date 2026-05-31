@@ -5794,6 +5794,7 @@ async function selectPlayer(id){
   document.getElementById('pl-placeholder').style.display='none';
   const content=document.getElementById('pl-content');
   content.style.display='flex';
+  content.style.flexDirection='column';
   // Hero
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
   const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
