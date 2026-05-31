@@ -1149,6 +1149,11 @@ body::before {
 .cmd-status-en_cours  { color:var(--orange); border-color:var(--orange); background:rgba(247,140,30,0.07); }
 .cmd-status-livree    { color:var(--green);  border-color:var(--green);  background:rgba(0,255,163,0.07); }
 .cmd-status-annulee   { color:var(--red);    border-color:var(--red);    background:rgba(255,68,68,0.07); }
+
+@keyframes pulse-orange {
+  0%,100% { border-color:rgba(247,140,30,0.5); box-shadow:none; }
+  50%      { border-color:var(--orange); box-shadow:0 0 10px rgba(247,140,30,0.4); }
+}
 </style>
 
 
@@ -1181,7 +1186,12 @@ body::before {
   <div id="toasts" style="flex:1;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:visible;position:relative;"></div>
 
   <div class="tb-right">
-
+    <button id="btn-save-file" onclick="saveFullFile()"
+      style="padding:4px 12px;border:1px solid rgba(247,140,30,0.5);background:rgba(247,140,30,0.08);
+             color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;
+             white-space:nowrap;transition:all 0.2s;" title="Sauvegarder le fichier avec toutes les données">
+      💾 SAUVEGARDER
+    </button>
     <div class="tb-clock">
       <div class="time" id="clock">--:--:--</div>
       <div class="date" id="dateline">-- / -- / 2956</div>
@@ -2467,13 +2477,103 @@ async function doLogin() {
    PERSISTANCE — Triple couche : localStorage + window.storage + export JSON
    Clé préfixée 'telos_' pour isoler les données TELOS
 ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   PERSISTANCE TOTALE — Données embarquées dans le fichier HTML
+   Les données sont injectées dans le HTML au moment de la sauvegarde
+   Téléchargez le fichier pour une sauvegarde complète et portable
+════════════════════════════════════════════════════════════ */
+
+// Données embarquées (injectées lors de la dernière sauvegarde)
+const EMBEDDED_DATA = {};
 
 /* ── Chargement depuis données embarquées + localStorage ── */
+async function loadAllData() {
+  // Si des données embarquées existent (fichier sauvegardé), les charger en priorité
+  if (EMBEDDED_DATA && Object.keys(EMBEDDED_DATA).length > 0) {
+    // Ne charger les données embarquées que si localStorage est vide (premier lancement)
+    const lsPlayers = localStorage.getItem('telos_uex-players');
+    if (!lsPlayers || JSON.parse(lsPlayers).length === 0) {
+      // Restaurer toutes les données embarquées dans localStorage
+      Object.entries(EMBEDDED_DATA).forEach(([key, value]) => {
+        try { localStorage.setItem('telos_' + key, JSON.stringify(value)); } catch(e) {}
+      });
+      console.log('[TELOS] Données embarquées restaurées:', Object.keys(EMBEDDED_DATA).length, 'clés');
+    }
+  }
+}
 
 /* ── Export HTML avec données intégrées ── */
+async function saveFullFile() {
+  const btn = document.getElementById('btn-save-file');
+  if (btn) { btn.textContent = '⏳ Génération...'; btn.disabled = true; }
+
+  try {
+    // Collecter toutes les données TELOS depuis localStorage
+    const data = {};
+    const keys = ['uex-players', 'telos-missions', 'telos-objectifs', 'telos-commandes',
+                  'telos-blueprints', 'telos-ressource-catalogue', 'telos-last-uex-sync',
+                  'telos-gestionnaire-code-hash'];
+
+    for (const k of keys) {
+      const v = localStorage.getItem('telos_' + k);
+      if (v) {
+        try { data[k] = JSON.parse(v); } catch(e) {}
+      }
+    }
+    // Stocks de chaque joueur
+    const playersList = data['uex-players'] || [];
+    for (const p of playersList) {
+      const sk = 'uex-stocks-' + p.id;
+      const sv = localStorage.getItem('telos_' + sk);
+      if (sv) { try { data[sk] = JSON.parse(sv); } catch(e) {} }
+    }
+
+    // Lire le fichier HTML actuel
+    const resp = await fetch(window.location.href);
+    let html = await resp.text();
+
+    // Injecter les données dans le fichier
+    const dataJson = JSON.stringify(data);
+    html = html.replace(
+      /const EMBEDDED_DATA = (?:__EMBEDDED_DATA__|\{[\s\S]*?\});/,
+      'const EMBEDDED_DATA = ' + dataJson + ';'
+    );
+
+    // Télécharger le fichier enrichi
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+    a.href = url;
+    a.download = 'TELOS_' + date + '.html';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast('Fichier sauvegardé', 'Ouvrez le fichier téléchargé pour retrouver toutes vos données.', 'success');
+    pushLog('system', 'SYSTEM', 'Sauvegarde fichier HTML : ' + Object.keys(data).length + ' clés exportées');
+
+  } catch(err) {
+    toast('Erreur sauvegarde', err.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '💾 SAUVEGARDER'; btn.disabled = false; }
+  }
+}
 
 /* ── Auto-sauvegarde toutes les 5 minutes ── */
 let _autoSaveTimer = null;
+function startFileSaveReminder() {
+  // Rappel visuel toutes les 5 min si des données non sauvegardées existent
+  _autoSaveTimer = setInterval(() => {
+    const players = JSON.parse(localStorage.getItem('telos_uex-players') || '[]');
+    if (players.length > 0) {
+      const btn = document.getElementById('btn-save-file');
+      if (btn) {
+        btn.style.animation = 'pulse-orange 1s ease-in-out 3';
+        setTimeout(() => { if(btn) btn.style.animation = ''; }, 3000);
+      }
+    }
+  }, 5 * 60 * 1000);
+}
 
 /* ════════════════════════════════════════════════════════════
    PERSISTANCE — IndexedDB (permanent) + localStorage (fallback)
@@ -4577,7 +4677,7 @@ async function renderRessources() {
     const key = r.name.toLowerCase().trim();
     const st = stockStats[key]||{qty:0,partners:new Set()};
     const margin = r.buyRef>0&&r.sellRef>0 ? ((r.sellRef-r.buyRef)/r.buyRef*100).toFixed(1) : null;
-    return '<tr data-bp-id="'+b.id+'" style="cursor:default;">'
+    return '<tr>'
       +'<td style="font-weight:700;color:var(--text-bright);">◈ '+esc(r.name)+(r.fromUEX?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">UEX</span>':'')+(r.desc?'<div style="font-size:10px;color:var(--text-dim);">'+esc(r.desc)+'</div>':'')+'</td>'
       +'<td><span style="font-size:11px;padding:2px 7px;border:1px solid var(--border);color:var(--text-dim);">'+(CAT_LABELS[r.cat]||r.cat)+'</span></td>'
       +'<td>'+qBadge(r.quality)+'</td>'
@@ -5548,104 +5648,132 @@ async function renderBlueprints() {
   if (countEl) countEl.textContent = data.length + ' blueprint'+(data.length>1?'s':'');
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">Aucun blueprint — cliquez sur ↻ SYNC WIKI ou + AJOUTER</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">Aucun blueprint — cliquez sur + AJOUTER</td></tr>';
     return;
   }
 
-  // Charger les bps possédés par le joueur connecté depuis sa clé perso
-  const myBps = (await DB.get('player-blueprints-' + SESSION.pid)) || [];
-
   tbody.innerHTML = data.map(b => {
-    const isOwner = myBps.includes(b.id);
-
-    // Ingrédients
     const ingredients = (b.ingredients||[]).map(i=>
       '<span style="font-size:10px;padding:1px 6px;border:1px solid var(--border);margin:1px;display:inline-block;">'
-      +esc(i.name)+' ×'+(i.qty||1)+(i.unit&&i.unit!=='SCU'?' '+i.unit:' SCU')+'</span>'
+      +esc(i.name)+' x'+i.qty+'</span>'
     ).join('');
 
-    // Propriétaires — avatar + nom
-    const ownersList = (b.owners||[]).map(oid => {
+    const owners = (b.owners||[]).map(oid => {
       const p = players.find(x=>x.id===oid);
-      if (!p) return '';
-      return '<span style="display:inline-flex;align-items:center;gap:3px;margin:1px 3px 1px 0;">'
-        + avHtml(p, 18)
-        + '<span style="font-size:10px;color:var(--blue);">'+esc(p.name)+'</span>'
-        + '</span>';
-    }).filter(Boolean).join('');
+      return p ? '<span style="font-size:10px;color:var(--blue);">'+esc(p.name)+'</span>' : '';
+    }).filter(Boolean).join(', ');
 
-    // Classe
-    const clsLabel = {civil:'🏙 Civil',industriel:'⚙ Industriel',militaire:'⚔ Militaire',furtif:'👁 Furtif',competition:'🏆 Compétition'};
-
-    return '<tr data-bp-id="'+b.id+'">'
-      +'<td style="font-weight:700;color:var(--text-bright);">📐 '+esc(b.name)
-        +(b.fromWiki?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">WIKI</span>':'')
-        +'</td>'
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--text-bright);">📐 '+esc(b.name)+(b.fromWiki?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">WIKI</span>':'')+'</td>'
       +'<td><span style="font-size:11px;padding:2px 7px;border:1px solid var(--border);color:var(--text-dim);">'+(BP_CAT_LABELS[b.cat]||b.cat)+'</span></td>'
       +'<td style="max-width:220px;">'+(ingredients||'<span style="color:var(--text-dim);">—</span>')+'</td>'
+
       +(()=>{
-        const cls = b.bpClass ? '<div>'+clsLabel[b.bpClass]+'</div>' : '';
-        const sz  = b.level   ? '<div style="color:var(--text-dim);font-size:10px;">Taille '+b.level+'</div>' : '';
-        return '<td style="font-size:11px;">'+(cls||sz ? cls+sz : '—')+'</td>';
+        const clsLabel = {civil:'🏙 Civil',industriel:'⚙ Industriel',militaire:'⚔ Militaire',furtif:'👁 Furtif',competition:'🏆 Compétition'};
+        const cls = b.bpClass ? '<span style="font-size:10px;color:var(--text-dim);">'+clsLabel[b.bpClass]+'</span>' : '—';
+        const sz  = b.level ? 'Taille '+b.level : '—';
+        return '<td style="font-size:11px;"><div>'+cls+'</div><div style="color:var(--text-dim);font-size:10px;">'+sz+'</div></td>';
       })()
-      +'<td class="bp-owners-td">'+(ownersList||'<span style="color:var(--text-dim);">—</span>')+'</td>'
-      +'<td style="min-width:160px;">'
-        +'<label class="bp-own-label" data-bp-id="'+b.id+'" style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
-          +'<input type="checkbox" '+(isOwner?'checked':'')+' style="accent-color:var(--orange);cursor:pointer;" onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)">'
-          +'<span>'+(isOwner?'✓ Je possède':'○ Je possède')+'</span>'
-        +'</label>'
-        +'<div style="display:flex;gap:4px;">'
-          +(SESSION?'<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>':'')
-          +(canManageRoles()?'<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>':'')
-        +'</div>'
-      +'</td>'
+      +'<td>'+(owners||'<span style="color:var(--text-dim);">—</span>')+'</td>'
+      +(()=>{
+        const isOwner = SESSION && (b.owners||[]).includes(SESSION.pid);
+        let td = '<td style="min-width:160px;">';
+        if(SESSION) td += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:'+(isOwner?'var(--green)':'var(--text-dim)')+';margin-bottom:4px;">'
+          +'<input type="checkbox" '+(isOwner?'checked':'')+' style="accent-color:var(--orange);cursor:pointer;"'
+          +' onchange="toggleBpOwner('+JSON.stringify(b.id)+',this.checked)">'
+          +(isOwner?'✓ Je possède':'○ Je possède')+'</label>';
+        td += '<div style="display:flex;gap:4px;">';
+        if(SESSION) td += '<button onclick="editBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
+        if(canManageRoles()) td += '<button onclick="deleteBlueprint('+JSON.stringify(b.id)+')" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
+        td += '</div></td>';
+        return td;
+      })()
       +'</tr>';
   }).join('');
 }
 
+function addBpIngredient(name, qty) {
+  _bpIngredients.push({ id: Date.now(), name: name||'', qty: qty||1, unit: 'SCU' });
+  refreshBpIngredients();
+}
 
-async function toggleBpOwner(bpId, checked) {
-  if (!SESSION) { toast('Connexion requise','','error'); return; }
-  const pid = SESSION.pid;
+function removeBpIngredient(id) {
+  _bpIngredients = _bpIngredients.filter(i=>i.id!==id);
+  refreshBpIngredients();
+}
 
-  // 1. Charger + mettre à jour la liste perso
-  let myBps = (await DB.get('player-blueprints-' + pid)) || [];
-  if (checked) { if (!myBps.includes(bpId)) myBps.push(bpId); }
-  else          { myBps = myBps.filter(id => id !== bpId); }
-  await DB.set('player-blueprints-' + pid, myBps);
+function refreshBpIngredients() {
+  const el = document.getElementById('bp-ingredients-list');
+  if (!el) return;
+  el.innerHTML = _bpIngredients.map(i =>
+    '<div style="display:flex;gap:6px;align-items:center;">'
+    +'<input type="text" value="'+esc(i.name)+'" placeholder="Ressource..." list="ps-datalist"'
+    +' style="flex:1;padding:6px 9px;background:var(--bg3);border:1px solid var(--border);color:var(--text-bright);font-family:var(--mono);font-size:11px;"'
+    +' onchange="_bpIngredients.find(x=>x.id==='+i.id+').name=this.value">'
+    +'<input type="number" value="'+i.qty+'" min="1" placeholder="Qté"'
+    +' style="width:70px;padding:6px 9px;background:var(--bg3);border:1px solid var(--border);color:var(--orange);font-family:var(--mono);font-size:11px;text-align:center;"'
+    +' onchange="_bpIngredients.find(x=>x.id==='+i.id+').qty=Math.max(1,parseFloat(this.value)||1)">'
+    +'<select style="padding:5px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:var(--ui);font-size:10px;cursor:pointer;" onchange="_bpIngredients.find(x=>x.id==='+i.id+').unit=this.value">'
+    +'<option value="SCU"'+(i.unit==='SCU'||!i.unit?' selected':'')+'>SCU</option>'
+    +'<option value="unité"'+(i.unit==='unité'?' selected':'')+'>Unité</option>'
+    +'</select>'
+    +'<button onclick="removeBpIngredient('+i.id+')" style="padding:4px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:11px;">✕</button>'
+    +'</div>'
+  ).join('');
+}
 
-  // 2. Mettre à jour owners dans BLUEPRINTS global
-  const bp = BLUEPRINTS.find(x => x.id === bpId);
-  if (bp) {
-    if (!bp.owners) bp.owners = [];
-    if (checked)  { if (!bp.owners.includes(pid)) bp.owners.push(pid); }
-    else           { bp.owners = bp.owners.filter(id => id !== pid); }
-    await saveBlueprints();
-  }
+function refreshBpOwners(currentOwners) {
+  const el = document.getElementById('bp-owners-list');
+  if (!el) return;
+  el.innerHTML = players.map(p =>
+    '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text-dim);">'
+    +'<input type="checkbox" value="'+p.id+'"'+(currentOwners?.includes(p.id)?' checked':'')
+    +' style="accent-color:var(--orange);">'+esc(p.name)+'</label>'
+  ).join('');
+}
 
-  // 3. Re-render pour tout le monde (simple et fiable)
-  await renderBlueprints();
-  toast(checked ? '✓ Blueprint sauvegardé sur votre profil' : 'Blueprint retiré',
-        bp?.name || '', checked ? 'success' : 'info');
+function openAddBlueprint(editId) {
+  editId = editId||null;
+  _editBpId = editId;
+  const b = editId ? BLUEPRINTS.find(x=>x.id===editId) : null;
+  _bpIngredients = (b?.ingredients||[]).map(i=>({...i, id:Date.now()+Math.random()}));
+
+  const set = (id,v)=>{ const e=document.getElementById(id); if(e)e.value=v; };
+  set('bp-name',       b?.name||'');
+  set('bp-cat',        b?.cat||'vaisseau');
+  set('bp-class',      b?.bpClass||'');
+  set('bp-level',      b?.level||'');
+  set('bp-notes',      b?.notes||'');
+
+  refreshBpIngredients();
+  refreshBpOwners(b?.owners||[]);
+
+  const title = document.getElementById('bp-modal-title');
+  if (title) title.textContent = editId ? '✏ MODIFIER LE BLUEPRINT' : '📐 AJOUTER UN BLUEPRINT';
+  document.getElementById('bp-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('bp-name')?.focus(),80);
+}
+
+function closeAddBlueprint() {
+  document.getElementById('bp-overlay').classList.remove('open');
+  _editBpId = null;
 }
 
 
-/* Charger les blueprints possédés par le joueur connecté */
-async function loadPlayerOwnedBlueprints() {
+async function toggleBpOwner(bpId, checked) {
   if (!SESSION) return;
-  const pid    = SESSION.pid;
-  const myBps  = (await DB.get('player-blueprints-' + pid)) || [];
-
-  // Synchroniser avec le champ owners de chaque blueprint
-  let changed = false;
-  BLUEPRINTS.forEach(bp => {
-    if (!bp.owners) bp.owners = [];
-    const owned = myBps.includes(bp.id);
-    const inOwners = bp.owners.includes(pid);
-    if (owned && !inOwners)  { bp.owners.push(pid); changed = true; }
-    if (!owned && inOwners)  { bp.owners = bp.owners.filter(id => id !== pid); changed = true; }
-  });
-  if (changed) await saveBlueprints();
+  const bp = BLUEPRINTS.find(x => x.id === bpId);
+  if (!bp) return;
+  if (!bp.owners) bp.owners = [];
+  if (checked) {
+    if (!bp.owners.includes(SESSION.pid)) bp.owners.push(SESSION.pid);
+  } else {
+    bp.owners = bp.owners.filter(id => id !== SESSION.pid);
+  }
+  await saveBlueprints();
+  renderBlueprints();
+  toast(checked ? 'Blueprint ajouté' : 'Blueprint retiré',
+        checked ? 'Vous possédez : ' + bp.name : bp.name + ' retiré de votre collection', 'success');
 }
 
 function editBlueprint(id) { openAddBlueprint(id); }
@@ -5807,7 +5935,7 @@ async function syncBlueprintsFromWiki() {
           level:       size,
           notes:       bp.craft_time_label ? 'Temps de craft : ' + bp.craft_time_label : '',
           ingredients,
-          owners:      [], // les owners sont définis par les joueurs, jamais écrasés par la sync
+          owners:      [],
           craftTime,
           wikiUuid:    bp.uuid,
           fromWiki:    true,
@@ -5856,7 +5984,7 @@ function goPanel(id, el) {
   if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
-  if (id==='blueprints') { loadPlayerOwnedBlueprints().then(renderBlueprints); }
+  if (id==='blueprints') { renderBlueprints(); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -7063,6 +7191,7 @@ async function init(){
   renderAuthBar();
   // Boot toasts
   startAutoSave();
+  startFileSaveReminder();
     setTimeout(()=>toast('UEE NETWORK ONLINE','Synchronisation sécurisée établie.','success'),600);
   setTimeout(()=>toast('⚠ 3 alertes actives','Consultez le panneau Alertes.','warn'),1800);
 }
@@ -7104,6 +7233,7 @@ window.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(loop);
 
   // Welcome toast
+  startFileSaveReminder();
     setTimeout(()=>toast('UEE NETWORK ONLINE', 'Synchronisation sécurisée établie.', 'success'), 800);
   setTimeout(()=>toast('⚠ 3 alertes actives', 'Consultez le panneau Alertes.', 'warn'), 2200);
 });
