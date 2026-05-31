@@ -7025,7 +7025,19 @@ async function resetAll() {
 
 
 async function init(){
-  await testSupabaseConnection();
+  // Attendre que le SDK Supabase soit chargé
+  let sbReady = false;
+  for (let i = 0; i < 20; i++) {
+    if (window.supabase?.createClient) { sbReady = true; break; }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  if (!sbReady) console.warn('[TELOS] Supabase SDK non chargé');
+
+  const sbOk = await testSupabaseConnection();
+  if (!sbOk) {
+    toast('⚠ Mode hors-ligne', 'Supabase inaccessible — données locales uniquement', 'warn');
+  }
+
   // Clock
   tick(); setInterval(tick,1000);
   // Static renders
@@ -7036,12 +7048,17 @@ async function init(){
   await loadObjectifs();
   await loadCommandes();
   await loadBlueprints();
-  await refreshDatalist(); // Pré-remplir la datalist au démarrage
+  await refreshDatalist();
   drawChart(7);
   // Live prices
   setInterval(fluctuate,8500);
   // Load players from persistent storage
   players=(await DB.get('uex-players'))||[];
+  // Si Supabase OK mais players vide, attendre un peu et réessayer (latence réseau)
+  if (sbOk && players.length === 0) {
+    await new Promise(r => setTimeout(r, 500));
+    players = (await DB.get('uex-players')) || [];
+  }
   renderPlayerList();
   updateBadges();
   updateGlobalFilter();
@@ -7068,43 +7085,8 @@ async function init(){
 
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Log de démarrage
-  const _n = new Date();
-  const _ts = `${pad(_n.getHours())}:${pad(_n.getMinutes())}:${pad(_n.getSeconds())}`;
-  FULL_LOGS_DATA.push({ ts:_ts, type:'system', tl:'SYSTEM', msg:'Système TELOS opérationnel — tous les services actifs' });
-  FULL_LOGS_DATA.push({ ts:_ts, type:'system', tl:'SYSTEM', msg:'Connexion au réseau UEE établie' });
-  renderTopRes();
-  renderPrices();
-  renderActivity();
-  renderSysLogs();
-  renderStocksFromPlayers();
-  renderCommerce();
-  renderPartners();
-  renderMissions();
-  renderFullLogs();
-  drawChart(7);
-  tick();
-
-  // Init hub canvas after layout
-  setTimeout(() => {
-    const c = document.getElementById('stanton-canvas');
-    resizeCanvas(c);
-    initMap(c);
-  }, 80);
-
-  // Timers
-  setInterval(tick, 1000);
-  setInterval(fluctuate, 8000);
-  setInterval(()=>{ resizeCanvas(document.getElementById('stanton-canvas')); }, 2000);
-  // Rafraîchir les "il y a X min" du feed d'activité
-  setInterval(renderActivity, 60000);
-
-  // Start animation
-  requestAnimationFrame(loop);
-
-  // Welcome toast
-    setTimeout(()=>toast('UEE NETWORK ONLINE', 'Synchronisation sécurisée établie.', 'success'), 800);
-  setTimeout(()=>toast('⚠ 3 alertes actives', 'Consultez le panneau Alertes.', 'warn'), 2200);
+  // Lancer l'initialisation complète (avec chargement Supabase)
+  init().catch(e => console.error('[TELOS] init error:', e));
 });
 
 
