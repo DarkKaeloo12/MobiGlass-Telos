@@ -2562,6 +2562,32 @@ async function migrateLocalStorageToSupabase() {
   toast('Migration terminée', done+' clés migrées vers Supabase', 'success');
 }
 
+async function testSupabaseWrite() {
+  const el = document.getElementById('supa-write-status');
+  if (el) el.textContent = '⏳ Test en cours...';
+  try {
+    const sb = getSB();
+    if (!sb) throw new Error('Client non initialisé');
+    // Test écriture
+    const testKey = '_test_' + Date.now();
+    const { error: writeErr } = await sb.from('telos_store')
+      .upsert({ key: testKey, value: { test: true }, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (writeErr) throw new Error('Écriture: ' + writeErr.message);
+    // Test lecture
+    const { data, error: readErr } = await sb.from('telos_store').select('value').eq('key', testKey).maybeSingle();
+    if (readErr) throw new Error('Lecture: ' + readErr.message);
+    if (!data) throw new Error('Donnée non retrouvée après écriture');
+    // Nettoyage
+    await sb.from('telos_store').delete().eq('key', testKey);
+    if (el) { el.textContent = '✅ Lecture/écriture OK'; el.style.color = 'var(--green)'; }
+    toast('Supabase OK', 'Lecture et écriture fonctionnelles', 'success');
+  } catch(e) {
+    if (el) { el.textContent = '❌ ' + e.message; el.style.color = 'var(--red)'; }
+    toast('Erreur Supabase', e.message, 'error');
+    console.error('[TestWrite]', e);
+  }
+}
+
 function openSettings() {
   document.getElementById('settings-overlay').classList.add('open');
   testSupabaseConnection().then(ok => {
@@ -7371,6 +7397,8 @@ window.addEventListener('resize', () => {
         <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">◈ Base de données Supabase</div>
         <div style="font-size:11px;color:var(--text-dim);">ykdamleudeatahrxicgk.supabase.co</div>
         <div id="supa-status" style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">Vérification...</div>
+        <button onclick="testSupabaseWrite()" style="margin-top:6px;padding:4px 12px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;">🔬 TESTER L&#39;ÉCRITURE</button>
+        <span id="supa-write-status" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:8px;"></span>
       </div>
       <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);">
         <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;margin-bottom:6px;">📤 Migration données locales → Supabase</div>
