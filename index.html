@@ -618,9 +618,9 @@ a { color: inherit; text-decoration: none; }
 
 /* Profile hero */
 .prof-hero {
-  padding: 18px 22px; background: linear-gradient(135deg, var(--bg2), var(--bg3));
+  background: linear-gradient(135deg, var(--bg2), var(--bg3));
   border-bottom: 1px solid var(--border);
-  display: flex; gap: 16px; align-items: flex-start; flex-shrink: 0;
+  display: flex; flex-direction: column; flex-shrink: 0;
 }
 .prof-avatar {
   width: 56px; height: 56px; flex-shrink: 0; background: var(--bg);
@@ -5790,17 +5790,6 @@ async function selectPlayer(id){
   const jtabName = document.getElementById('jtab-partner-name');
   if (jtabName) jtabName.textContent = p.name;
   renderPlayerList(document.getElementById('pl-search').value);
-  // Badge blueprints — met à jour le compteur dans la sidebar pour ce joueur
-  const bpBadge = document.getElementById('badge-blueprints');
-  if (bpBadge) {
-    if (!window._playerBpCache) window._playerBpCache = {};
-    if (!window._playerBpCache[id]) {
-      window._playerBpCache[id] = (await DB.get('player-blueprints-'+id)) || [];
-    }
-    const bpCount = window._playerBpCache[id].length;
-    bpBadge.textContent = bpCount;
-    bpBadge.style.display = bpCount > 0 ? '' : 'none';
-  }
   const stocks=(await DB.get('uex-stocks-'+id))||[];
   document.getElementById('pl-placeholder').style.display='none';
   const content=document.getElementById('pl-content');
@@ -5808,26 +5797,81 @@ async function selectPlayer(id){
   // Hero
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
   const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
+  const marketVal=stocks.reduce((a,s)=>{const m=MARKET_PRICES[s.res.toLowerCase()];return a+(m?m.sell*s.qty:(s.sellprice||s.price||0)*s.qty);},0);
+  const plMarket=marketVal-tv;
+  const plSign=plMarket>=0?'+':'';
+  const plCol=plMarket>=0?'var(--green)':'var(--red)';
+  const bpCount=((window._playerBpCache&&window._playerBpCache[id])||[]).length;
+
   document.getElementById('prof-hero').innerHTML=`
-    <div class="prof-avatar" style="overflow:hidden;">${avHtml(p)}</div>
-    <div style="flex:1">
-      <div class="prof-name">${esc(p.name)}</div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
-        ${p.isAdmin
-          ? `<span style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border:1px solid #ffffff;color:#ffffff;font-family:var(--ui);">ADMIN</span>`
-          : `<span style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border:1px solid ${ROLE_COLORS[p.role]||'var(--orange)'};color:${ROLE_COLORS[p.role]||'var(--orange)'};font-family:var(--ui);">${p.role||'—'}</span>
-             ${canManageRoles()?`<button onclick="openEditRole('${p.id}')" style="padding:2px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.color='var(--orange)';this.style.borderColor='var(--orange)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">✏ Modifier</button>`:''}`
-        }
+    <div style="display:flex;flex-direction:column;width:100%;">
+
+      <!-- Carte principale -->
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px 12px;border:1px solid var(--border);margin:12px;background:var(--bg2);position:relative;">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--orange),transparent);"></div>
+
+        <!-- Avatar -->
+        <div style="width:48px;height:48px;flex-shrink:0;background:var(--bg3);border:2px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--orange);font-weight:700;clip-path:polygon(10% 0%,90% 0%,100% 10%,100% 90%,90% 100%,10% 100%,0% 90%,0% 10%);overflow:hidden;">${avHtml(p,48)}</div>
+
+        <!-- Nom + badge + date -->
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:1px;line-height:1.1;">${esc(p.name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
+            ${p.isAdmin
+              ? `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border:1px solid #fff;color:#fff;font-family:var(--ui);">ADMIN</span>`
+              : `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border:1px solid ${ROLE_COLORS[p.role]||'var(--orange)'};color:${ROLE_COLORS[p.role]||'var(--orange)'};font-family:var(--ui);">${p.role||'—'}</span>
+                 ${canManageRoles()?`<button onclick="openEditRole('${p.id}')" style="padding:2px 6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;cursor:pointer;" onmouseover="this.style.color='var(--orange)';this.style.borderColor='var(--orange)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">✏</button>`:''}`
+            }
+            <span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">depuis ${fmtDate(p.joinedAt)}</span>
+          </div>
+          <!-- Liens RSI/UEX inline sous le nom -->
+          <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">
+            <a class="prof-link" href="${esc(p.rsi)}" target="_blank" rel="noopener" style="font-size:9px;padding:2px 6px;"><span class="ll">RSI</span>${shortUrl(p.rsi)}</a>
+            ${p.uex?`<a class="prof-link" href="${esc(p.uex)}" target="_blank" rel="noopener" style="font-size:9px;padding:2px 6px;"><span class="ll">UEX</span>${shortUrl(p.uex)}</a>`:''}
+          </div>
+        </div>
+
+        <!-- STOCK + BLUEPRINTS -->
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          <div style="text-align:right;">
+            <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">STOCK</div>
+            <div style="font-family:var(--mono);font-size:17px;color:${stocks.length?'var(--orange)':'var(--text-dim)'};">${stocks.length} res.</div>
+          </div>
+          ${bpCount>0?`<div style="text-align:right;">
+            <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">BLUEPRINTS</div>
+            <div style="font-family:var(--mono);font-size:17px;color:#60a5fa;">${bpCount} 📐</div>
+          </div>`:''}
+        </div>
       </div>
-      <div class="prof-links">
-        <a class="prof-link" href="${esc(p.rsi)}" target="_blank" rel="noopener"><span class="ll">RSI</span>${shortUrl(p.rsi)}</a>
-        ${p.uex?`<a class="prof-link" href="${esc(p.uex)}" target="_blank" rel="noopener"><span class="ll">UEX</span>${shortUrl(p.uex)}</a>`:''}
+
+      <!-- 3 stats -->
+      <div style="display:flex;border-top:1px solid var(--border);">
+        <div style="flex:1;padding:7px 14px;border-right:1px solid var(--border);">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">SCU TOTAL</div>
+          <div style="font-family:var(--mono);font-size:15px;color:var(--text-bright);">${tu.toLocaleString('fr-FR')}</div>
+        </div>
+        <div style="flex:1;padding:7px 14px;border-right:1px solid var(--border);">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">VALEUR ACHAT</div>
+          <div style="font-family:var(--mono);font-size:15px;color:var(--text-bright);">${tv?Math.round(tv).toLocaleString('fr-FR'):'0'}</div>
+        </div>
+        <div style="flex:1;padding:7px 14px;">
+          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">P/L MARCHÉ</div>
+          <div style="font-family:var(--mono);font-size:15px;color:${plCol};">${plSign}${Math.round(plMarket).toLocaleString('fr-FR')}</div>
+        </div>
       </div>
-      <div class="prof-stats">
-        <div><div class="pst-v">${stocks.length}</div><div class="pst-l">Ressources</div></div>
-        <div><div class="pst-v">${tu.toLocaleString('fr-FR')}</div><div class="pst-l">SCU</div></div>
-        <div><div class="pst-v" style="color:var(--green)">${Math.round(tv).toLocaleString('fr-FR')} aUEC</div><div class="pst-l">Valeur</div></div>
+
+      <!-- Valeur marché -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(247,140,30,0.04);border-top:1px solid var(--border);">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">VALEUR MARCHÉ</div>
+        <div style="font-family:var(--mono);font-size:16px;color:var(--orange);letter-spacing:1px;">${marketVal?Math.round(marketVal).toLocaleString('fr-FR')+' aUEC':'0 aUEC'}</div>
       </div>
+
+      <!-- Aucun stock / voir stock complet -->
+      <div style="padding:6px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        ${!stocks.length?`<span style="font-size:11px;color:var(--text-dim);letter-spacing:1px;">Aucun stock déclaré</span>`:'<span></span>'}
+        <span style="font-size:10px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;opacity:0.7;">VOIR STOCK COMPLET →</span>
+      </div>
+
     </div>`;
   renderStockTable(stocks);
 }
@@ -6750,8 +6794,10 @@ async function renderGlobal(){
     const stocks=(await DB.get('uex-stocks-'+p.id))||[];
     stocks.forEach(s=>all.push({p,s}));
   }
-  // KPI
-  document.getElementById('gkpi-strip').innerHTML=`
+  // KPI — guard
+  const kpiStrip=document.getElementById('gkpi-strip');
+  if (!kpiStrip) return;
+  kpiStrip.innerHTML=`
     <div class="gkpi"><div class="gkpi-lbl">Joueurs</div><div class="gkpi-val orange">${players.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Ressources enregistrées</div><div class="gkpi-val">${all.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Unités totales (SCU)</div><div class="gkpi-val">${all.reduce((a,r)=>a+Number(r.s.qty),0).toLocaleString('fr-FR')}</div></div>
@@ -6761,6 +6807,7 @@ async function renderGlobal(){
   if (fc) rows=rows.filter(r=>r.s.cat===fc);
   const body=document.getElementById('global-body');
   const empty=document.getElementById('global-empty');
+  if (!body || !empty) return;
   if (!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
   body.innerHTML=rows.map(({p,s})=>`
@@ -6870,7 +6917,7 @@ async function testSupabaseWrite(){const el=document.getElementById('supa-write-
 function openSettings(){document.getElementById('settings-overlay').classList.add('open');testSupabaseConnection().then(ok=>{const el=document.getElementById('supa-status');if(el){el.textContent=ok?'✅ Connecté':'⚠ Hors ligne';el.style.color=ok?'var(--green)':'var(--orange)';}});const s=document.getElementById('settings-admin-section');if(s)s.style.display=SESSION?.isAdmin?'':'none';}
 function closeSettings(){document.getElementById('settings-overlay').classList.remove('open');}
 async function saveGestCode(){if(!SESSION?.isAdmin)return;const c1=document.getElementById('new-gest-code')?.value.trim(),c2=document.getElementById('confirm-gest-code')?.value.trim(),msg=document.getElementById('gest-code-msg');if(!c1){if(msg){msg.textContent='Requis';msg.style.color='var(--red)';}return;}if(c1!==c2){if(msg){msg.textContent='Différents';msg.style.color='var(--red)';}return;}await DB.set('telos-gestionnaire-code-hash',await sha256(c1));if(msg){msg.textContent='✓';msg.style.color='var(--green)';}toast('Code','Mis à jour','success');}
-async function toggleBpOwner(bpId,checked){if(!SESSION){toast('Connexion requise','','error');return;}const pid=SESSION.pid;let myBps=(await DB.get('player-blueprints-'+pid))||[];if(checked){if(!myBps.includes(bpId))myBps.push(bpId);}else{myBps=myBps.filter(id=>id!==bpId);}await DB.set('player-blueprints-'+pid,myBps);try{localStorage.setItem('telos_player-blueprints-'+pid,JSON.stringify(myBps));}catch(e){}if(!window._playerBpCache)window._playerBpCache={};window._playerBpCache[pid]=myBps;const bp=BLUEPRINTS.find(x=>x.id===bpId);if(bp){if(!bp.owners)bp.owners=[];if(checked){if(!bp.owners.includes(pid))bp.owners.push(pid);}else{bp.owners=bp.owners.filter(id=>id!==pid);}await saveBlueprints();}await renderBlueprints();toast(checked?'✓ Blueprint sauvegardé':'Blueprint retiré',bp?.name||'',checked?'success':'info');}
+async function toggleBpOwner(bpId,checked){if(!SESSION){toast('Connexion requise','','error');return;}const pid=SESSION.pid;let myBps=(await DB.get('player-blueprints-'+pid))||[];if(checked){if(!myBps.includes(bpId))myBps.push(bpId);}else{myBps=myBps.filter(id=>id!==bpId);}await DB.set('player-blueprints-'+pid,myBps);try{localStorage.setItem('telos_player-blueprints-'+pid,JSON.stringify(myBps));}catch(e){}if(!window._playerBpCache)window._playerBpCache={};window._playerBpCache[pid]=myBps;const bp=BLUEPRINTS.find(x=>x.id===bpId);if(bp){if(!bp.owners)bp.owners=[];if(checked){if(!bp.owners.includes(pid))bp.owners.push(pid);}else{bp.owners=bp.owners.filter(id=>id!==pid);}await saveBlueprints();}await renderBlueprints();const _bb=document.getElementById('badge-blueprints');if(_bb){const _n=myBps.length;_bb.textContent=_n;_bb.style.display=_n>0?'':'none';}toast(checked?'✓ Blueprint sauvegardé':'Blueprint retiré',bp?.name||'',checked?'success':'info');}
 async function loadPlayerOwnedBlueprints(){if(!SESSION)return;const pid=SESSION.pid;let myBps=null;try{const ls=localStorage.getItem('telos_player-blueprints-'+pid);myBps=ls?JSON.parse(ls):null;}catch(e){}if(!myBps)myBps=(await DB.get('player-blueprints-'+pid))||[];if(!window._playerBpCache)window._playerBpCache={};window._playerBpCache[pid]=myBps;}
 async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCache||{};for(const p of players){if(!window._playerBpCache[p.id]){const bps=(await DB.get('player-blueprints-'+p.id))||[];window._playerBpCache[p.id]=bps;}}}
 const UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
