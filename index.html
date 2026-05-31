@@ -6999,9 +6999,20 @@ function updateGlobalFilter(){
   sel.innerHTML='<option value="">Tous les joueurs</option>'+players.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}</option>`).join('');
 }
 function updateBadges(){
-  document.getElementById('badge-joueurs').textContent=players.length;
-  document.getElementById('jtab-badge').textContent=players.length;
-  document.getElementById('kpi-partners').textContent=18+players.length;
+  const _set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  _set('badge-joueurs',  players.length);
+  _set('jtab-badge',     players.length);
+  _set('kpi-partners',   18 + players.length);
+  // Badge commandes actives
+  const pending = (window.COMMANDES||[]).filter(c=>c.status==='attente'||c.status==='en_cours').length;
+  _set('badge-commandes', pending);
+  const badgeCmd = document.getElementById('badge-commandes');
+  if (badgeCmd) badgeCmd.style.display = pending > 0 ? '' : 'none';
+  // Badge objectifs
+  const inProgress = (window.OBJECTIFS||[]).filter(o=>!o.done).length;
+  _set('badge-objectifs', inProgress);
+  const badgeObj = document.getElementById('badge-objectifs');
+  if (badgeObj) badgeObj.style.display = inProgress > 0 ? '' : 'none';
 }
 
 /* ════════════════════════════════════════════════════════════
