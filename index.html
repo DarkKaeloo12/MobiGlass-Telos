@@ -1187,12 +1187,6 @@ body::before {
   <div id="toasts" style="flex:1;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:visible;position:relative;"></div>
 
   <div class="tb-right">
-    <button id="btn-save-file" onclick="saveFullFile()"
-      style="padding:4px 12px;border:1px solid rgba(247,140,30,0.5);background:rgba(247,140,30,0.08);
-             color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;
-             white-space:nowrap;transition:all 0.2s;" title="Sauvegarder le fichier avec toutes les données">
-      💾 SAUVEGARDER
-    </button>
     <div class="tb-clock">
       <div class="time" id="clock">--:--:--</div>
       <div class="date" id="dateline">-- / -- / 2956</div>
@@ -2485,104 +2479,17 @@ async function doLogin() {
 ════════════════════════════════════════════════════════════ */
 
 // Données embarquées (injectées lors de la dernière sauvegarde)
-const EMBEDDED_DATA = {};
-
 /* ── Chargement depuis données embarquées + localStorage ── */
-async function loadAllData() {
-  // Si des données embarquées existent (fichier sauvegardé), les charger en priorité
-  if (EMBEDDED_DATA && Object.keys(EMBEDDED_DATA).length > 0) {
-    // Ne charger les données embarquées que si localStorage est vide (premier lancement)
-    const lsPlayers = localStorage.getItem('telos_uex-players');
-    if (!lsPlayers || JSON.parse(lsPlayers).length === 0) {
-      // Restaurer toutes les données embarquées dans localStorage
-      Object.entries(EMBEDDED_DATA).forEach(([key, value]) => {
-        try { localStorage.setItem('telos_' + key, JSON.stringify(value)); } catch(e) {}
-      });
-      console.log('[TELOS] Données embarquées restaurées:', Object.keys(EMBEDDED_DATA).length, 'clés');
-    }
-  }
-}
-
 /* ── Export HTML avec données intégrées ── */
-async function saveFullFile() {
-  const btn = document.getElementById('btn-save-file');
-  if (btn) { btn.textContent = '⏳ Génération...'; btn.disabled = true; }
-
-  try {
-    // Collecter toutes les données TELOS depuis localStorage
-    const data = {};
-    const keys = ['uex-players', 'telos-missions', 'telos-objectifs', 'telos-commandes',
-                  'telos-blueprints', 'telos-ressource-catalogue', 'telos-last-uex-sync',
-                  'telos-gestionnaire-code-hash'];
-
-    for (const k of keys) {
-      const v = localStorage.getItem('telos_' + k);
-      if (v) {
-        try { data[k] = JSON.parse(v); } catch(e) {}
-      }
-    }
-    // Stocks de chaque joueur
-    const playersList = data['uex-players'] || [];
-    for (const p of playersList) {
-      const sk = 'uex-stocks-' + p.id;
-      const sv = localStorage.getItem('telos_' + sk);
-      if (sv) { try { data[sk] = JSON.parse(sv); } catch(e) {} }
-    }
-
-    // Lire le fichier HTML actuel
-    const resp = await fetch(window.location.href);
-    let html = await resp.text();
-
-    // Injecter les données dans le fichier
-    const dataJson = JSON.stringify(data);
-    html = html.replace(
-      /const EMBEDDED_DATA = (?:__EMBEDDED_DATA__|\{[\s\S]*?\});/,
-      'const EMBEDDED_DATA = ' + dataJson + ';'
-    );
-
-    // Télécharger le fichier enrichi
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const date = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
-    a.href = url;
-    a.download = 'TELOS_' + date + '.html';
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast('Fichier sauvegardé', 'Ouvrez le fichier téléchargé pour retrouver toutes vos données.', 'success');
-    pushLog('system', 'SYSTEM', 'Sauvegarde fichier HTML : ' + Object.keys(data).length + ' clés exportées');
-
-  } catch(err) {
-    toast('Erreur sauvegarde', err.message, 'error');
-  } finally {
-    if (btn) { btn.textContent = '💾 SAUVEGARDER'; btn.disabled = false; }
-  }
-}
-
 /* ── Auto-sauvegarde toutes les 5 minutes ── */
 let _autoSaveTimer = null;
-function startFileSaveReminder() {
-  // Rappel visuel toutes les 5 min si des données non sauvegardées existent
-  _autoSaveTimer = setInterval(() => {
-    const players = JSON.parse(localStorage.getItem('telos_uex-players') || '[]');
-    if (players.length > 0) {
-      const btn = document.getElementById('btn-save-file');
-      if (btn) {
-        btn.style.animation = 'pulse-orange 1s ease-in-out 3';
-        setTimeout(() => { if(btn) btn.style.animation = ''; }, 3000);
-      }
-    }
-  }, 5 * 60 * 1000);
-}
-
 /* ════════════════════════════════════════════════════════════
    DATABASE — Supabase (ykdamleudeatahrxicgk.supabase.co)
    Table : telos_store (key TEXT PK, value JSONB, updated_at)
    Fallback : localStorage si Supabase inaccessible
 ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://ykdamleudeatahrxicgk.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_NFoB7dh06yovIPrwrxSj4w_Pf50D76g';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZGFtbGV1ZGVhdGFocnhpY2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDA4OTAsImV4cCI6MjA5NTgxNjg5MH0.G4XABQpw95k9AsZoW7eQVrQcAuLDfeK8nUGaWN8dEc8';
 let _sb = null;
 
 function getSB() {
@@ -2719,7 +2626,7 @@ async function importData(file) {
 }
 
 /* Sauvegarde auto toutes les 60s */
-function startAutoSave() {
+async function startAutoSave() {
   setInterval(async () => {
     try {
       await DB.set('uex-players', players);
@@ -4386,7 +4293,7 @@ function renderMissions(){
 /* ════════════════════════════════════════════════════════════
    LIVE PRICE FLUCTUATION
 ════════════════════════════════════════════════════════════ */
-function fluctuate(){
+async function fluctuate(){
   // Fluctuation des prix marché uniquement — ne touche plus aux KPI stock/profit
   RESOURCES.forEach(r=>{ r.sell=Math.max(r.buy*1.05, r.sell*(1+(Math.random()-0.48)*0.07)); r.delta=+(r.delta+(Math.random()-0.5)*0.3).toFixed(1); });
   renderPrices(); renderTopRes();
@@ -5905,7 +5812,7 @@ function goPanel(id, el) {
   const p = document.getElementById('panel-'+id);
   if (p) p.classList.add('active');
   if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); resizeCanvas(c); }, 60); }
-  if (id==='joueurs')  { renderGlobal(); updateGlobalFilter(); }
+  if (id==='joueurs')  { (async()=>renderGlobal())(); updateGlobalFilter(); }
   if (id==='stocks')   { renderStocksFromPlayers(); }
   if (id==='partners') { renderPartners(); }
   if (id==='missions') { renderMissions(); }
@@ -6808,7 +6715,7 @@ async function confirmRemoveStock(){
   closeRMModal();
   renderStockTable(stocks);
   renderPlayerList(document.getElementById('pl-search').value);
-  renderGlobal();
+  (async()=>renderGlobal())()
   renderStocksFromPlayers();
   renderPartners();
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
@@ -6880,7 +6787,7 @@ async function addPlayerStock(){
   closePSModal();
   renderStockTable(stocks);
   renderPlayerList(document.getElementById('pl-search').value);
-  renderGlobal();
+  (async()=>renderGlobal())()
   renderStocksFromPlayers(); // Met à jour le panel Stocks
   renderPartners();          // Met à jour le panel Partenaires
   const p=players.find(x=>x.id===selectedPid);
@@ -6917,7 +6824,7 @@ function confirmDelStock(sid,res){
       if (delEntry) pushActivity('🗑', `Suppression : ${delEntry.qty}× ${delEntry.res} (${pDel?.name||''})`, '', false);
       renderStockTable(stocks);
       renderPlayerList(document.getElementById('pl-search').value);
-      renderGlobal();
+      (async()=>renderGlobal())()
       renderStocksFromPlayers();
       renderPartners();
       renderAuthBar();
@@ -6943,7 +6850,7 @@ function confirmDeletePlayer(pid,name){
         document.getElementById('pl-content').style.display='none';
       }
       renderPlayerList();
-      renderGlobal();
+      (async()=>renderGlobal())()
       renderStocksFromPlayers();
       renderPartners();
       updateBadges();
@@ -6956,6 +6863,7 @@ function confirmDeletePlayer(pid,name){
 
 /* Global stock view */
 async function renderGlobal(){
+  if (!document.getElementById('gkpi-strip')) return; // panel not active
   const fp=document.getElementById('gf-player')?.value||'';
   const fc=document.getElementById('gf-cat')?.value||'';
   let all=[];
@@ -6964,7 +6872,8 @@ async function renderGlobal(){
     stocks.forEach(s=>all.push({p,s}));
   }
   // KPI
-  document.getElementById('gkpi-strip').innerHTML=`
+  const _gkpi=document.getElementById('gkpi-strip'); if(!_gkpi) return;
+  _gkpi.innerHTML=`
     <div class="gkpi"><div class="gkpi-lbl">Joueurs</div><div class="gkpi-val orange">${players.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Ressources enregistrées</div><div class="gkpi-val">${all.length}</div></div>
     <div class="gkpi"><div class="gkpi-lbl">Unités totales (SCU)</div><div class="gkpi-val">${all.reduce((a,r)=>a+Number(r.s.qty),0).toLocaleString('fr-FR')}</div></div>
@@ -7130,7 +7039,6 @@ async function init(){
   renderAuthBar();
   // Boot toasts
   startAutoSave();
-  startFileSaveReminder();
     setTimeout(()=>toast('UEE NETWORK ONLINE','Synchronisation sécurisée établie.','success'),600);
   setTimeout(()=>toast('⚠ 3 alertes actives','Consultez le panneau Alertes.','warn'),1800);
 }
@@ -7172,7 +7080,6 @@ window.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(loop);
 
   // Welcome toast
-  startFileSaveReminder();
     setTimeout(()=>toast('UEE NETWORK ONLINE', 'Synchronisation sécurisée établie.', 'success'), 800);
   setTimeout(()=>toast('⚠ 3 alertes actives', 'Consultez le panneau Alertes.', 'warn'), 2200);
 });
