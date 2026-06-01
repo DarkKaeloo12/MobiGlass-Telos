@@ -4922,6 +4922,9 @@ function renderCommandes() {
   }).join('');
 }
 
+// Ingrédients de base du blueprint (avant multiplication)
+let _cmdBpBaseIngredients = [];
+
 function openAddCommande(editId) {
   editId = editId||null;
   _editCmdId = editId;
@@ -4948,8 +4951,19 @@ function openAddCommande(editId) {
       + (BLUEPRINTS||[]).map(b=>`<option value="${b.id}"${c?.bpId===b.id?' selected':''}>${esc(b.name)}</option>`).join('');
   }
 
+  // Reset exemplaires
+  const qtyMult = document.getElementById('cmd-qty-mult');
+  if (qtyMult) qtyMult.value = c?.qtyMult || 1;
+  _cmdBpBaseIngredients = [];
+  updateCmdQtyHint();
+
   // Ressources : restaurer si édition, sinon ligne vide
   const resources = c?.resources || (c?.resource ? [{name:c.resource, qty:c.qty||0}] : []);
+  // Si édition avec blueprint, stocker les ingrédients de base (qty / qtyMult)
+  if (c?.bpId && c?.qtyMult && c.qtyMult > 1) {
+    const bpBase = (BLUEPRINTS||[]).find(x=>x.id===c.bpId);
+    _cmdBpBaseIngredients = bpBase?.ingredients?.map(i=>({name:i.name,qty:i.qty})) || [];
+  }
   setCmdResources(resources);
 
   setCmdType(c?.type||'interne');
@@ -5008,13 +5022,43 @@ function onCmdBlueprintChange() {
   const bpSel = document.getElementById('cmd-blueprint');
   if (!bpSel) return;
   const bpId = bpSel.value;
-  if (!bpId) return;
+  if (!bpId) { _cmdBpBaseIngredients = []; return; }
   const bp = (BLUEPRINTS||[]).find(x=>x.id===bpId);
   if (!bp) return;
-  // Remplir les lignes de ressources avec les ingrédients
   if (bp.ingredients?.length) {
-    setCmdResources(bp.ingredients.map(i=>({name:i.name, qty:i.qty})));
+    _cmdBpBaseIngredients = bp.ingredients.map(i=>({name:i.name, qty:i.qty}));
+    applyCmdQtyMult();
   }
+}
+
+function changeCmdQty(delta) {
+  const el = document.getElementById('cmd-qty-mult');
+  if (!el) return;
+  const v = Math.max(1, (parseInt(el.value)||1) + delta);
+  el.value = v;
+  onCmdQtyMultChange();
+}
+
+function onCmdQtyMultChange() {
+  applyCmdQtyMult();
+  updateCmdQtyHint();
+}
+
+function updateCmdQtyHint() {
+  const el = document.getElementById('cmd-qty-mult');
+  const hint = document.getElementById('cmd-qty-hint');
+  if (!hint) return;
+  const v = parseInt(el?.value)||1;
+  hint.textContent = v > 1 ? `× ${v} exemplaires` : '';
+}
+
+function applyCmdQtyMult() {
+  if (!_cmdBpBaseIngredients.length) return;
+  const mult = Math.max(1, parseInt(document.getElementById('cmd-qty-mult')?.value)||1);
+  setCmdResources(_cmdBpBaseIngredients.map(i=>({
+    name: i.name,
+    qty: Math.round(i.qty * mult * 1000) / 1000  // arrondi 3 décimales
+  })));
 }
 
 function closeAddCommande() {
@@ -5042,9 +5086,11 @@ async function saveCommande() {
   // Titre auto-généré depuis blueprint ou première ressource
   const bpId  = document.getElementById('cmd-blueprint')?.value||'';
   const bp    = bpId ? (BLUEPRINTS||[]).find(x=>x.id===bpId) : null;
+  const qtyMult = Math.max(1, parseInt(document.getElementById('cmd-qty-mult')?.value)||1);
   const clientName = players.find(p=>p.id===clientVal)?.name || clientVal;
-  const autoTitle  = bp ? `Craft : ${bp.name} → ${clientName}`
-    : resources.length ? `${resources[0].name} → ${clientName}` : `Commande → ${clientName}`;
+  const qtyStr = qtyMult > 1 ? ` ×${qtyMult}` : '';
+  const autoTitle  = bp ? `Craft : ${bp.name}${qtyStr} → ${clientName}`
+    : resources.length ? `${resources[0].name}${qtyStr} → ${clientName}` : `Commande → ${clientName}`;
 
   const entry = {
     id:        _editCmdId||('cmd_'+Date.now()),
@@ -5053,6 +5099,7 @@ async function saveCommande() {
     client:    clientVal,
     assigned:  document.getElementById('cmd-assigned')?.value||'',
     bpId,
+    qtyMult,
     resources,
     // compat ancienne structure
     resource:  resources[0]?.name||'',
@@ -7324,6 +7371,17 @@ window.addEventListener('resize', () => {
           <select class="form-input" id="cmd-blueprint" style="height:auto;padding:9px 11px;" onchange="onCmdBlueprintChange()">
             <option value="">— Aucun blueprint —</option>
           </select>
+        </div>
+
+        <!-- Nombre d'exemplaires -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Nombre d'exemplaires <span style="color:var(--text-dim);font-size:9px;">multiplie les ressources du blueprint</span></label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" onclick="changeCmdQty(-1)" style="width:32px;height:32px;border:1px solid var(--border);background:var(--bg3);color:var(--text-bright);font-size:18px;cursor:pointer;flex-shrink:0;">−</button>
+            <input class="form-input" type="number" id="cmd-qty-mult" min="1" step="1" value="1" oninput="onCmdQtyMultChange()" style="text-align:center;font-size:16px;font-weight:700;padding:7px;max-width:80px;">
+            <button type="button" onclick="changeCmdQty(1)" style="width:32px;height:32px;border:1px solid var(--border);background:var(--bg3);color:var(--text-bright);font-size:18px;cursor:pointer;flex-shrink:0;">+</button>
+            <span id="cmd-qty-hint" style="font-size:10px;color:var(--text-dim);letter-spacing:1px;"></span>
+          </div>
         </div>
 
         <!-- Ressources dynamiques liées au blueprint -->
