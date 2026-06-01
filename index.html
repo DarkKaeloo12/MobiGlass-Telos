@@ -993,6 +993,7 @@ body::before {
 
 #stanton-canvas,
 #map-canvas-full {
+  cursor: grab;
   border-radius: 24px;
   background:
     radial-gradient(circle at center,
@@ -1337,7 +1338,7 @@ body::before {
                 <button class="map-btn active" id="btn-global" onclick="setMapView('global')">Vue Globale</button>
                 <button class="map-btn" id="btn-commerce" onclick="setMapView('commerce')">Vue Commerciale</button>
               </div>
-              <button class="btn sm" onclick="centerMap()" title="Centrer">⊕</button>
+              <button class="btn sm" onclick="centerMap()" title="Reset zoom/pan — double-clic sur la carte">⊕</button>
             </div>
           </div>
           
@@ -3091,15 +3092,94 @@ function initMap(canvas) {
   mapCanvas=canvas; mapCtx=canvas.getContext('2d');
   mapW=canvas.width; mapH=canvas.height;
   tradeRoutes=[[0,1],[1,2],[2,3],[3,0],[0,2],[3,1]];
+
+  // Init état zoom/pan
+  if (canvas._mapUserScale === undefined) canvas._mapUserScale = 1;
+  if (canvas._mapOffX === undefined) canvas._mapOffX = 0;
+  if (canvas._mapOffY === undefined) canvas._mapOffY = 0;
+
   canvas.addEventListener('mousemove', e=>{
     const rect=canvas.getBoundingClientRect();
     const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    // Pan
+    if (canvas._isDragging) {
+      canvas._mapOffX += e.clientX - canvas._dragLastX;
+      canvas._mapOffY += e.clientY - canvas._dragLastY;
+      canvas._dragLastX = e.clientX;
+      canvas._dragLastY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
     hoveredPlanet=null;
+    const W=canvas.width, H=canvas.height;
+    const _BASE=600, _aS=Math.min(W,H)/_BASE, _uS=canvas._mapUserScale||1, _tS=_aS*_uS;
+    const _offX=canvas._mapOffX||0, _offY=canvas._mapOffY||0;
     PLANETS.forEach((_,i)=>{
-      const pp=pFixed(i,mapW,mapH);
-      if(Math.hypot(mx-pp.x,my-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
+      const pp=pFixed(i,W,H);
+      // Transformer les coords canvas en coords carte
+      const cx2=( mx - W/2 - _offX ) / _tS + W/2;
+      const cy2=( my - H/2 - _offY ) / _tS + H/2;
+      if(Math.hypot(cx2-pp.x,cy2-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
     });
-    canvas.style.cursor=hoveredPlanet!==null?'pointer':'default';
+    canvas.style.cursor=hoveredPlanet!==null?'pointer':'grab';
+  });
+
+  // Zoom molette
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    canvas._mapUserScale = Math.max(0.3, Math.min(5, (canvas._mapUserScale||1) + delta));
+  }, {passive:false});
+
+  // Pan souris
+  canvas.addEventListener('mousedown', e=>{
+    if (e.button === 0) {
+      canvas._isDragging = true;
+      canvas._dragLastX = e.clientX;
+      canvas._dragLastY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+    }
+  });
+  window.addEventListener('mouseup', ()=>{ canvas._isDragging = false; });
+
+  // Pan tactile
+  let _lastTouchDist = null;
+  canvas.addEventListener('touchstart', e=>{
+    if (e.touches.length === 1) {
+      canvas._isDragging = true;
+      canvas._dragLastX = e.touches[0].clientX;
+      canvas._dragLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      canvas._isDragging = false;
+      _lastTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    if (e.touches.length === 1 && canvas._isDragging) {
+      canvas._mapOffX += e.touches[0].clientX - canvas._dragLastX;
+      canvas._mapOffY += e.touches[0].clientY - canvas._dragLastY;
+      canvas._dragLastX = e.touches[0].clientX;
+      canvas._dragLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2 && _lastTouchDist !== null) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      canvas._mapUserScale = Math.max(0.3, Math.min(5, (canvas._mapUserScale||1) * (d / _lastTouchDist)));
+      _lastTouchDist = d;
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', ()=>{ canvas._isDragging = false; _lastTouchDist = null; });
+
+  // Double-clic : reset zoom/pan
+  canvas.addEventListener('dblclick', ()=>{
+    canvas._mapUserScale = 1;
+    canvas._mapOffX = 0;
+    canvas._mapOffY = 0;
   });
 }
 
@@ -3110,8 +3190,21 @@ function orbitPos(pi,ao,dr,t,W,H){ return satPosFixed(pi,ao,dr,W,H); }
 function drawMap(canvas, ctx, t) {
   if(!ctx) return;
   const W=canvas.width, H=canvas.height;
-  const S=Math.min(W,H); // Référence carrée pour éviter la déformation
+  const S=Math.min(W,H);
   ctx.clearRect(0,0,W,H);
+
+  // ── Zoom adaptatif : base 600px → scale proportionnel ──
+  const _BASE = 600;
+  const _autoScale = Math.min(W, H) / _BASE;
+  const _userScale = (canvas._mapUserScale !== undefined) ? canvas._mapUserScale : 1;
+  const _totalScale = _autoScale * _userScale;
+  const _offX = (canvas._mapOffX !== undefined) ? canvas._mapOffX : 0;
+  const _offY = (canvas._mapOffY !== undefined) ? canvas._mapOffY : 0;
+
+  ctx.save();
+  ctx.translate(W/2 + _offX, H/2 + _offY);
+  ctx.scale(_totalScale, _totalScale);
+  ctx.translate(-W/2, -H/2);
 
   // ══ FOND NOIR BLEUTÉ ════════════════════════════════════════════
   const bgG=ctx.createRadialGradient(W*0.42,H*0.40,0,W*0.42,H*0.40,Math.max(W,H)*0.80);
@@ -3317,7 +3410,9 @@ function drawMap(canvas, ctx, t) {
     ctx.restore();
   }
 
-  // ══ LÉGENDE ═══════════════════════════════════════════════════════
+  // ══ LÉGENDE (hors zoom) ════════════════════════════════════════════
+  ctx.restore(); // fin du bloc zoom/pan
+
   const leg=[
     {sym:'×',  col:'rgba(89,208,255,0.92)', label:'Station'},
     {sym:'○',  col:'rgba(200,220,240,0.80)',label:'Lune'},
@@ -3334,6 +3429,19 @@ function drawMap(canvas, ctx, t) {
     ctx.fillText(`${item.sym} ${item.label}`,8+i*106,H-9);
   });
   ctx.restore();
+
+  // ── Indicateur zoom (hors bloc zoom) ──
+  const _uz = canvas._mapUserScale || 1;
+  if (_uz !== 1) {
+    ctx.save();
+    ctx.fillStyle='rgba(4,7,16,0.75)';
+    ctx.fillRect(W-72, 6, 66, 20);
+    ctx.fillStyle='rgba(247,140,30,0.90)';
+    ctx.font=`bold 10px 'Share Tech Mono',monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(`ZOOM ${_uz.toFixed(1)}×`, W-39, 20);
+    ctx.restore();
+  }
 }
 
 function lighten(hex, pct) {
@@ -3353,7 +3461,13 @@ function setMapView(v) {
   document.getElementById('btn-commerce').classList.toggle('active', v==='commerce');
 }
 let mapScale=1, mapOffX=0, mapOffY=0;
-function centerMap() { mapScale=1; mapOffX=0; mapOffY=0; }
+function centerMap() {
+  mapScale=1; mapOffX=0; mapOffY=0;
+  ['stanton-canvas','map-canvas-full'].forEach(id=>{
+    const c=document.getElementById(id);
+    if(c){ c._mapUserScale=1; c._mapOffX=0; c._mapOffY=0; }
+  });
+}
 
 function resizeCanvas(canvas) {
   if (!canvas) return;
@@ -4893,7 +5007,13 @@ function renderCommandes() {
       <div class="cmd-body">
         <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(c.client||'—')}</div></div>
         <div class="cmd-field"><div class="cmd-lbl">Assigné à</div><div class="cmd-val" style="color:var(--blue);">${esc(assignedName)}</div></div>
-        ${c.resource ? '<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ '+esc(c.resource)+(c.qty?' · '+Number(c.qty).toLocaleString('fr-FR')+' SCU':'')+'</div></div>' : ''}
+        ${(()=>{
+          const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
+          if (!res.length) return '';
+          const bpName = c.bpId ? (BLUEPRINTS||[]).find(x=>x.id===c.bpId)?.name : null;
+          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}</div></div>`:'')
+            + res.map(r=>`<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ ${esc(r.name)}${r.qty?' · '+Number(r.qty).toLocaleString('fr-FR')+' SCU':''}</div></div>`).join('');
+        })()}
         ${c.price>0 ? '<div class="cmd-field"><div class="cmd-lbl">Prix / SCU</div><div class="cmd-val">'+fmtPrice(c.price)+'</div></div>' : ''}
         ${total>0 ? '<div class="cmd-field"><div class="cmd-lbl">Total</div><div class="cmd-val" style="color:var(--green);">'+Number(total).toLocaleString('fr-FR')+' aUEC</div></div>' : ''}
       </div>
@@ -4921,29 +5041,33 @@ function openAddCommande(editId) {
   _editCmdId = editId;
   const c = editId ? COMMANDES.find(x=>x.id===editId) : null;
 
-  // Populate assigned select
+  // Populate commanditaire select (partenaires)
+  const clientSel = document.getElementById('cmd-client');
+  if (clientSel) {
+    clientSel.innerHTML = '<option value="">— Sélectionner —</option>'
+      + players.map(p=>`<option value="${p.id}"${c?.client===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
+  }
+
+  // Populate assigné select
   const sel = document.getElementById('cmd-assigned');
   if (sel) {
     sel.innerHTML = '<option value="">— Non assigné —</option>'
-      + players.map(p=>'<option value="'+p.id+'"'+(c?.assigned===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+      + players.map(p=>`<option value="${p.id}"${c?.assigned===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
   }
 
   // Populate blueprint select
   const bpSel = document.getElementById('cmd-blueprint');
   if (bpSel) {
     bpSel.innerHTML = '<option value="">— Aucun blueprint —</option>'
-      + (BLUEPRINTS||[]).map(b=>`<option value="${b.id}"${c?.bpId===b.id?' selected':''}>${esc(b.name)}${b.ingredients?.length?' ('+b.ingredients.length+' ingrédients)':''}</option>`).join('');
-    // Afficher le preview si blueprint déjà sélectionné
-    if (c?.bpId) { setTimeout(onCmdBlueprintChange, 50); }
-    else { const prev=document.getElementById('cmd-bp-preview'); if(prev) prev.style.display='none'; }
+      + (BLUEPRINTS||[]).map(b=>`<option value="${b.id}"${c?.bpId===b.id?' selected':''}>${esc(b.name)}</option>`).join('');
   }
+
+  // Ressources : restaurer si édition, sinon ligne vide
+  const resources = c?.resources || (c?.resource ? [{name:c.resource, qty:c.qty||0}] : []);
+  setCmdResources(resources);
 
   setCmdType(c?.type||'interne');
   const set = (id,v)=>{ const e=document.getElementById(id); if(e)e.value=v; };
-  set('cmd-title',    c?.title    ||'');
-  set('cmd-client',   c?.client   ||'');
-  set('cmd-resource', c?.resource ||'');
-  set('cmd-qty',      c?.qty      ||'');
   set('cmd-price',    c?.price    ||'');
   set('cmd-priority', c?.priority ||'normale');
   set('cmd-dl',       c?.dl       ||'');
@@ -4952,40 +5076,58 @@ function openAddCommande(editId) {
   const title = document.getElementById('cmd-modal-title');
   if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
   document.getElementById('cmd-overlay').classList.add('open');
-  setTimeout(()=>document.getElementById('cmd-title')?.focus(),80);
+}
+
+// Vider et repeupler les lignes de ressources
+function setCmdResources(resources) {
+  const list = document.getElementById('cmd-resources-list');
+  if (!list) return;
+  if (!resources || !resources.length) {
+    list.innerHTML = `<div class="cmd-res-row" style="display:grid;grid-template-columns:1fr 80px 24px;gap:6px;">
+      <input class="form-input" type="text" placeholder="Ressource" list="ps-datalist" style="font-size:13px;padding:7px 9px;">
+      <input class="form-input" type="number" placeholder="SCU" min="1" style="font-size:13px;padding:7px 9px;">
+      <button type="button" onclick="removeCmdResRow(this)" style="padding:0;border:none;background:transparent;color:var(--red);font-size:16px;cursor:pointer;align-self:center;">✕</button>
+    </div>`;
+    return;
+  }
+  list.innerHTML = resources.map(r=>`
+    <div class="cmd-res-row" style="display:grid;grid-template-columns:1fr 80px 24px;gap:6px;">
+      <input class="form-input" type="text" placeholder="Ressource" list="ps-datalist" value="${esc(r.name||'')}" style="font-size:13px;padding:7px 9px;">
+      <input class="form-input" type="number" placeholder="SCU" min="1" value="${r.qty||''}" style="font-size:13px;padding:7px 9px;">
+      <button type="button" onclick="removeCmdResRow(this)" style="padding:0;border:none;background:transparent;color:var(--red);font-size:16px;cursor:pointer;align-self:center;">✕</button>
+    </div>`).join('');
+}
+
+function addCmdResRow() {
+  const list = document.getElementById('cmd-resources-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'cmd-res-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 80px 24px;gap:6px;';
+  row.innerHTML = `<input class="form-input" type="text" placeholder="Ressource" list="ps-datalist" style="font-size:13px;padding:7px 9px;">
+    <input class="form-input" type="number" placeholder="SCU" min="1" style="font-size:13px;padding:7px 9px;">
+    <button type="button" onclick="removeCmdResRow(this)" style="padding:0;border:none;background:transparent;color:var(--red);font-size:16px;cursor:pointer;align-self:center;">✕</button>`;
+  list.appendChild(row);
+}
+
+function removeCmdResRow(btn) {
+  const list = document.getElementById('cmd-resources-list');
+  if (!list) return;
+  const rows = list.querySelectorAll('.cmd-res-row');
+  if (rows.length <= 1) { btn.closest('.cmd-res-row').querySelectorAll('input').forEach(i=>i.value=''); return; }
+  btn.closest('.cmd-res-row').remove();
 }
 
 function onCmdBlueprintChange() {
   const bpSel = document.getElementById('cmd-blueprint');
-  const prev  = document.getElementById('cmd-bp-preview');
-  if (!bpSel || !prev) return;
+  if (!bpSel) return;
   const bpId = bpSel.value;
-  if (!bpId) { prev.style.display='none'; return; }
+  if (!bpId) return;
   const bp = (BLUEPRINTS||[]).find(x=>x.id===bpId);
-  if (!bp) { prev.style.display='none'; return; }
-
-  // Remplir les champs automatiquement
-  const titleEl = document.getElementById('cmd-title');
-  if (titleEl && !titleEl.value.trim()) titleEl.value = 'Craft : ' + bp.name;
-
+  if (!bp) return;
+  // Remplir les lignes de ressources avec les ingrédients
   if (bp.ingredients?.length) {
-    // Première ressource dans le champ ressource, liste complète dans notes
-    const firstIng = bp.ingredients[0];
-    const resEl = document.getElementById('cmd-resource');
-    const qtyEl = document.getElementById('cmd-qty');
-    if (resEl && !resEl.value.trim()) resEl.value = firstIng.name;
-    if (qtyEl && !qtyEl.value) qtyEl.value = firstIng.qty||'';
-
-    // Preview de tous les ingrédients
-    prev.style.display = 'block';
-    prev.innerHTML = '<div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">📐 Ingrédients requis</div>'
-      + bp.ingredients.map(i=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(96,165,250,0.08);">
-          <span style="color:var(--text-bright);">◈ ${esc(i.name)}</span>
-          <span style="font-family:var(--mono);color:var(--orange);">× ${i.qty}</span>
-        </div>`).join('');
-  } else {
-    prev.style.display = 'block';
-    prev.innerHTML = '<span style="color:var(--text-dim);font-size:10px;">Aucun ingrédient défini pour ce blueprint.</span>';
+    setCmdResources(bp.ingredients.map(i=>({name:i.name, qty:i.qty})));
   }
 }
 
@@ -4997,24 +5139,44 @@ function closeAddCommande() {
 function editCommande(id) { openAddCommande(id); }
 
 async function saveCommande() {
-  const title = document.getElementById('cmd-title')?.value.trim();
-  if (!title) { toast('Titre requis','','error'); return; }
+  const clientEl  = document.getElementById('cmd-client');
+  const clientVal = clientEl?.value||'';
+  if (!clientVal) { toast('Commanditaire requis','','error'); return; }
+
+  // Lire toutes les lignes ressources
+  const rows = document.querySelectorAll('#cmd-resources-list .cmd-res-row');
+  const resources = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[0]?.value.trim();
+    const qty  = parseFloat(inputs[1]?.value)||0;
+    if (name) resources.push({name, qty});
+  });
+
+  // Titre auto-généré depuis blueprint ou première ressource
+  const bpId  = document.getElementById('cmd-blueprint')?.value||'';
+  const bp    = bpId ? (BLUEPRINTS||[]).find(x=>x.id===bpId) : null;
+  const clientName = players.find(p=>p.id===clientVal)?.name || clientVal;
+  const autoTitle  = bp ? `Craft : ${bp.name} → ${clientName}`
+    : resources.length ? `${resources[0].name} → ${clientName}` : `Commande → ${clientName}`;
 
   const entry = {
-    id:       _editCmdId||('cmd_'+Date.now()),
-    type:     _cmdType,
-    title,
-    client:   document.getElementById('cmd-client')?.value.trim()||'',
-    assigned: document.getElementById('cmd-assigned')?.value||'',
-    bpId:     document.getElementById('cmd-blueprint')?.value||'',
-    resource: document.getElementById('cmd-resource')?.value.trim()||'',
-    qty:      parseFloat(document.getElementById('cmd-qty')?.value)||0,
-    price:    parseFloat(document.getElementById('cmd-price')?.value)||0,
-    priority: document.getElementById('cmd-priority')?.value||'normale',
-    dl:       document.getElementById('cmd-dl')?.value||'',
-    notes:    document.getElementById('cmd-notes')?.value.trim()||'',
-    status:   _editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.status||'attente'):'attente',
-    createdAt:_editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.createdAt||new Date().toISOString()):new Date().toISOString(),
+    id:        _editCmdId||('cmd_'+Date.now()),
+    type:      _cmdType,
+    title:     autoTitle,
+    client:    clientVal,
+    assigned:  document.getElementById('cmd-assigned')?.value||'',
+    bpId,
+    resources,
+    // compat ancienne structure
+    resource:  resources[0]?.name||'',
+    qty:       resources[0]?.qty||0,
+    price:     parseFloat(document.getElementById('cmd-price')?.value)||0,
+    priority:  document.getElementById('cmd-priority')?.value||'normale',
+    dl:        document.getElementById('cmd-dl')?.value||'',
+    notes:     document.getElementById('cmd-notes')?.value.trim()||'',
+    status:    _editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.status||'attente'):'attente',
+    createdAt: _editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.createdAt||new Date().toISOString()):new Date().toISOString(),
   };
 
   if (_editCmdId) {
@@ -5026,9 +5188,9 @@ async function saveCommande() {
   closeAddCommande();
   renderCommandes();
   const icon = entry.type==='interne'?'🏛':'🌐';
-  pushActivity(icon, (_editCmdId?'Commande modifiée : ':'Nouvelle commande : ')+title, entry.price>0?Number(entry.price*entry.qty).toLocaleString('fr-FR')+' aUEC':'', true);
-  pushLog('trade','TRADE',(_editCmdId?'Commande modifiée':'Nouvelle commande')+' ['+entry.type+']: '+title);
-  toast(_editCmdId?'Commande modifiée':'Commande créée', title, 'success');
+  pushActivity(icon, (_editCmdId?'Commande modifiée : ':'Nouvelle commande : ')+entry.title, entry.price>0?Number(entry.price).toLocaleString('fr-FR')+' aUEC':'', true);
+  pushLog('trade','TRADE',(_editCmdId?'Commande modifiée':'Nouvelle commande')+' ['+entry.type+']: '+entry.title);
+  toast(_editCmdId?'Commande modifiée':'Commande créée', entry.title, 'success');
 }
 
 async function setCmdStatus(id, status) {
@@ -7180,15 +7342,13 @@ window.addEventListener('resize', () => {
       </div>
 
       <div class="grid2">
-        <div class="form-field" style="grid-column:span 2;">
-          <label class="form-lbl">Titre / Objet <span class="req">*</span></label>
-          <input class="form-input" type="text" id="cmd-title" placeholder="ex: 500 SCU Quantanium pour DarkKaeloo" maxlength="120">
-        </div>
 
-        <!-- Commanditaire -->
+        <!-- Commanditaire — select partenaires -->
         <div class="form-field">
           <label class="form-lbl">Commanditaire <span class="req">*</span></label>
-          <input class="form-input" type="text" id="cmd-client" placeholder="Nom / Org / Partenaire...">
+          <select class="form-input" id="cmd-client" style="height:auto;padding:9px 11px;">
+            <option value="">— Sélectionner —</option>
+          </select>
         </div>
 
         <!-- Assigné à -->
@@ -7201,24 +7361,23 @@ window.addEventListener('resize', () => {
 
         <!-- Blueprint lié -->
         <div class="form-field" style="grid-column:span 2;">
-          <label class="form-lbl">📐 Blueprint lié <span style="color:var(--text-dim);font-size:10px;">optionnel — remplit les ressources automatiquement</span></label>
+          <label class="form-lbl">📐 Blueprint lié <span style="color:var(--text-dim);font-size:9px;">optionnel — remplit les ressources automatiquement</span></label>
           <select class="form-input" id="cmd-blueprint" style="height:auto;padding:9px 11px;" onchange="onCmdBlueprintChange()">
             <option value="">— Aucun blueprint —</option>
           </select>
-          <!-- Preview ingrédients -->
-          <div id="cmd-bp-preview" style="display:none;margin-top:6px;padding:8px 10px;background:var(--bg);border:1px solid rgba(96,165,250,0.3);border-left:3px solid #60a5fa;font-size:11px;color:var(--text-dim);line-height:1.8;"></div>
         </div>
 
-        <!-- Ressource -->
-        <div class="form-field">
-          <label class="form-lbl">Ressource demandée</label>
-          <input class="form-input" type="text" id="cmd-resource" placeholder="ex: Quantanium" list="ps-datalist">
-        </div>
-
-        <!-- Quantité -->
-        <div class="form-field">
-          <label class="form-lbl">Quantité (SCU)</label>
-          <input class="form-input" type="number" id="cmd-qty" min="1" step="1" placeholder="0">
+        <!-- Ressources dynamiques liées au blueprint -->
+        <div class="form-field" style="grid-column:span 2;" id="cmd-resources-block">
+          <label class="form-lbl">Ressources demandées</label>
+          <div id="cmd-resources-list" style="display:flex;flex-direction:column;gap:6px;">
+            <!-- Ligne par défaut -->
+            <div class="cmd-res-row" style="display:grid;grid-template-columns:1fr 80px;gap:6px;">
+              <input class="form-input" type="text" placeholder="Ressource" list="ps-datalist" style="font-size:13px;padding:7px 9px;">
+              <input class="form-input" type="number" placeholder="SCU" min="1" style="font-size:13px;padding:7px 9px;">
+            </div>
+          </div>
+          <button type="button" onclick="addCmdResRow()" style="margin-top:6px;padding:4px 12px;border:1px dashed var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;cursor:pointer;letter-spacing:1px;width:100%;">+ Ajouter une ressource</button>
         </div>
 
         <!-- Prix convenu -->
