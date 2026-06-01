@@ -5118,7 +5118,7 @@ async function checkCmdStock(id) {
   const resources = comm.resources?.length
     ? comm.resources
     : (comm.resource ? [{name:comm.resource, qty:comm.qty||0}] : []);
-  if (!resources.length) { toast('Aucune ressource', 'Cette commande n'a pas de ressources.', 'warn'); return; }
+  if (!resources.length) { toast('Aucune ressource', 'Aucune ressource sur cette commande.', 'warn'); return; }
 
   // Consolider le stock TELOS
   const stockMap = {};
