@@ -4912,6 +4912,7 @@ function renderCommandes() {
           if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
           if(c.status==='livree'||c.status==='annulee') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'attente\')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">↺ ROUVRIR</button>';
           _s+='<button onclick="editCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
+          _s+='<button onclick="checkCmdStock('+JSON.stringify(c.id)+')" title="Vérifier le stock TELOS" style="padding:3px 9px;border:1px solid rgba(89,208,255,0.5);color:#59d0ff;background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">📦</button>';
           _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" title="Supprimer" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
           return _s;
         })() : ''}
@@ -5092,13 +5093,13 @@ async function setCmdStatus(id, status) {
 }
 
 async function cancelCommande(id) {
-  const c = COMMANDES.find(x=>x.id===id);
-  if (!c) return;
-  if (!confirm('Annuler la commande "'+c.title+'" ?')) return;
-  c.status = 'annulee';
+  const comm = COMMANDES.find(x=>x.id===id);
+  if (!comm) return;
+  if (!confirm('Annuler la commande "'+comm.title+'" ?')) return;
+  comm.status = 'annulee';
   await saveCommandes();
   renderCommandes();
-  toast('Commande annulée', c.title, 'info');
+  toast('Commande annulée', comm.title, 'info');
 }
 
 async function deleteCommande(id) {
@@ -5109,6 +5110,84 @@ async function deleteCommande(id) {
   await saveCommandes();
   renderCommandes();
   toast('Commande supprimée', comm.title, 'info');
+}
+
+// ── Vérifier le stock TELOS pour une commande et créer les objectifs manquants ──
+async function checkCmdStock(id) {
+  const comm = COMMANDES.find(x=>x.id===id);
+  if (!comm) return;
+  const resources = comm.resources?.length
+    ? comm.resources
+    : (comm.resource ? [{name:comm.resource, qty:comm.qty||0}] : []);
+  if (!resources.length) { toast('Aucune ressource', 'Cette commande n'a pas de ressources.', 'warn'); return; }
+
+  // Consolider le stock TELOS (tous les joueurs)
+  const stockMap = {};
+  for (const p of players) {
+    const pStocks = (await DB.get('uex-stocks-'+p.id)) || [];
+    pStocks.forEach(s => {
+      const key = s.res?.toLowerCase().trim();
+      if (!key) return;
+      stockMap[key] = (stockMap[key] || 0) + (s.qty || 0);
+    });
+  }
+
+  let created = 0, ok = 0;
+  const results = [];
+  for (const r of resources) {
+    const key = r.name?.toLowerCase().trim();
+    const needed = r.qty || 0;
+    const inStock = stockMap[key] || 0;
+    const missing = Math.max(0, needed - inStock);
+    if (missing <= 0) { ok++; results.push(`✅ ${r.name} : stock OK (${inStock} SCU)`); continue; }
+
+    results.push(`⚠ ${r.name} : manque ${missing.toFixed(2)} SCU (stock: ${inStock}, requis: ${needed})`);
+
+    // Créer un objectif automatique pour la ressource manquante
+    const alreadyExists = OBJECTIFS.some(o =>
+      !o.done &&
+      o.cat === 'ressource' &&
+      o.title.toLowerCase().includes(r.name.toLowerCase())
+    );
+    if (!alreadyExists) {
+      const obj = {
+        id: 'obj_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+        title: r.name + ' — Commande : ' + comm.title,
+        cat: 'ressource',
+        priority: 'haute',
+        desc: 'Ressource manquante pour la commande ' + comm.title,
+        target: missing,
+        unit: 'SCU',
+        current: inStock,
+        dl: comm.dl || '',
+        reward: '',
+        bpId: '',
+        ingredients: [],
+        done: false,
+        createdAt: new Date().toISOString(),
+      };
+      OBJECTIFS.push(obj);
+      created++;
+    }
+  }
+
+  if (created > 0) {
+    await saveObjectifs();
+    renderObjectifs();
+  }
+
+  const msg = results.join('
+');
+  const summary = created > 0
+    ? `${created} objectif(s) créé(s) pour les ressources manquantes.`
+    : ok === resources.length ? 'Tout le stock est suffisant !' : 'Les objectifs existaient déjà.';
+  alert('📦 Vérification stock — ' + comm.title + '
+
+' + msg + '
+
+' + summary);
+  if (created > 0) toast('Objectifs créés', created + ' ressource(s) manquante(s) ajoutées aux objectifs', 'success');
+  else toast('Stock vérifié', summary, ok === resources.length ? 'success' : 'warn');
 }
 
 /* ════════════════════════════════════════════════════════════
