@@ -993,7 +993,6 @@ body::before {
 
 #stanton-canvas,
 #map-canvas-full {
-  cursor: grab;
   border-radius: 24px;
   background:
     radial-gradient(circle at center,
@@ -3092,69 +3091,16 @@ function initMap(canvas) {
   mapCanvas=canvas; mapCtx=canvas.getContext('2d');
   mapW=canvas.width; mapH=canvas.height;
   tradeRoutes=[[0,1],[1,2],[2,3],[3,0],[0,2],[3,1]];
-
-  // Etat zoom/pan par canvas
-  if (canvas._mapScale  === undefined) canvas._mapScale = 1;
-  if (canvas._mapOffX   === undefined) canvas._mapOffX  = 0;
-  if (canvas._mapOffY   === undefined) canvas._mapOffY  = 0;
-
-  // Hover planète (coordonnées converties selon zoom/pan)
   canvas.addEventListener('mousemove', e=>{
     const rect=canvas.getBoundingClientRect();
-    let mx=e.clientX-rect.left, my=e.clientY-rect.top;
-    // Pan en cours
-    if (canvas._isDragging) {
-      canvas._mapOffX += e.clientX - canvas._dragLX;
-      canvas._mapOffY += e.clientY - canvas._dragLY;
-      canvas._dragLX = e.clientX; canvas._dragLY = e.clientY;
-      canvas.style.cursor='grabbing'; return;
-    }
-    // Convertir en coordonnées carte
-    const sc=canvas._mapScale, ox=canvas._mapOffX, oy=canvas._mapOffY;
-    const W=canvas.width, H=canvas.height;
-    const cx=(mx - W/2 - ox)/sc + W/2;
-    const cy=(my - H/2 - oy)/sc + H/2;
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
     hoveredPlanet=null;
     PLANETS.forEach((_,i)=>{
-      const pp=pFixed(i,W,H);
-      if(Math.hypot(cx-pp.x,cy-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
+      const pp=pFixed(i,mapW,mapH);
+      if(Math.hypot(mx-pp.x,my-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
     });
-    canvas.style.cursor=hoveredPlanet!==null?'pointer':'grab';
+    canvas.style.cursor=hoveredPlanet!==null?'pointer':'default';
   });
-
-  // Zoom molette
-  canvas.addEventListener('wheel', e=>{
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.12 : 0.89;
-    canvas._mapScale = Math.max(0.25, Math.min(8, canvas._mapScale * factor));
-  }, {passive:false});
-
-  // Pan souris
-  canvas.addEventListener('mousedown', e=>{
-    if(e.button===0){ canvas._isDragging=true; canvas._dragLX=e.clientX; canvas._dragLY=e.clientY; canvas.style.cursor='grabbing'; }
-  });
-  window.addEventListener('mouseup', ()=>{ if(canvas._isDragging){ canvas._isDragging=false; } });
-
-  // Pinch tactile
-  let _td=null;
-  canvas.addEventListener('touchstart', e=>{
-    if(e.touches.length===1){ canvas._isDragging=true; canvas._dragLX=e.touches[0].clientX; canvas._dragLY=e.touches[0].clientY; }
-    else if(e.touches.length===2){ canvas._isDragging=false; _td=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); }
-  },{passive:true});
-  canvas.addEventListener('touchmove', e=>{
-    e.preventDefault();
-    if(e.touches.length===1&&canvas._isDragging){
-      canvas._mapOffX+=e.touches[0].clientX-canvas._dragLX; canvas._mapOffY+=e.touches[0].clientY-canvas._dragLY;
-      canvas._dragLX=e.touches[0].clientX; canvas._dragLY=e.touches[0].clientY;
-    } else if(e.touches.length===2&&_td){
-      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      canvas._mapScale=Math.max(0.25,Math.min(8,canvas._mapScale*(d/_td))); _td=d;
-    }
-  },{passive:false});
-  canvas.addEventListener('touchend',()=>{ canvas._isDragging=false; _td=null; });
-
-  // Double-clic : reset
-  canvas.addEventListener('dblclick',()=>{ canvas._mapScale=1; canvas._mapOffX=0; canvas._mapOffY=0; });
 }
 
 function orbitPos(pi,ao,dr,t,W,H){ return satPosFixed(pi,ao,dr,W,H); }
@@ -3180,15 +3126,6 @@ function drawMap(canvas, ctx, t) {
   const nb2=ctx.createRadialGradient(W*0.70,H*0.25,0,W*0.70,H*0.25,W*0.40);
   nb2.addColorStop(0,'rgba(18,32,75,0.13)'); nb2.addColorStop(0.5,'rgba(12,22,55,0.06)'); nb2.addColorStop(1,'rgba(8,15,40,0)');
   ctx.fillStyle=nb2; ctx.fillRect(0,0,W,H);
-
-  // ── Appliquer zoom / pan sur le contenu (étoiles + système) ──
-  const _sc = canvas._mapScale || 1;
-  const _ox = canvas._mapOffX  || 0;
-  const _oy = canvas._mapOffY  || 0;
-  ctx.save();
-  ctx.translate(W/2 + _ox, H/2 + _oy);
-  ctx.scale(_sc, _sc);
-  ctx.translate(-W/2, -H/2);
 
   // ══ ÉTOILES (4 couches) ══════════════════════════════════════════
   for(let i=0;i<500;i++){
@@ -3380,9 +3317,7 @@ function drawMap(canvas, ctx, t) {
     ctx.restore();
   }
 
-  ctx.restore(); // ── fin zoom/pan ──
-
-  // ══ LÉGENDE (hors zoom, toujours fixe) ════════════════════════════
+  // ══ LÉGENDE ═══════════════════════════════════════════════════════
   const leg=[
     {sym:'×',  col:'rgba(89,208,255,0.92)', label:'Station'},
     {sym:'○',  col:'rgba(200,220,240,0.80)',label:'Lune'},
@@ -3418,13 +3353,7 @@ function setMapView(v) {
   document.getElementById('btn-commerce').classList.toggle('active', v==='commerce');
 }
 let mapScale=1, mapOffX=0, mapOffY=0;
-function centerMap() {
-  mapScale=1; mapOffX=0; mapOffY=0;
-  ['stanton-canvas','map-canvas-full'].forEach(id=>{
-    const cv=document.getElementById(id);
-    if(cv){ cv._mapScale=1; cv._mapOffX=0; cv._mapOffY=0; }
-  });
-}
+function centerMap() { mapScale=1; mapOffX=0; mapOffY=0; }
 
 function resizeCanvas(canvas) {
   if (!canvas) return;
@@ -4968,7 +4897,9 @@ function renderCommandes() {
           const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
           if (!res.length) return '';
           const bpName = c.bpId ? (BLUEPRINTS||[]).find(x=>x.id===c.bpId)?.name : null;
-          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}</div></div>`:'')
+          const qm = c.qtyMulti || 1;
+          const qmLabel = bpName && qm > 1 ? `<span style="color:var(--orange);margin-left:6px;">×${qm}</span>` : '';
+          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}${qmLabel}</div></div>`:'')
             + res.map(r=>`<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ ${esc(r.name)}${r.qty?' · '+Number(r.qty).toLocaleString('fr-FR')+' SCU':''}</div></div>`).join('');
         })()}
         ${c.price>0 ? '<div class="cmd-field"><div class="cmd-lbl">Prix / SCU</div><div class="cmd-val">'+fmtPrice(c.price)+'</div></div>' : ''}
@@ -5030,6 +4961,19 @@ function openAddCommande(editId) {
   set('cmd-dl',       c?.dl       ||'');
   set('cmd-notes',    c?.notes    ||'');
 
+  // Reset compteur exemplaires
+  const qtyMultiEl = document.getElementById('cmd-qty-multi');
+  const savedQty = c?.qtyMulti || 1;
+  if (qtyMultiEl) qtyMultiEl.value = savedQty;
+  // Stocker les ressources de base (qty / nbExemplaires) pour permettre re-multiplication
+  if (c?.resources?.length) {
+    window._cmdBaseResources = c.resources.map(r=>({name:r.name, qty:+(r.qty/savedQty).toFixed(6)}));
+  } else {
+    window._cmdBaseResources = null;
+  }
+  const lbl = document.getElementById('cmd-res-multi-label');
+  if (lbl) { lbl.textContent = savedQty > 1 ? `×${savedQty} exemplaires` : ''; lbl.style.display = savedQty > 1 ? '' : 'none'; }
+
   const title = document.getElementById('cmd-modal-title');
   if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
   document.getElementById('cmd-overlay').classList.add('open');
@@ -5079,13 +5023,35 @@ function onCmdBlueprintChange() {
   const bpSel = document.getElementById('cmd-blueprint');
   if (!bpSel) return;
   const bpId = bpSel.value;
-  if (!bpId) return;
+  if (!bpId) { window._cmdBaseResources = null; return; }
   const bp = (BLUEPRINTS||[]).find(x=>x.id===bpId);
   if (!bp) return;
-  // Remplir les lignes de ressources avec les ingrédients
+  // Stocker les quantités de base (1 exemplaire)
   if (bp.ingredients?.length) {
-    setCmdResources(bp.ingredients.map(i=>({name:i.name, qty:i.qty})));
+    window._cmdBaseResources = bp.ingredients.map(i=>({name:i.name, qty:i.qty}));
+    applyCmdQtyMulti();
   }
+}
+
+// Incrémenter / décrémenter le nombre d'exemplaires
+function setCmdQty(delta) {
+  const el = document.getElementById('cmd-qty-multi');
+  if (!el) return;
+  const v = Math.max(1, Math.min(999, (parseInt(el.value)||1) + delta));
+  el.value = v;
+  applyCmdQtyMulti();
+}
+
+// Appliquer le multiplicateur sur les ressources du blueprint
+function applyCmdQtyMulti() {
+  const el = document.getElementById('cmd-qty-multi');
+  const n = Math.max(1, parseInt(el?.value)||1);
+  const lbl = document.getElementById('cmd-res-multi-label');
+  if (lbl) { lbl.textContent = n > 1 ? `×${n} exemplaires` : ''; lbl.style.display = n > 1 ? '' : 'none'; }
+  if (!window._cmdBaseResources) return;
+  // Multiplier les qtés de base
+  const scaled = window._cmdBaseResources.map(r=>({name:r.name, qty:+(r.qty*n).toFixed(4)}));
+  setCmdResources(scaled);
 }
 
 function closeAddCommande() {
@@ -5117,6 +5083,8 @@ async function saveCommande() {
   const autoTitle  = bp ? `Craft : ${bp.name} → ${clientName}`
     : resources.length ? `${resources[0].name} → ${clientName}` : `Commande → ${clientName}`;
 
+  const qtyMulti = Math.max(1, parseInt(document.getElementById('cmd-qty-multi')?.value)||1);
+
   const entry = {
     id:        _editCmdId||('cmd_'+Date.now()),
     type:      _cmdType,
@@ -5124,6 +5092,7 @@ async function saveCommande() {
     client:    clientVal,
     assigned:  document.getElementById('cmd-assigned')?.value||'',
     bpId,
+    qtyMulti,
     resources,
     // compat ancienne structure
     resource:  resources[0]?.name||'',
@@ -7324,9 +7293,19 @@ window.addEventListener('resize', () => {
           </select>
         </div>
 
+        <!-- Nombre d'exemplaires -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Nombre d'exemplaires <span style="color:var(--text-dim);font-size:9px;">multiplie les ressources du blueprint</span></label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" onclick="setCmdQty(-1)" style="width:32px;height:36px;border:1px solid var(--border);background:transparent;color:var(--text-bright);font-size:18px;cursor:pointer;font-family:var(--ui);">−</button>
+            <input class="form-input" type="number" id="cmd-qty-multi" min="1" max="999" value="1" oninput="applyCmdQtyMulti()" style="flex:1;text-align:center;font-size:16px;font-weight:700;padding:7px 9px;">
+            <button type="button" onclick="setCmdQty(1)" style="width:32px;height:36px;border:1px solid var(--border);background:transparent;color:var(--text-bright);font-size:18px;cursor:pointer;font-family:var(--ui);">+</button>
+          </div>
+        </div>
+
         <!-- Ressources dynamiques liées au blueprint -->
         <div class="form-field" style="grid-column:span 2;" id="cmd-resources-block">
-          <label class="form-lbl">Ressources demandées</label>
+          <label class="form-lbl">Ressources demandées <span id="cmd-res-multi-label" style="color:var(--orange);font-size:9px;display:none;"></span></label>
           <div id="cmd-resources-list" style="display:flex;flex-direction:column;gap:6px;">
             <!-- Ligne par défaut -->
             <div class="cmd-res-row" style="display:grid;grid-template-columns:1fr 80px;gap:6px;">
