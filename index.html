@@ -5120,7 +5120,6 @@ async function checkCmdStock(id) {
     : (comm.resource ? [{name:comm.resource, qty:comm.qty||0}] : []);
   if (!resources.length) { toast('Aucune ressource', 'Aucune ressource sur cette commande.', 'warn'); return; }
 
-  // Consolider le stock TELOS
   const stockMap = {};
   for (const p of players) {
     const pStocks = (await DB.get('uex-stocks-'+p.id)) || [];
@@ -5139,10 +5138,10 @@ async function checkCmdStock(id) {
     const inStock = stockMap[key] || 0;
     const missing = Math.max(0, needed - inStock);
     if (missing <= 0) {
-      lines.push('✅ ' + r.name + ' : OK (' + inStock + ' SCU)');
+      lines.push('OK  ' + r.name + ' : ' + inStock + ' SCU (requis: ' + needed + ')');
     } else {
       allOk = false;
-      lines.push('⚠ ' + r.name + ' : manque ' + missing.toFixed(2) + ' SCU (stock: ' + inStock + ', requis: ' + needed + ')');
+      lines.push('!   ' + r.name + ' : manque ' + missing.toFixed(2) + ' SCU (stock: ' + inStock + ', requis: ' + needed + ')');
       const exists = OBJECTIFS.some(o => !o.done && o.cat==='ressource' && o.title.toLowerCase().includes(r.name.toLowerCase()));
       if (!exists) {
         OBJECTIFS.push({
@@ -5168,15 +5167,13 @@ async function checkCmdStock(id) {
 
   if (created > 0) { await saveObjectifs(); renderObjectifs(); }
 
-  const summary = allOk ? 'Stock suffisant ✅' : (created > 0 ? created + ' objectif(s) créé(s)' : 'Objectifs déjà existants');
-  alert('📦 ' + comm.title + '
-
-' + lines.join('
-') + '
-
-' + summary);
+  const summary = allOk
+    ? 'Stock suffisant !'
+    : (created > 0 ? created + ' objectif(s) cree(s) pour les ressources manquantes.' : 'Objectifs deja existants.');
+  alert('Stock TELOS — ' + comm.title + '\n\n' + lines.join('\n') + '\n\n' + summary);
   toast(allOk ? 'Stock OK' : 'Ressources manquantes', summary, allOk ? 'success' : 'warn');
 }
+
 
 /* ════════════════════════════════════════════════════════════
    UEX API SYNC — Synchronisation temps réel du catalogue
