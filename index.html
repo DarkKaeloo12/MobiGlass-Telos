@@ -1338,7 +1338,7 @@ body::before {
                 <button class="map-btn active" id="btn-global" onclick="setMapView('global')">Vue Globale</button>
                 <button class="map-btn" id="btn-commerce" onclick="setMapView('commerce')">Vue Commerciale</button>
               </div>
-              <button class="btn sm" onclick="centerMap()" title="Reset zoom/pan — double-clic sur la carte">⊕</button>
+              <button class="btn sm" onclick="centerMap()" title="Centrer">⊕</button>
             </div>
           </div>
           
@@ -3093,33 +3093,31 @@ function initMap(canvas) {
   mapW=canvas.width; mapH=canvas.height;
   tradeRoutes=[[0,1],[1,2],[2,3],[3,0],[0,2],[3,1]];
 
-  // Init état zoom/pan
-  if (canvas._mapUserScale === undefined) canvas._mapUserScale = 1;
-  if (canvas._mapOffX === undefined) canvas._mapOffX = 0;
-  if (canvas._mapOffY === undefined) canvas._mapOffY = 0;
+  // Etat zoom/pan par canvas
+  if (canvas._mapScale  === undefined) canvas._mapScale = 1;
+  if (canvas._mapOffX   === undefined) canvas._mapOffX  = 0;
+  if (canvas._mapOffY   === undefined) canvas._mapOffY  = 0;
 
+  // Hover planète (coordonnées converties selon zoom/pan)
   canvas.addEventListener('mousemove', e=>{
     const rect=canvas.getBoundingClientRect();
-    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-    // Pan
+    let mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    // Pan en cours
     if (canvas._isDragging) {
-      canvas._mapOffX += e.clientX - canvas._dragLastX;
-      canvas._mapOffY += e.clientY - canvas._dragLastY;
-      canvas._dragLastX = e.clientX;
-      canvas._dragLastY = e.clientY;
-      canvas.style.cursor = 'grabbing';
-      return;
+      canvas._mapOffX += e.clientX - canvas._dragLX;
+      canvas._mapOffY += e.clientY - canvas._dragLY;
+      canvas._dragLX = e.clientX; canvas._dragLY = e.clientY;
+      canvas.style.cursor='grabbing'; return;
     }
-    hoveredPlanet=null;
+    // Convertir en coordonnées carte
+    const sc=canvas._mapScale, ox=canvas._mapOffX, oy=canvas._mapOffY;
     const W=canvas.width, H=canvas.height;
-    const _BASE=600, _aS=Math.min(W,H)/_BASE, _uS=canvas._mapUserScale||1, _tS=_aS*_uS;
-    const _offX=canvas._mapOffX||0, _offY=canvas._mapOffY||0;
+    const cx=(mx - W/2 - ox)/sc + W/2;
+    const cy=(my - H/2 - oy)/sc + H/2;
+    hoveredPlanet=null;
     PLANETS.forEach((_,i)=>{
       const pp=pFixed(i,W,H);
-      // Transformer les coords canvas en coords carte
-      const cx2=( mx - W/2 - _offX ) / _tS + W/2;
-      const cy2=( my - H/2 - _offY ) / _tS + H/2;
-      if(Math.hypot(cx2-pp.x,cy2-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
+      if(Math.hypot(cx-pp.x,cy-pp.y)<PLANETS[i].r+14) hoveredPlanet=i;
     });
     canvas.style.cursor=hoveredPlanet!==null?'pointer':'grab';
   });
@@ -3127,60 +3125,36 @@ function initMap(canvas) {
   // Zoom molette
   canvas.addEventListener('wheel', e=>{
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    canvas._mapUserScale = Math.max(0.3, Math.min(5, (canvas._mapUserScale||1) + delta));
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    canvas._mapScale = Math.max(0.25, Math.min(8, canvas._mapScale * factor));
   }, {passive:false});
 
   // Pan souris
   canvas.addEventListener('mousedown', e=>{
-    if (e.button === 0) {
-      canvas._isDragging = true;
-      canvas._dragLastX = e.clientX;
-      canvas._dragLastY = e.clientY;
-      canvas.style.cursor = 'grabbing';
-    }
+    if(e.button===0){ canvas._isDragging=true; canvas._dragLX=e.clientX; canvas._dragLY=e.clientY; canvas.style.cursor='grabbing'; }
   });
-  window.addEventListener('mouseup', ()=>{ canvas._isDragging = false; });
+  window.addEventListener('mouseup', ()=>{ if(canvas._isDragging){ canvas._isDragging=false; } });
 
-  // Pan tactile
-  let _lastTouchDist = null;
+  // Pinch tactile
+  let _td=null;
   canvas.addEventListener('touchstart', e=>{
-    if (e.touches.length === 1) {
-      canvas._isDragging = true;
-      canvas._dragLastX = e.touches[0].clientX;
-      canvas._dragLastY = e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      canvas._isDragging = false;
-      _lastTouchDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-    }
-  }, {passive:true});
+    if(e.touches.length===1){ canvas._isDragging=true; canvas._dragLX=e.touches[0].clientX; canvas._dragLY=e.touches[0].clientY; }
+    else if(e.touches.length===2){ canvas._isDragging=false; _td=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); }
+  },{passive:true});
   canvas.addEventListener('touchmove', e=>{
     e.preventDefault();
-    if (e.touches.length === 1 && canvas._isDragging) {
-      canvas._mapOffX += e.touches[0].clientX - canvas._dragLastX;
-      canvas._mapOffY += e.touches[0].clientY - canvas._dragLastY;
-      canvas._dragLastX = e.touches[0].clientX;
-      canvas._dragLastY = e.touches[0].clientY;
-    } else if (e.touches.length === 2 && _lastTouchDist !== null) {
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      canvas._mapUserScale = Math.max(0.3, Math.min(5, (canvas._mapUserScale||1) * (d / _lastTouchDist)));
-      _lastTouchDist = d;
+    if(e.touches.length===1&&canvas._isDragging){
+      canvas._mapOffX+=e.touches[0].clientX-canvas._dragLX; canvas._mapOffY+=e.touches[0].clientY-canvas._dragLY;
+      canvas._dragLX=e.touches[0].clientX; canvas._dragLY=e.touches[0].clientY;
+    } else if(e.touches.length===2&&_td){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      canvas._mapScale=Math.max(0.25,Math.min(8,canvas._mapScale*(d/_td))); _td=d;
     }
-  }, {passive:false});
-  canvas.addEventListener('touchend', ()=>{ canvas._isDragging = false; _lastTouchDist = null; });
+  },{passive:false});
+  canvas.addEventListener('touchend',()=>{ canvas._isDragging=false; _td=null; });
 
-  // Double-clic : reset zoom/pan
-  canvas.addEventListener('dblclick', ()=>{
-    canvas._mapUserScale = 1;
-    canvas._mapOffX = 0;
-    canvas._mapOffY = 0;
-  });
+  // Double-clic : reset
+  canvas.addEventListener('dblclick',()=>{ canvas._mapScale=1; canvas._mapOffX=0; canvas._mapOffY=0; });
 }
 
 function orbitPos(pi,ao,dr,t,W,H){ return satPosFixed(pi,ao,dr,W,H); }
@@ -3190,21 +3164,8 @@ function orbitPos(pi,ao,dr,t,W,H){ return satPosFixed(pi,ao,dr,W,H); }
 function drawMap(canvas, ctx, t) {
   if(!ctx) return;
   const W=canvas.width, H=canvas.height;
-  const S=Math.min(W,H);
+  const S=Math.min(W,H); // Référence carrée pour éviter la déformation
   ctx.clearRect(0,0,W,H);
-
-  // ── Zoom adaptatif : base 600px → scale proportionnel ──
-  const _BASE = 600;
-  const _autoScale = Math.min(W, H) / _BASE;
-  const _userScale = (canvas._mapUserScale !== undefined) ? canvas._mapUserScale : 1;
-  const _totalScale = _autoScale * _userScale;
-  const _offX = (canvas._mapOffX !== undefined) ? canvas._mapOffX : 0;
-  const _offY = (canvas._mapOffY !== undefined) ? canvas._mapOffY : 0;
-
-  ctx.save();
-  ctx.translate(W/2 + _offX, H/2 + _offY);
-  ctx.scale(_totalScale, _totalScale);
-  ctx.translate(-W/2, -H/2);
 
   // ══ FOND NOIR BLEUTÉ ════════════════════════════════════════════
   const bgG=ctx.createRadialGradient(W*0.42,H*0.40,0,W*0.42,H*0.40,Math.max(W,H)*0.80);
@@ -3219,6 +3180,15 @@ function drawMap(canvas, ctx, t) {
   const nb2=ctx.createRadialGradient(W*0.70,H*0.25,0,W*0.70,H*0.25,W*0.40);
   nb2.addColorStop(0,'rgba(18,32,75,0.13)'); nb2.addColorStop(0.5,'rgba(12,22,55,0.06)'); nb2.addColorStop(1,'rgba(8,15,40,0)');
   ctx.fillStyle=nb2; ctx.fillRect(0,0,W,H);
+
+  // ── Appliquer zoom / pan sur le contenu (étoiles + système) ──
+  const _sc = canvas._mapScale || 1;
+  const _ox = canvas._mapOffX  || 0;
+  const _oy = canvas._mapOffY  || 0;
+  ctx.save();
+  ctx.translate(W/2 + _ox, H/2 + _oy);
+  ctx.scale(_sc, _sc);
+  ctx.translate(-W/2, -H/2);
 
   // ══ ÉTOILES (4 couches) ══════════════════════════════════════════
   for(let i=0;i<500;i++){
@@ -3410,9 +3380,9 @@ function drawMap(canvas, ctx, t) {
     ctx.restore();
   }
 
-  // ══ LÉGENDE (hors zoom) ════════════════════════════════════════════
-  ctx.restore(); // fin du bloc zoom/pan
+  ctx.restore(); // ── fin zoom/pan ──
 
+  // ══ LÉGENDE (hors zoom, toujours fixe) ════════════════════════════
   const leg=[
     {sym:'×',  col:'rgba(89,208,255,0.92)', label:'Station'},
     {sym:'○',  col:'rgba(200,220,240,0.80)',label:'Lune'},
@@ -3429,19 +3399,6 @@ function drawMap(canvas, ctx, t) {
     ctx.fillText(`${item.sym} ${item.label}`,8+i*106,H-9);
   });
   ctx.restore();
-
-  // ── Indicateur zoom (hors bloc zoom) ──
-  const _uz = canvas._mapUserScale || 1;
-  if (_uz !== 1) {
-    ctx.save();
-    ctx.fillStyle='rgba(4,7,16,0.75)';
-    ctx.fillRect(W-72, 6, 66, 20);
-    ctx.fillStyle='rgba(247,140,30,0.90)';
-    ctx.font=`bold 10px 'Share Tech Mono',monospace`;
-    ctx.textAlign='center';
-    ctx.fillText(`ZOOM ${_uz.toFixed(1)}×`, W-39, 20);
-    ctx.restore();
-  }
 }
 
 function lighten(hex, pct) {
@@ -3464,8 +3421,8 @@ let mapScale=1, mapOffX=0, mapOffY=0;
 function centerMap() {
   mapScale=1; mapOffX=0; mapOffY=0;
   ['stanton-canvas','map-canvas-full'].forEach(id=>{
-    const c=document.getElementById(id);
-    if(c){ c._mapUserScale=1; c._mapOffX=0; c._mapOffY=0; }
+    const cv=document.getElementById(id);
+    if(cv){ cv._mapScale=1; cv._mapOffX=0; cv._mapOffY=0; }
   });
 }
 
