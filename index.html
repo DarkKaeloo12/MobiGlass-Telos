@@ -5112,7 +5112,6 @@ async function deleteCommande(id) {
   toast('Commande supprimée', comm.title, 'info');
 }
 
-// ── Vérifier le stock TELOS pour une commande et créer les objectifs manquants ──
 async function checkCmdStock(id) {
   const comm = COMMANDES.find(x=>x.id===id);
   if (!comm) return;
@@ -5121,73 +5120,62 @@ async function checkCmdStock(id) {
     : (comm.resource ? [{name:comm.resource, qty:comm.qty||0}] : []);
   if (!resources.length) { toast('Aucune ressource', 'Cette commande n'a pas de ressources.', 'warn'); return; }
 
-  // Consolider le stock TELOS (tous les joueurs)
+  // Consolider le stock TELOS
   const stockMap = {};
   for (const p of players) {
     const pStocks = (await DB.get('uex-stocks-'+p.id)) || [];
     pStocks.forEach(s => {
-      const key = s.res?.toLowerCase().trim();
+      const key = (s.res||'').toLowerCase().trim();
       if (!key) return;
       stockMap[key] = (stockMap[key] || 0) + (s.qty || 0);
     });
   }
 
-  let created = 0, ok = 0;
-  const results = [];
+  let created = 0, allOk = true;
+  const lines = [];
   for (const r of resources) {
-    const key = r.name?.toLowerCase().trim();
+    const key = (r.name||'').toLowerCase().trim();
     const needed = r.qty || 0;
     const inStock = stockMap[key] || 0;
     const missing = Math.max(0, needed - inStock);
-    if (missing <= 0) { ok++; results.push(`✅ ${r.name} : stock OK (${inStock} SCU)`); continue; }
-
-    results.push(`⚠ ${r.name} : manque ${missing.toFixed(2)} SCU (stock: ${inStock}, requis: ${needed})`);
-
-    // Créer un objectif automatique pour la ressource manquante
-    const alreadyExists = OBJECTIFS.some(o =>
-      !o.done &&
-      o.cat === 'ressource' &&
-      o.title.toLowerCase().includes(r.name.toLowerCase())
-    );
-    if (!alreadyExists) {
-      const obj = {
-        id: 'obj_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-        title: r.name + ' — Commande : ' + comm.title,
-        cat: 'ressource',
-        priority: 'haute',
-        desc: 'Ressource manquante pour la commande ' + comm.title,
-        target: missing,
-        unit: 'SCU',
-        current: inStock,
-        dl: comm.dl || '',
-        reward: '',
-        bpId: '',
-        ingredients: [],
-        done: false,
-        createdAt: new Date().toISOString(),
-      };
-      OBJECTIFS.push(obj);
-      created++;
+    if (missing <= 0) {
+      lines.push('✅ ' + r.name + ' : OK (' + inStock + ' SCU)');
+    } else {
+      allOk = false;
+      lines.push('⚠ ' + r.name + ' : manque ' + missing.toFixed(2) + ' SCU (stock: ' + inStock + ', requis: ' + needed + ')');
+      const exists = OBJECTIFS.some(o => !o.done && o.cat==='ressource' && o.title.toLowerCase().includes(r.name.toLowerCase()));
+      if (!exists) {
+        OBJECTIFS.push({
+          id: 'obj_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+          title: r.name + ' — ' + comm.title,
+          cat: 'ressource',
+          priority: 'haute',
+          desc: 'Ressource manquante pour : ' + comm.title,
+          target: +missing.toFixed(2),
+          unit: 'SCU',
+          current: inStock,
+          dl: comm.dl || '',
+          reward: '',
+          bpId: '',
+          ingredients: [],
+          done: false,
+          createdAt: new Date().toISOString(),
+        });
+        created++;
+      }
     }
   }
 
-  if (created > 0) {
-    await saveObjectifs();
-    renderObjectifs();
-  }
+  if (created > 0) { await saveObjectifs(); renderObjectifs(); }
 
-  const msg = results.join('
-');
-  const summary = created > 0
-    ? `${created} objectif(s) créé(s) pour les ressources manquantes.`
-    : ok === resources.length ? 'Tout le stock est suffisant !' : 'Les objectifs existaient déjà.';
-  alert('📦 Vérification stock — ' + comm.title + '
+  const summary = allOk ? 'Stock suffisant ✅' : (created > 0 ? created + ' objectif(s) créé(s)' : 'Objectifs déjà existants');
+  alert('📦 ' + comm.title + '
 
-' + msg + '
+' + lines.join('
+') + '
 
 ' + summary);
-  if (created > 0) toast('Objectifs créés', created + ' ressource(s) manquante(s) ajoutées aux objectifs', 'success');
-  else toast('Stock vérifié', summary, ok === resources.length ? 'success' : 'warn');
+  toast(allOk ? 'Stock OK' : 'Ressources manquantes', summary, allOk ? 'success' : 'warn');
 }
 
 /* ════════════════════════════════════════════════════════════
