@@ -4890,7 +4890,7 @@ function renderCommandes() {
       </div>
 
       <div class="cmd-body">
-        <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(c.client||'—')}</div></div>
+        <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(players.find(p=>p.id===c.client)?.name || c.client || '—')}</div></div>
         <div class="cmd-field"><div class="cmd-lbl">Assigné à</div><div class="cmd-val" style="color:var(--blue);">${esc(assignedName)}</div></div>
         ${(()=>{
           const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
@@ -4906,7 +4906,7 @@ function renderCommandes() {
 
       <div class="cmd-footer">
         <!-- Changer statut -->
-        ${SESSION ? (()=>{
+        ${(()=>{
           let _s='';
           if(c.status==='attente') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'en_cours\')" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">▶ EN COURS</button>';
           if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
@@ -4915,7 +4915,7 @@ function renderCommandes() {
           _s+='<button onclick="checkCmdStock('+JSON.stringify(c.id)+')" title="Vérifier le stock TELOS" style="padding:3px 9px;border:1px solid rgba(89,208,255,0.5);color:#59d0ff;background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">📦</button>';
           _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" title="Supprimer" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
           return _s;
-        })() : ''}
+        })()}
         <span style="margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);">${new Date(c.createdAt).toLocaleDateString('fr-FR')}</span>
       </div>
     </div>`;
