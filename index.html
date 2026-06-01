@@ -4912,7 +4912,7 @@ function renderCommandes() {
           if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
           if(c.status==='livree'||c.status==='annulee') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'attente\')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">↺ ROUVRIR</button>';
           _s+='<button onclick="editCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
-          _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
+          _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" title="Supprimer" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
           return _s;
         })() : ''}
         <span style="margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);">${new Date(c.createdAt).toLocaleDateString('fr-FR')}</span>
@@ -5091,12 +5091,20 @@ async function setCmdStatus(id, status) {
   toast('Statut mis à jour', statusLabels[status]||status, status==='livree'?'success':'info');
 }
 
-async function cancelCommande(id) { deleteCommande(id); }
+async function cancelCommande(id) {
+  const c = COMMANDES.find(x=>x.id===id);
+  if (!c) return;
+  if (!confirm('Annuler la commande "'+c.title+'" ?')) return;
+  c.status = 'annulee';
+  await saveCommandes();
+  renderCommandes();
+  toast('Commande annulée', c.title, 'info');
+}
 
 async function deleteCommande(id) {
   const comm = COMMANDES.find(x=>x.id===id);
   if (!comm) return;
-  if (!confirm('Supprimer définitivement la commande "'+comm.title+'" ?')) return;
+  if (!confirm('Supprimer définitivement "'+comm.title+'" ?')) return;
   COMMANDES = COMMANDES.filter(x=>x.id!==id);
   await saveCommandes();
   renderCommandes();
