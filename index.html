@@ -4886,7 +4886,6 @@ function renderCommandes() {
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:flex-start;">
           <span class="cmd-status cmd-status-${c.status}">${CMD_STATUS_LABELS[c.status]||c.status}</span>
-          <span style="font-size:11px;color:${CMD_PRIO_COLORS[c.priority]||'var(--text-dim)'};">${CMD_PRIO_ICONS[c.priority]||''}</span>
         </div>
       </div>
 
@@ -4897,9 +4896,7 @@ function renderCommandes() {
           const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
           if (!res.length) return '';
           const bpName = c.bpId ? (BLUEPRINTS||[]).find(x=>x.id===c.bpId)?.name : null;
-          const qm = c.qtyMulti || 1;
-          const qmLabel = bpName && qm > 1 ? `<span style="color:var(--orange);margin-left:6px;">×${qm}</span>` : '';
-          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}${qmLabel}</div></div>`:'')
+          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}</div></div>`:'')
             + res.map(r=>`<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ ${esc(r.name)}${r.qty?' · '+Number(r.qty).toLocaleString('fr-FR')+' SCU':''}</div></div>`).join('');
         })()}
         ${c.price>0 ? '<div class="cmd-field"><div class="cmd-lbl">Prix / SCU</div><div class="cmd-val">'+fmtPrice(c.price)+'</div></div>' : ''}
@@ -4915,7 +4912,7 @@ function renderCommandes() {
           if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
           if(c.status==='livree'||c.status==='annulee') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'attente\')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">↺ ROUVRIR</button>';
           _s+='<button onclick="editCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
-          if(canManageRoles()) _s+='<button onclick="cancelCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>';
+          _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
           return _s;
         })() : ''}
         <span style="margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);">${new Date(c.createdAt).toLocaleDateString('fr-FR')}</span>
@@ -4960,19 +4957,6 @@ function openAddCommande(editId) {
   set('cmd-priority', c?.priority ||'normale');
   set('cmd-dl',       c?.dl       ||'');
   set('cmd-notes',    c?.notes    ||'');
-
-  // Reset compteur exemplaires
-  const qtyMultiEl = document.getElementById('cmd-qty-multi');
-  const savedQty = c?.qtyMulti || 1;
-  if (qtyMultiEl) qtyMultiEl.value = savedQty;
-  // Stocker les ressources de base (qty / nbExemplaires) pour permettre re-multiplication
-  if (c?.resources?.length) {
-    window._cmdBaseResources = c.resources.map(r=>({name:r.name, qty:+(r.qty/savedQty).toFixed(6)}));
-  } else {
-    window._cmdBaseResources = null;
-  }
-  const lbl = document.getElementById('cmd-res-multi-label');
-  if (lbl) { lbl.textContent = savedQty > 1 ? `×${savedQty} exemplaires` : ''; lbl.style.display = savedQty > 1 ? '' : 'none'; }
 
   const title = document.getElementById('cmd-modal-title');
   if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
@@ -5023,35 +5007,13 @@ function onCmdBlueprintChange() {
   const bpSel = document.getElementById('cmd-blueprint');
   if (!bpSel) return;
   const bpId = bpSel.value;
-  if (!bpId) { window._cmdBaseResources = null; return; }
+  if (!bpId) return;
   const bp = (BLUEPRINTS||[]).find(x=>x.id===bpId);
   if (!bp) return;
-  // Stocker les quantités de base (1 exemplaire)
+  // Remplir les lignes de ressources avec les ingrédients
   if (bp.ingredients?.length) {
-    window._cmdBaseResources = bp.ingredients.map(i=>({name:i.name, qty:i.qty}));
-    applyCmdQtyMulti();
+    setCmdResources(bp.ingredients.map(i=>({name:i.name, qty:i.qty})));
   }
-}
-
-// Incrémenter / décrémenter le nombre d'exemplaires
-function setCmdQty(delta) {
-  const el = document.getElementById('cmd-qty-multi');
-  if (!el) return;
-  const v = Math.max(1, Math.min(999, (parseInt(el.value)||1) + delta));
-  el.value = v;
-  applyCmdQtyMulti();
-}
-
-// Appliquer le multiplicateur sur les ressources du blueprint
-function applyCmdQtyMulti() {
-  const el = document.getElementById('cmd-qty-multi');
-  const n = Math.max(1, parseInt(el?.value)||1);
-  const lbl = document.getElementById('cmd-res-multi-label');
-  if (lbl) { lbl.textContent = n > 1 ? `×${n} exemplaires` : ''; lbl.style.display = n > 1 ? '' : 'none'; }
-  if (!window._cmdBaseResources) return;
-  // Multiplier les qtés de base
-  const scaled = window._cmdBaseResources.map(r=>({name:r.name, qty:+(r.qty*n).toFixed(4)}));
-  setCmdResources(scaled);
 }
 
 function closeAddCommande() {
@@ -5083,8 +5045,6 @@ async function saveCommande() {
   const autoTitle  = bp ? `Craft : ${bp.name} → ${clientName}`
     : resources.length ? `${resources[0].name} → ${clientName}` : `Commande → ${clientName}`;
 
-  const qtyMulti = Math.max(1, parseInt(document.getElementById('cmd-qty-multi')?.value)||1);
-
   const entry = {
     id:        _editCmdId||('cmd_'+Date.now()),
     type:      _cmdType,
@@ -5092,7 +5052,6 @@ async function saveCommande() {
     client:    clientVal,
     assigned:  document.getElementById('cmd-assigned')?.value||'',
     bpId,
-    qtyMulti,
     resources,
     // compat ancienne structure
     resource:  resources[0]?.name||'',
@@ -5133,13 +5092,18 @@ async function setCmdStatus(id, status) {
 }
 
 async function cancelCommande(id) {
-  const c = COMMANDES.find(x=>x.id===id);
-  if (!c) return;
-  if (!confirm('Annuler la commande "'+c.title+'" ?')) return;
-  c.status = 'annulee';
+  // Gardé pour compatibilité, redirige vers delete
+  deleteCommande(id);
+}
+
+async function deleteCommande(id) {
+  const comm = COMMANDES.find(x=>x.id===id);
+  if (!comm) return;
+  if (!confirm('Supprimer définitivement la commande "'+comm.title+'" ?')) return;
+  COMMANDES = COMMANDES.filter(x=>x.id!==id);
   await saveCommandes();
   renderCommandes();
-  toast('Commande annulée', c.title, 'info');
+  toast('Commande supprimée', comm.title, 'info');
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -7293,19 +7257,9 @@ window.addEventListener('resize', () => {
           </select>
         </div>
 
-        <!-- Nombre d'exemplaires -->
-        <div class="form-field" style="grid-column:span 2;">
-          <label class="form-lbl">Nombre d'exemplaires <span style="color:var(--text-dim);font-size:9px;">multiplie les ressources du blueprint</span></label>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button type="button" onclick="setCmdQty(-1)" style="width:32px;height:36px;border:1px solid var(--border);background:transparent;color:var(--text-bright);font-size:18px;cursor:pointer;font-family:var(--ui);">−</button>
-            <input class="form-input" type="number" id="cmd-qty-multi" min="1" max="999" value="1" oninput="applyCmdQtyMulti()" style="flex:1;text-align:center;font-size:16px;font-weight:700;padding:7px 9px;">
-            <button type="button" onclick="setCmdQty(1)" style="width:32px;height:36px;border:1px solid var(--border);background:transparent;color:var(--text-bright);font-size:18px;cursor:pointer;font-family:var(--ui);">+</button>
-          </div>
-        </div>
-
         <!-- Ressources dynamiques liées au blueprint -->
         <div class="form-field" style="grid-column:span 2;" id="cmd-resources-block">
-          <label class="form-lbl">Ressources demandées <span id="cmd-res-multi-label" style="color:var(--orange);font-size:9px;display:none;"></span></label>
+          <label class="form-lbl">Ressources demandées</label>
           <div id="cmd-resources-list" style="display:flex;flex-direction:column;gap:6px;">
             <!-- Ligne par défaut -->
             <div class="cmd-res-row" style="display:grid;grid-template-columns:1fr 80px;gap:6px;">
