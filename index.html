@@ -2527,7 +2527,7 @@ var SUPABASE_URL='https://ykdamleudeatahrxicgk.supabase.co';const SUPABASE_KEY='
 function getSB(){if(_sb)return _sb;try{const{createClient}=window.supabase;_sb=createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){}return _sb;}
 var DB={
   async get(k){try{const sb=getSB();if(!sb)throw 0;const{data,error}=await sb.from('telos_store').select('value').eq('key',k).maybeSingle();if(!error&&data){try{localStorage.setItem('telos_'+k,JSON.stringify(data.value));}catch(e){}return data.value;}}catch(e){console.warn('[DB.get]',e?.message||e);}try{const v=localStorage.getItem('telos_'+k);if(v)return JSON.parse(v);}catch(e){}return null;},
-  async set(k,v){try{const sb=getSB();if(!sb)throw 0;const{error}=await sb.from('telos_store').upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:'key'});if(error)console.warn('[DB.set]',error.message);}catch(e){console.warn('[DB.set]',e?.message||e);}try{localStorage.setItem('telos_'+k,JSON.stringify(v));}catch(e){}},
+  async set(k,v){try{const _v=JSON.parse(JSON.stringify(v));const sb=getSB();if(!sb)throw 0;const{error}=await sb.from('telos_store').upsert({key:k,value:_v,updated_at:new Date().toISOString()},{onConflict:'key'});if(error)console.warn('[DB.set]',error.message);try{localStorage.setItem('telos_'+k,JSON.stringify(_v));}catch(e){}}catch(e){console.warn('[DB.set]',typeof e==='object'?String(e?.message||e):'err');}},
   async del(k){try{const sb=getSB();if(sb)await sb.from('telos_store').delete().eq('key',k);}catch(e){}try{localStorage.removeItem('telos_'+k);}catch(e){}},
   async keys(){try{const sb=getSB();if(sb){const{data}=await sb.from('telos_store').select('key');if(data)return data.map(r=>r.key);}}catch(e){}const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith('telos_'))keys.push(k.slice(6));}return keys;}
 };
@@ -4580,6 +4580,8 @@ function renderObjectifs() {
       <div class="obj-meta">
         <span class="obj-badge" style="color:${col};border-color:${col};">${OBJ_PRIO_LABELS[o.priority]||o.priority}</span>
         <span class="obj-badge" style="color:var(--blue);border-color:var(--blue);">${OBJ_CAT_LABELS[o.cat]||o.cat}</span>
+        ${o.autoCreated ? '<span class="obj-badge" style="color:var(--orange);border-color:var(--orange);background:rgba(247,140,30,0.08);">⚙ AUTO</span>' : ''}
+        ${o.cmdId ? `<span class="obj-badge" style="color:var(--text-dim);border-color:var(--border);cursor:pointer;" onclick="goPanel('commandes')" title="Voir la commande source">📋 Commande liée</span>` : ''}
         ${dl} ${rew}
       </div>
       ${progBar}
@@ -4595,7 +4597,7 @@ function renderObjectifs() {
       </div>` : ''}
       ${o.ingredients && o.ingredients.length ? `
       <div style="margin-top:10px;border-top:1px solid rgba(247,140,30,0.1);padding-top:8px;">
-        <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:6px;">📐 Ingrédients Blueprint</div>
+        <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:6px;">${o.autoCreated ? '⚠ Ressources à approvisionner' : '📐 Ingrédients Blueprint'}</div>
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${o.ingredients.map((ing,idx) => {
             const pct = ing.qty>0 ? Math.min(100,Math.round((ing.collected||0)/ing.qty*100)) : 0;
@@ -5185,6 +5187,101 @@ async function saveCommande() {
   pushActivity(icon, (_editCmdId?'Commande modifiée : ':'Nouvelle commande : ')+entry.title, entry.price>0?Number(entry.price).toLocaleString('fr-FR')+' aUEC':'', true);
   pushLog('trade','TRADE',(_editCmdId?'Commande modifiée':'Nouvelle commande')+' ['+entry.type+']: '+entry.title);
   toast(_editCmdId?'Commande modifiée':'Commande créée', entry.title, 'success');
+  // Contrôle automatique du stock en arrière-plan (uniquement à la création)
+  if (!_editCmdId) checkStockForCommande(entry);
+}
+
+// ══ CONTRÔLE STOCK AUTOMATIQUE À LA CRÉATION D'UNE COMMANDE ════════════════
+async function checkStockForCommande(cmd) {
+  if (!cmd.resources || !cmd.resources.length) return;
+
+  // ── 1. Agréger tout le stock TELOS (tous les joueurs) ──
+  const telosStock = {}; // { nomRessource_normalisé: qtéTotale }
+  for (const p of players) {
+    const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
+    for (const s of stocks) {
+      const key = (s.name || s.resource || '').toLowerCase().trim();
+      if (!key) continue;
+      telosStock[key] = (telosStock[key] || 0) + (parseFloat(s.qty) || 0);
+    }
+  }
+
+  // ── 2. Comparer chaque ressource de la commande avec le stock ──
+  const manques = [];
+  for (const res of cmd.resources) {
+    const key = res.name.toLowerCase().trim();
+    const dispo = telosStock[key] || 0;
+    const requis = parseFloat(res.qty) || 0;
+    if (requis <= 0) continue;
+    const manque = requis - dispo;
+    if (manque > 0) {
+      manques.push({ name: res.name, requis, dispo, manque: Math.round(manque * 1000) / 1000 });
+    }
+  }
+
+  if (!manques.length) {
+    // Stock suffisant — notification positive
+    toast('✅ Stock suffisant', 'Toutes les ressources sont disponibles pour : ' + cmd.title, 'success');
+    pushLog('system', 'STOCK', 'Contrôle stock OK pour commande : ' + cmd.title);
+    return;
+  }
+
+  // ── 3. Créer un objectif automatique pour les ressources manquantes ──
+  const clientName = players.find(p => p.id === cmd.client)?.name || cmd.client || '?';
+  const objTitle = '⚠ Approvisionnement : ' + cmd.title;
+
+  // Éviter les doublons — ne pas recréer si un objectif identique existe déjà
+  const alreadyExists = OBJECTIFS.some(o =>
+    o.cmdId === cmd.id && !o.done
+  );
+  if (alreadyExists) return;
+
+  const objEntry = {
+    id:          'obj_auto_' + cmd.id + '_' + Date.now(),
+    title:       objTitle,
+    cat:         'ressource',
+    priority:    cmd.priority === 'urgente' ? 'haute' : 'normale',
+    desc:        `Approvisionnement automatique pour la commande "${cmd.title}" (commanditaire : ${clientName}).
+
+Ressources manquantes :
+` +
+                 manques.map(m => '• ' + m.name + ' : ' + m.manque + ' SCU manquant (dispo ' + m.dispo + ' / requis ' + m.requis + ')').join('\n'),
+    target:      manques.reduce((s, m) => s + m.manque, 0),
+    unit:        'SCU',
+    current:     0,
+    dl:          cmd.dl || '',
+    reward:      '',
+    bpId:        cmd.bpId || '',
+    cmdId:       cmd.id,   // lien vers la commande source
+    autoCreated: true,
+    ingredients: manques.map(m => ({
+      name:      m.name,
+      qty:       m.manque,
+      unit:      'SCU',
+      collected: 0,
+    })),
+    done:        false,
+    createdAt:   new Date().toISOString(),
+  };
+
+  OBJECTIFS.push(objEntry);
+  await saveObjectifs();
+  renderObjectifs();
+
+  // ── 4. Notifications ──
+  const resumé = manques.map(m => `${m.name} : −${m.manque} SCU`).join(' · ');
+  pushActivity('⚠', 'Objectif créé automatiquement : ' + objTitle, resumé, false);
+  pushLog('system', 'AUTO', 'Objectif appro. créé pour commande : ' + cmd.title + ' | Manques : ' + resumé);
+
+  // Toast avec détail
+  setTimeout(() => {
+    toast(
+      `⚠ ${manques.length} ressource${manques.length > 1 ? 's' : ''} manquante${manques.length > 1 ? 's' : ''}`,
+      `Objectif d'approvisionnement créé automatiquement.
+${resumé}`,
+      'warning'
+    );
+  }, 800);
 }
 
 async function setCmdStatus(id, status) {
