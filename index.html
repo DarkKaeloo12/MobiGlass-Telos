@@ -1202,6 +1202,22 @@ body::before {
 <div id="app">
 
   <!-- SIDEBAR -->
+<script>
+// Pré-initialisation des globales critiques — évite les TDZ/undefined
+// avant que le script principal soit chargé
+var SESSION=null, players=[], FULL_LOGS_DATA=[], COMMANDES=[], BLUEPRINTS=[],
+    OBJECTIFS=[], MISSIONS=[], ROLES=['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'],
+    ROLES_CONFIG=null, ROLES_COLORS_CUSTOM={}, LIVE_ACTIVITY=[], RESSOURCE_CATALOGUE=[],
+    PANELS_PUBLIC=['hub','inscription'],
+    selectedPid=null, mapView='global', mapCanvas=null, mapCtx=null, mapW=0, mapH=0,
+    hoveredPlanet=null, tradeRoutes=[], _cmdType='interne', _editCmdId=null,
+    _bpIngredients=[], _objIngredients=[], _cmdBpBaseIngredients=[],
+    MARKET_PRICES={}, UEX_PRICE_MAP={};
+function pushLog(){} // stub remplacé par le vrai plus tard
+function openLoginModal(){} // stub
+function goPanel(){} // stub
+function showLoginWall(){} // stub
+</script>
   <nav id="sidebar">
     <div class="nav-item active" onclick="goPanel('hub',this)">
       <div class="n-icon">⬡</div>
