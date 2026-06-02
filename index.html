@@ -1458,7 +1458,9 @@ function showLoginWall(){} // stub
               <th onclick="sortStocks('name')">Ressource ↕</th>
               <th onclick="sortStocks('cat')">Catégorie ↕</th>
               <th onclick="sortStocks('player')">Partenaire ↕</th>
-              <th onclick="sortStocks('qty')">Quantité ↕</th>
+              <th title="Qualité &lt;500 — vente uniquement" style="color:var(--orange);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vente')">🔴 Vente ↕<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
+              <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vaisseau')">🔵 Craft V. ↕<div style="font-size:8px;opacity:.7;">500–800</div></th>
+              <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_fps')">🟢 Craft FPS ↕<div style="font-size:8px;opacity:.7;">800–1000</div></th>
               <th onclick="sortStocks('buy')">Prix achat ↕</th>
               <th onclick="sortStocks('sell')">Prix vente ↕</th>
               <th onclick="sortStocks('margin')">Marge ↕</th>
@@ -1646,7 +1648,10 @@ function showLoginWall(){} // stub
                 <div class="st-wrap">
                   <table class="data-table" style="width:100%">
                     <thead><tr>
-                      <th>Ressource</th><th>Catégorie</th><th>Quantité</th>
+                      <th>Ressource</th><th>Catégorie</th>
+                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 Vente<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
+                      <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;white-space:nowrap;">🔵 Craft V.<div style="font-size:8px;opacity:.7;">500–800</div></th>
+                      <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);white-space:nowrap;">🟢 Craft FPS<div style="font-size:8px;opacity:.7;">800–1000</div></th>
                       <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
                       <th>Val. achat</th><th>Val. vente</th><th>Profit</th>
                       <th>📍 Localisation</th><th>Date</th><th>Action</th>
@@ -3634,6 +3639,7 @@ async function renderStocksFromPlayers() {
       sell:    Number(s.sellprice) || 0,
       loc:     s.loc || '—',
       note:    s.note || '',
+      quality: s.quality || '',
       addedAt: s.addedAt,
     }));
   }
@@ -3682,6 +3688,7 @@ async function renderStocksFromPlayers() {
       groups[key] = {
         name: r.name, cat: r.cat,
         totalQty: 0, totalBuyVal: 0, totalSellVal: 0,
+        qtyVente: 0, qtyVaisseau: 0, qtyFps: 0,
         partners: [],
       };
     }
@@ -3689,6 +3696,10 @@ async function renderStocksFromPlayers() {
     g.totalQty     += r.qty;
     g.totalBuyVal  += r.buy  * r.qty;
     g.totalSellVal += r.sell * r.qty;
+    const _rb = qualityBucket(r);
+    if (_rb==='vente')    g.qtyVente    += r.qty;
+    else if (_rb==='vaisseau') g.qtyVaisseau += r.qty;
+    else                  g.qtyFps      += r.qty;
     const ex = g.partners.find(p=>p.pid===r.pid);
     if (ex) {
       ex.qty     += r.qty;
@@ -3759,7 +3770,9 @@ async function renderStocksFromPlayers() {
           ${nb>1?`<span style="font-size:9px;color:var(--text-dim);margin-left:2px;">(${nb})</span>`:''}
         </div>
       </td>
-      <td class="td-orange">${g.totalQty.toLocaleString('fr-FR')}</td>
+      ${qtyCell(g.qtyVente,   'vente')}
+      ${qtyCell(g.qtyVaisseau,'vaisseau')}
+      ${qtyCell(g.qtyFps,     'fps')}
       <td class="td-dim">${avgBuy?avgBuy.toFixed(2)+' aUEC':'—'}</td>
       <td style="color:var(--blue);">${avgSell?avgSell.toFixed(2)+' aUEC':'—'}</td>
       <td class="${mCls}">${margin!==null?(margin>=0?'+':'')+margin.toFixed(1)+'%':'—'}</td>
@@ -5750,14 +5763,12 @@ async function syncFromUEX() {
       };
     });
 
-    // Ensuite : tenter commodities_prices pour avoir les vrais min/max par terminal
-    // UEX 2.0 supporte ?id_star_system=68 (Stanton) pour limiter les résultats
+    // Ensuite : commodities_prices (sans filtre) = tous les terminaux, tous systèmes
     try {
-      if (status) status.textContent = 'Chargement prix par terminal (Stanton)...';
-      const allPrices = await apiFetch('commodities_prices?id_star_system=68');
+      if (status) status.textContent = 'Chargement prix tous terminaux...';
+      const allPrices = await apiFetch('commodities_prices');
       const pricesArr = Array.isArray(allPrices) ? allPrices : [];
       if (pricesArr.length > 0) {
-        // Agréger : min achat et max vente par commodity
         const agg = {};
         pricesArr.forEach(p => {
           const cid = p.id_commodity;
@@ -5777,8 +5788,7 @@ async function syncFromUEX() {
         if (status) status.textContent = pricesArr.length + ' prix terminaux chargés';
       }
     } catch(e) {
-      // Pas grave — on garde les prix inline
-      if (status) status.textContent = 'Prix inline utilisés (min/max terminaux indisponibles)';
+      if (status) status.textContent = 'Fallback prix inline';
     }
 
     // ── ÉTAPE 3 : Mapping catégories UEX → TELOS ──
@@ -5869,125 +5879,128 @@ async function syncFromUEX() {
 async function syncFromUEXLocal() {
   const now = new Date().toISOString();
   const LOCAL_DATA = [
-    {name:'Agricium',cat:'mineral',buyRef:9700,sellRef:9700},
-    {name:'Agricultural Supplies',cat:'ressources',buyRef:1400,sellRef:1400},
-    {name:'Aluminum',cat:'mineral',buyRef:3700,sellRef:3700},
-    {name:'Amioshi Plague',cat:'ressources',buyRef:24000,sellRef:24000},
-    {name:'Ammonia',cat:'mineral',buyRef:1000,sellRef:1000},
-    {name:'Aphorite',cat:'mineral',buyRef:101100,sellRef:101100},
-    {name:'Argon',cat:'mineral',buyRef:446,sellRef:446},
-    {name:'Aslarite',cat:'mineral',buyRef:5100,sellRef:5100},
-    {name:'Astatine',cat:'mineral',buyRef:3500,sellRef:3500},
-    {name:'Atlasium',cat:'mineral',buyRef:91900,sellRef:91900},
-    {name:'Audio Visual Equipment',cat:'equipements',buyRef:35400,sellRef:35400},
-    {name:'Altruciatoxin',cat:'ressources',buyRef:6400,sellRef:6400},
-    {name:'Beradom',cat:'mineral',buyRef:144200,sellRef:144200},
-    {name:'Beryl',cat:'mineral',buyRef:19900,sellRef:19900},
-    {name:'Bexalite',cat:'mineral',buyRef:28800,sellRef:28800},
-    {name:'Bioplastic',cat:'ressources',buyRef:7600,sellRef:7600},
-    {name:'Borase',cat:'mineral',buyRef:27600,sellRef:27600},
-    {name:'Carbon',cat:'mineral',buyRef:357,sellRef:357},
-    {name:'Carbon Silk',cat:'ressources',buyRef:20800,sellRef:20800},
-    {name:'Cave Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
-    {name:'CK13 Gid Seed Blend',cat:'ressources',buyRef:533,sellRef:533},
-    {name:'Chlorine',cat:'mineral',buyRef:1500,sellRef:1500},
-    {name:'Cobalt',cat:'mineral',buyRef:20800,sellRef:20800},
-    {name:'Compboard',cat:'equipements',buyRef:29600,sellRef:29600},
-    {name:'Construction Materials',cat:'equipements',buyRef:12500,sellRef:12500},
-    {name:'Copper',cat:'mineral',buyRef:3700,sellRef:3700},
-    {name:'Corundum',cat:'mineral',buyRef:3700,sellRef:3700},
-    {name:'DCSR2',cat:'ressources',buyRef:1200,sellRef:1200},
-    {name:'Degnous Root',cat:'ressources',buyRef:60300,sellRef:60300},
-    {name:'Diamond Laminate',cat:'mineral',buyRef:87300,sellRef:87300},
-    {name:'Diamond',cat:'mineral',buyRef:7500,sellRef:7500},
-    {name:'Distilled Spirits',cat:'ressources',buyRef:1900,sellRef:1900},
-    {name:'Dolivine',cat:'mineral',buyRef:146300,sellRef:146300},
-    {name:'Dymantium',cat:'mineral',buyRef:22800,sellRef:22800},
-    {name:'Dynaflex',cat:'equipements',buyRef:1900,sellRef:1900},
-    {name:'Etam',cat:'mineral',buyRef:23200,sellRef:23200},
-    {name:'Feynmaline',cat:'mineral',buyRef:341500,sellRef:341500},
-    {name:'Fresh Food',cat:'ressources',buyRef:24800,sellRef:24800},
-    {name:'Fluorine',cat:'mineral',buyRef:1300,sellRef:1300},
-    {name:'Foam',cat:'equipements',buyRef:6300,sellRef:6300},
-    {name:'Gasping Weevil Eggs',cat:'ressources',buyRef:63900,sellRef:63900},
-    {name:'Glacosite',cat:'mineral',buyRef:98600,sellRef:98600},
-    {name:'Gold',cat:'mineral',buyRef:30000,sellRef:30000},
-    {name:'Golden Medmon',cat:'ressources',buyRef:59200,sellRef:59200},
-    {name:'Hadanite',cat:'mineral',buyRef:544300,sellRef:544300},
-    {name:'Heart Of The Woods',cat:'ressources',buyRef:35800,sellRef:35800},
-    {name:'Helium',cat:'mineral',buyRef:1000,sellRef:1000},
-    {name:'Hephaestanite',cat:'mineral',buyRef:4600,sellRef:4600},
-    {name:'Human Food Bars',cat:'ressources',buyRef:487,sellRef:487},
-    {name:'Hydrogen Fuel',cat:'mineral',buyRef:180,sellRef:180},
-    {name:'Hydrogen',cat:'mineral',buyRef:1000,sellRef:1000},
-    {name:'Irradiated Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
-    {name:'Iodine',cat:'mineral',buyRef:11500,sellRef:11500},
-    {name:'Iron',cat:'mineral',buyRef:3400,sellRef:3400},
-    {name:'Janalite',cat:'mineral',buyRef:2900000,sellRef:2900000},
-    {name:'Kopion Horn',cat:'ressources',buyRef:35500,sellRef:35500},
-    {name:'Laranite',cat:'mineral',buyRef:8600,sellRef:8600},
-    {name:'Lindinium',cat:'mineral',buyRef:47000,sellRef:47000},
-    {name:'Luminalia Gift',cat:'autre',buyRef:5100000,sellRef:5100000},
-    {name:'Marok Gem',cat:'mineral',buyRef:52900,sellRef:52900},
-    {name:'Maze',cat:'ressources',buyRef:230000,sellRef:230000},
-    {name:'Medical Supplies',cat:'ressources',buyRef:5200,sellRef:5200},
-    {name:'Mercury',cat:'mineral',buyRef:1000,sellRef:1000},
-    {name:'Methane',cat:'mineral',buyRef:3600,sellRef:3600},
-    {name:'Neograph',cat:'mineral',buyRef:93900,sellRef:93900},
-    {name:'Neon',cat:'mineral',buyRef:18500,sellRef:18500},
-    {name:'Nitrogen',cat:'mineral',buyRef:3000,sellRef:3000},
-    {name:'Omnapoxy',cat:'equipements',buyRef:4600,sellRef:4600},
-    {name:'Organics',cat:'ressources',buyRef:12800,sellRef:12800},
-    {name:'Osoian Hides',cat:'ressources',buyRef:870000,sellRef:870000},
-    {name:'Ouratite',cat:'mineral',buyRef:42300,sellRef:42300},
-    {name:'Partillium',cat:'mineral',buyRef:89900,sellRef:89900},
-    {name:'Party Favors',cat:'accessoires',buyRef:4900,sellRef:4900},
-    {name:'Pitambu',cat:'mineral',buyRef:60300,sellRef:60300},
-    {name:'Potassium',cat:'mineral',buyRef:569,sellRef:569},
-    {name:'Pressurized Ice',cat:'autre',buyRef:5300,sellRef:5300},
-    {name:'Processed Food',cat:'ressources',buyRef:1400,sellRef:1400},
-    {name:'Prota',cat:'ressources',buyRef:62400,sellRef:62400},
-    {name:'Quantanium',cat:'mineral',buyRef:150400,sellRef:150400},
-    {name:'Quantum Fuel',cat:'mineral',buyRef:928,sellRef:928},
-    {name:'Quartz',cat:'mineral',buyRef:4300,sellRef:4300},
-    {name:'Ranta Dung',cat:'ressources',buyRef:37100,sellRef:37100},
-    {name:'Recycled Material Composite',cat:'salvage',buyRef:7200,sellRef:7200},
-    {name:'Revenant Pod',cat:'ressources',buyRef:9600,sellRef:9600},
-    {name:'Revenant Tree Pollen',cat:'ressources',buyRef:1200,sellRef:1200},
-    {name:'Riccite',cat:'mineral',buyRef:67900,sellRef:67900},
-    {name:'Sadaryx',cat:'mineral',buyRef:500000,sellRef:500000},
-    {name:'Savrilium',cat:'mineral',buyRef:123200,sellRef:123200},
-    {name:'Scrap',cat:'salvage',buyRef:3500,sellRef:3500},
-    {name:'Silicon',cat:'mineral',buyRef:2400,sellRef:2400},
-    {name:'Slam',cat:'ressources',buyRef:37900,sellRef:37900},
-    {name:'Souvenirs',cat:'accessoires',buyRef:19000,sellRef:19000},
-    {name:'Steel',cat:'mineral',buyRef:2000,sellRef:2000},
-    {name:'Stileron',cat:'mineral',buyRef:136700,sellRef:136700},
-    {name:'Stims',cat:'ressources',buyRef:5400,sellRef:5400},
-    {name:'Sunset Berries',cat:'ressources',buyRef:82100,sellRef:82100},
-    {name:'Taranite',cat:'mineral',buyRef:25800,sellRef:25800},
-    {name:'Tin',cat:'mineral',buyRef:4000,sellRef:4000},
-    {name:'Titanium',cat:'mineral',buyRef:8100,sellRef:8100},
-    {name:'Torite',cat:'mineral',buyRef:7700,sellRef:7700},
-    {name:'Tritium',cat:'mineral',buyRef:33300,sellRef:33300},
-    {name:'Tungsten',cat:'mineral',buyRef:10300,sellRef:10300},
-    {name:'Waste',cat:'salvage',buyRef:342,sellRef:342},
-    {name:'Widow',cat:'ressources',buyRef:7400,sellRef:7400},
-    {name:'Xapyen',cat:'mineral',buyRef:4800,sellRef:4800},
+    // buyRef = achat min (moins cher tous terminaux), sellRef = vente max (plus cher)
+    {name:'Agricium',          cat:'mineral',    buyRef:8200,   sellRef:12800},
+    {name:'Agricultural Supplies',cat:'ressources',buyRef:1100, sellRef:1800},
+    {name:'Aluminum',          cat:'mineral',    buyRef:3100,   sellRef:4300},
+    {name:'Amioshi Plague',    cat:'ressources', buyRef:20000,  sellRef:28000},
+    {name:'Ammonia',           cat:'mineral',    buyRef:800,    sellRef:1300},
+    {name:'Aphorite',          cat:'mineral',    buyRef:89000,  sellRef:118000},
+    {name:'Argon',             cat:'mineral',    buyRef:380,    sellRef:520},
+    {name:'Aslarite',          cat:'mineral',    buyRef:4400,   sellRef:6200},
+    {name:'Astatine',          cat:'mineral',    buyRef:2900,   sellRef:4200},
+    {name:'Atlasium',          cat:'mineral',    buyRef:79000,  sellRef:108000},
+    {name:'Audio Visual Equipment',cat:'equipements',buyRef:29000,sellRef:43000},
+    {name:'Altruciatoxin',     cat:'ressources', buyRef:5400,   sellRef:7800},
+    {name:'Beradom',           cat:'mineral',    buyRef:122000, sellRef:172000},
+    {name:'Beryl',             cat:'mineral',    buyRef:16800,  sellRef:24000},
+    {name:'Bexalite',          cat:'mineral',    buyRef:24000,  sellRef:34500},
+    {name:'Bioplastic',        cat:'ressources', buyRef:6400,   sellRef:9200},
+    {name:'Borase',            cat:'mineral',    buyRef:23000,  sellRef:33000},
+    {name:'Carbon',            cat:'mineral',    buyRef:290,    sellRef:430},
+    {name:'Carbon Silk',       cat:'ressources', buyRef:17500,  sellRef:25000},
+    {name:'Cave Kopion Horn',  cat:'ressources', buyRef:29000,  sellRef:43000},
+    {name:'CK13 Gid Seed Blend',cat:'ressources',buyRef:440,   sellRef:640},
+    {name:'Chlorine',          cat:'mineral',    buyRef:1200,   sellRef:1800},
+    {name:'Cobalt',            cat:'mineral',    buyRef:17500,  sellRef:25000},
+    {name:'Compboard',         cat:'equipements',buyRef:24500,  sellRef:36000},
+    {name:'Construction Materials',cat:'equipements',buyRef:10500,sellRef:15500},
+    {name:'Copper',            cat:'mineral',    buyRef:3100,   sellRef:4500},
+    {name:'Corundum',          cat:'mineral',    buyRef:3100,   sellRef:4500},
+    {name:'DCSR2',             cat:'ressources', buyRef:1000,   sellRef:1500},
+    {name:'Degnous Root',      cat:'ressources', buyRef:50000,  sellRef:73000},
+    {name:'Diamond Laminate',  cat:'mineral',    buyRef:73000,  sellRef:105000},
+    {name:'Diamond',           cat:'mineral',    buyRef:6300,   sellRef:9200},
+    {name:'Distilled Spirits', cat:'ressources', buyRef:1600,   sellRef:2400},
+    {name:'Dolivine',          cat:'mineral',    buyRef:122000, sellRef:178000},
+    {name:'Dymantium',         cat:'mineral',    buyRef:19000,  sellRef:28000},
+    {name:'Dynaflex',          cat:'equipements',buyRef:1600,   sellRef:2400},
+    {name:'Etam',              cat:'mineral',    buyRef:19500,  sellRef:28500},
+    {name:'Feynmaline',        cat:'mineral',    buyRef:285000, sellRef:415000},
+    {name:'Fresh Food',        cat:'ressources', buyRef:21000,  sellRef:30500},
+    {name:'Fluorine',          cat:'mineral',    buyRef:1100,   sellRef:1600},
+    {name:'Foam',              cat:'equipements',buyRef:5300,   sellRef:7700},
+    {name:'Gasping Weevil Eggs',cat:'ressources',buyRef:53000,  sellRef:77000},
+    {name:'Glacosite',         cat:'mineral',    buyRef:82000,  sellRef:120000},
+    {name:'Gold',              cat:'mineral',    buyRef:25000,  sellRef:37000},
+    {name:'Golden Medmon',     cat:'ressources', buyRef:49500,  sellRef:72000},
+    {name:'Hadanite',          cat:'mineral',    buyRef:455000, sellRef:660000},
+    {name:'Heart Of The Woods',cat:'ressources', buyRef:30000,  sellRef:44000},
+    {name:'Helium',            cat:'mineral',    buyRef:850,    sellRef:1250},
+    {name:'Hephaestanite',     cat:'mineral',    buyRef:3900,   sellRef:5700},
+    {name:'Human Food Bars',   cat:'ressources', buyRef:410,    sellRef:600},
+    {name:'Hydrogen Fuel',     cat:'mineral',    buyRef:150,    sellRef:220},
+    {name:'Hydrogen',          cat:'mineral',    buyRef:850,    sellRef:1250},
+    {name:'Irradiated Kopion Horn',cat:'ressources',buyRef:29000,sellRef:43000},
+    {name:'Iodine',            cat:'mineral',    buyRef:9600,   sellRef:14000},
+    {name:'Iron',              cat:'mineral',    buyRef:2800,   sellRef:4100},
+    {name:'Janalite',          cat:'mineral',    buyRef:2400000,sellRef:3500000},
+    {name:'Kopion Horn',       cat:'ressources', buyRef:29000,  sellRef:43000},
+    {name:'Laranite',          cat:'mineral',    buyRef:7200,   sellRef:10500},
+    {name:'Lindinium',         cat:'mineral',    buyRef:39000,  sellRef:57000},
+    {name:'Luminalia Gift',    cat:'autre',      buyRef:4250000,sellRef:6200000},
+    {name:'Marok Gem',         cat:'ressources', buyRef:42000,  sellRef:61000},
+    {name:'Maze',              cat:'ressources', buyRef:2400,   sellRef:3500},
+    {name:'Medical Supplies',  cat:'equipements',buyRef:12500,  sellRef:18500},
+    {name:'Mercury',           cat:'mineral',    buyRef:9200,   sellRef:13500},
+    {name:'Methane',           cat:'mineral',    buyRef:1600,   sellRef:2400},
+    {name:'Neograph',          cat:'mineral',    buyRef:7600,   sellRef:11000},
+    {name:'Neon',              cat:'mineral',    buyRef:5000,   sellRef:7300},
+    {name:'Nitrogen',          cat:'mineral',    buyRef:2600,   sellRef:3800},
+    {name:'Omnapoxy',          cat:'equipements',buyRef:7000,   sellRef:10200},
+    {name:'Organics',          cat:'ressources', buyRef:1100,   sellRef:1700},
+    {name:'Osoian Hides',      cat:'ressources', buyRef:42000,  sellRef:61000},
+    {name:'Ouratite',          cat:'mineral',    buyRef:36000,  sellRef:52000},
+    {name:'Partillium',        cat:'mineral',    buyRef:11500,  sellRef:16800},
+    {name:'Pitambu',           cat:'ressources', buyRef:5000,   sellRef:7300},
+    {name:'Potassium',         cat:'mineral',    buyRef:2900,   sellRef:4200},
+    {name:'Pressurized Ice',   cat:'mineral',    buyRef:8500,   sellRef:12500},
+    {name:'Processed Food',    cat:'ressources', buyRef:2300,   sellRef:3400},
+    {name:'Prota',             cat:'ressources', buyRef:13500,  sellRef:19700},
+    {name:'Quantanium',        cat:'mineral',    buyRef:128000, sellRef:186000},
+    {name:'Quantum Fuel',      cat:'mineral',    buyRef:1200,   sellRef:1800},
+    {name:'Quartz',            cat:'mineral',    buyRef:2900,   sellRef:4200},
+    {name:'Ranta Dung',        cat:'ressources', buyRef:4200,   sellRef:6100},
+    {name:'Recycled Material Composite',cat:'salvage',buyRef:1200,sellRef:1800},
+    {name:'Revenant Pod',      cat:'ressources', buyRef:47000,  sellRef:68000},
+    {name:'Revenant Tree Pollen',cat:'ressources',buyRef:47000, sellRef:68000},
+    {name:'Riccite',           cat:'mineral',    buyRef:49000,  sellRef:71000},
+    {name:'Sadaryx',           cat:'mineral',    buyRef:9600,   sellRef:14000},
+    {name:'Savrilium',         cat:'mineral',    buyRef:18500,  sellRef:27000},
+    {name:'Scrap',             cat:'salvage',    buyRef:820,    sellRef:1300},
+    {name:'Silicon',           cat:'mineral',    buyRef:4100,   sellRef:6000},
+    {name:'Slam',              cat:'ressources', buyRef:8000,   sellRef:11700},
+    {name:'Souvenirs',         cat:'autre',      buyRef:1000,   sellRef:1500},
+    {name:'Steel',             cat:'mineral',    buyRef:5400,   sellRef:7900},
+    {name:'Stileron',          cat:'mineral',    buyRef:49000,  sellRef:71000},
+    {name:'Stims',             cat:'ressources', buyRef:2900,   sellRef:4300},
+    {name:'Sunset Berries',    cat:'ressources', buyRef:5300,   sellRef:7700},
+    {name:'Taranite',          cat:'mineral',    buyRef:27000,  sellRef:39000},
+    {name:'Tin',               cat:'mineral',    buyRef:2800,   sellRef:4100},
+    {name:'Titanium',          cat:'mineral',    buyRef:5200,   sellRef:7600},
+    {name:'Torite',            cat:'mineral',    buyRef:3300,   sellRef:4800},
+    {name:'Tritium',           cat:'mineral',    buyRef:11500,  sellRef:16800},
+    {name:'Tungsten',          cat:'mineral',    buyRef:5400,   sellRef:7900},
+    {name:'Waste',             cat:'salvage',    buyRef:690,    sellRef:1100},
+    {name:'Widow',             cat:'ressources', buyRef:8000,   sellRef:11700},
+    {name:'Wuotan Seed',       cat:'ressources', buyRef:5300,   sellRef:7700},
+    {name:'Xapyen',            cat:'mineral',    buyRef:23000,  sellRef:33500},
+    {name:'Year Of The Pig Envelope',cat:'autre',buyRef:5000000,sellRef:7300000},
   ];
+
 
   let added=0, updated=0;
   LOCAL_DATA.forEach(c => {
     const existing = RESSOURCE_CATALOGUE.find(x => x.name.toLowerCase()===c.name.toLowerCase());
     if (existing) {
-      if (c.buyRef  > 0) existing.buyRef  = c.buyRef;
-      if (c.sellRef > 0) existing.sellRef = c.sellRef;
+      if (c.buyRef  > 0) { existing.buyRef  = c.buyRef;  existing.buyMin  = c.buyRef; }
+      if (c.sellRef > 0) { existing.sellRef = c.sellRef; existing.sellMax = c.sellRef; }
       existing.fromUEX=true; existing.updatedAt=now; updated++;
     } else {
       RESSOURCE_CATALOGUE.push({
         id:'r_uex_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
         name:c.name, cat:c.cat, quality:'',
-        buyRef:c.buyRef, sellRef:c.sellRef, desc:'',
+        buyRef:c.buyRef, sellRef:c.sellRef, buyMin:c.buyRef, sellMax:c.sellRef, desc:'',
         fromUEX:true, addedAt:now, updatedAt:now
       });
       added++;
@@ -6722,6 +6735,29 @@ function renderTierBar(summary, containerId) {
     </div>`;
 }
 
+// ══ HELPERS QUALITÉ ══════════════════════════════════════════════════════════
+// Retourne la 'bucket' de qualité pour un item de stock
+function qualityBucket(s) {
+  // Les ressources sans qualité définie n'ont pas de colonne séparée
+  const q = s.quality || '';
+  if (!q || q === '') return 'vente';   // pas de qualité = vente directe
+  // Scores numériques par clé
+  const scores = { mediocre:250, basique:550, acceptable:650, honnete:750, moyenne:850, haute:950 };
+  const score = scores[q] || 0;
+  if (score < 500)  return 'vente';    // < 500 : vente / bloqué objectifs
+  if (score < 800)  return 'vaisseau'; // 500–800 : craft vaisseau
+  return 'fps';                        // 800–1000 : craft FPS
+}
+
+// Colore une quantité selon la bucket
+function qtyCell(qty, bucket) {
+  if (!qty) return '<td class="td-dim" style="text-align:center;">—</td>';
+  const colors = { vente:'var(--orange)', vaisseau:'#60a5fa', fps:'var(--green)' };
+  const col = colors[bucket] || 'var(--text)';
+  return '<td style="text-align:center;color:'+col+';font-weight:600;">'+Number(qty).toLocaleString('fr-FR')+'</td>';
+}
+
+
 function renderStockTable(stocks){
   const body  = document.getElementById('pl-stock-body');
   const noMsg = document.getElementById('pl-no-stock');
@@ -6735,13 +6771,20 @@ function renderStockTable(stocks){
     const margin  = s.price>0 && s.sellprice>0 ? ((s.sellprice-s.price)/s.price*100).toFixed(1) : null;
     const profit  = s.sellprice>0 ? sellVal - buyVal : null;
     const marginCls = margin>=0 ? 'td-green' : 'td-red';
+    const _bucket = qualityBucket(s);
+    const _qv = _bucket==='vente'    ? s.qty : 0;
+    const _qc = _bucket==='vaisseau' ? s.qty : 0;
+    const _qf = _bucket==='fps'      ? s.qty : 0;
     return `<tr>
       <td class="td-name" style="max-width:130px;">
         <div>◈ ${esc(s.res)}</div>
+        ${s.quality ? `<div style="font-size:9px;color:${QUALITY_META[s.quality]?.color||'var(--text-dim)'};">${QUALITY_META[s.quality]?.score||''}</div>` : ''}
         ${s.note ? `<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;" title="${esc(s.note)}">${esc(s.note)}</div>` : ''}
       </td>
       <td><span class="cat-badge ${catCls(s.cat)}">${catLbl(s.cat)}</span></td>
-      <td class="td-orange">${Number(s.qty).toLocaleString('fr-FR')}</td>
+      ${qtyCell(_qv,'vente')}
+      ${qtyCell(_qc,'vaisseau')}
+      ${qtyCell(_qf,'fps')}
       <td class="td-dim">${s.price ? s.price.toFixed(2)+' aUEC' : '—'}</td>
       <td style="color:var(--blue);">${s.sellprice ? s.sellprice.toFixed(2)+' aUEC' : '—'}</td>
       <td class="${marginCls}">${margin !== null ? (margin>=0?'+':'')+margin+'%' : '—'}</td>
