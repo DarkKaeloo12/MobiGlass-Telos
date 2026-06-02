@@ -1724,11 +1724,8 @@ function showLoginWall(){} // stub
               <th>Ressource</th>
               <th>Catégorie</th>
               <th>Qualité par défaut</th>
-              <th>Classement UEX</th>
-              <th>Prix réf. achat</th>
-              <th>Prix réf. vente</th>
-              <th>En stock (réseau)</th>
-              <th>Partenaires</th>
+              <th>Achat min</th>
+              <th>Vente max</th>
               </tr></thead>
             <tbody id="res-tbody"></tbody>
           </table>
@@ -4455,7 +4452,7 @@ async function renderRessources() {
   const tbody = document.getElementById('res-tbody');
   if (!tbody) return;
   if (!canManageRoles()) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-dim);">Acces reserve aux Admins et Gestionnaires.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">Acces reserve aux Admins et Gestionnaires.</td></tr>';
     return;
   }
   const search = (document.getElementById('res-search')?.value||'').toLowerCase();
@@ -4466,7 +4463,7 @@ async function renderRessources() {
   const countEl = document.getElementById('res-count');
   if (countEl) countEl.textContent = data.length + ' ressource'+(data.length>1?'s':'');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune ressource — cliquez sur + AJOUTER</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune ressource — cliquez sur + AJOUTER</td></tr>';
     return;
   }
   const stockStats = {};
@@ -4486,16 +4483,26 @@ async function renderRessources() {
   tbody.innerHTML = data.map(r => {
     const key = r.name.toLowerCase().trim();
     const st = stockStats[key]||{qty:0,partners:new Set()};
-    const margin = r.buyRef>0&&r.sellRef>0 ? ((r.sellRef-r.buyRef)/r.buyRef*100).toFixed(1) : null;
+    // margin calculée dans le rendu td ci-dessous
     return '<tr>'
       +'<td style="font-weight:700;color:var(--text-bright);">◈ '+esc(r.name)+(r.fromUEX?'<span style="font-size:8px;margin-left:5px;padding:1px 5px;border:1px solid rgba(89,208,255,0.4);color:var(--blue);letter-spacing:1px;">UEX</span>':'')+(r.desc?'<div style="font-size:10px;color:var(--text-dim);">'+esc(r.desc)+'</div>':'')+'</td>'
       +'<td><span style="font-size:11px;padding:2px 7px;border:1px solid var(--border);color:var(--text-dim);">'+(CAT_LABELS[r.cat]||r.cat)+'</span></td>'
       +'<td>'+qBadge(r.quality)+'</td>'
-      +(()=>{const _t=getUexTier(r.name);return _t?'<td><span style="font-size:10px;color:'+_t.color+';font-weight:600;">'+_t.label+'<div style="font-size:9px;color:var(--text-dim);">'+_t.range+'</div></span></td>':'<td style="color:var(--text-dim);">—</td>';})()
-      +'<td class="td-dim">'+(r.buyRef?r.buyRef.toFixed(2)+' aUEC':'—')+'</td>'
-      +'<td style="color:var(--green);">'+(r.sellRef?r.sellRef.toFixed(2)+' aUEC':'—')+(margin?'<div style="font-size:9px;color:var(--orange);">+'+margin+'%</div>':'')+'</td>'
-      +'<td class="td-orange">'+(st.qty?st.qty.toLocaleString('fr-FR')+' SCU':'—')+'</td>'
-      +'<td>'+(st.partners.size?'<span style="color:var(--blue);">'+st.partners.size+'</span>':'—')+'</td>'
+      +(()=>{
+        const bMin = r.buyMin || r.buyRef || 0;
+        const sMax = r.sellMax || r.sellRef || 0;
+        const margin2 = bMin>0&&sMax>0 ? ((sMax-bMin)/bMin*100).toFixed(1) : null;
+        return '<td class="td-dim">'
+          + (bMin ? '<span style="font-size:11px;">'+bMin.toLocaleString('fr-FR')+' aUEC</span>'
+            + '<div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">ACHAT MIN</div>' : '—')
+          + '</td>'
+          + '<td style="color:var(--green);">'
+          + (sMax ? '<span style="font-size:11px;">'+sMax.toLocaleString('fr-FR')+' aUEC</span>'
+            + '<div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">VENTE MAX</div>' : '—')
+          + (margin2 ? '<div style="font-size:9px;color:var(--orange);">+'+margin2+'%</div>' : '')
+          + '</td>';
+      })()
+      
       +'</tr>';
   }).join('');
 }
@@ -5524,10 +5531,15 @@ async function deleteCommande(id) {
 // ══ SYNC AUTO DES OBJECTIFS AVEC LE STOCK TELOS ════════════════════════════
 // Appelée après chaque modification de stock — met à jour les objectifs actifs
 async function syncObjectifsWithStock() {
-  // Ne traiter que les objectifs actifs avec des ingrédients (auto ou manuels)
-  const activeObjs = OBJECTIFS.filter(o =>
-    !o.done && o.ingredients && o.ingredients.length > 0
-  );
+  // Traiter tous les objectifs actifs trackables :
+  // - avec ingrédients (auto ou blueprint)
+  // - OU avec resource + target (objectifs manuels simples)
+  const activeObjs = OBJECTIFS.filter(o => {
+    if (o.done) return false;
+    if (o.ingredients && o.ingredients.length > 0) return true;
+    if ((o.resource || o.cat === 'ressource') && o.target > 0) return true;
+    return false;
+  });
   if (!activeObjs.length) return;
 
   // Agréger tout le stock TELOS (tous les joueurs)
@@ -5542,48 +5554,60 @@ async function syncObjectifsWithStock() {
   }
 
   let changed = false;
-  let newlyCompleted = [];
+  const newlyCompleted = [];
 
   for (const obj of activeObjs) {
     let objChanged = false;
 
-    for (const ing of obj.ingredients) {
-      const key = (ing.name || '').toLowerCase().trim();
-      const dispo = telosStock[key] || 0;
-      // Le collecté = min(dispo, requis) — on ne peut pas dépasser ce qui est requis
-      const newCollected = Math.min(parseFloat(ing.qty) || 0, Math.round(dispo * 1000) / 1000);
-      if (newCollected !== (ing.collected || 0)) {
-        ing.collected = newCollected;
-        objChanged = true;
+    // ── Cas 1 : objectif avec ingrédients (blueprint / auto-créé) ──
+    if (obj.ingredients && obj.ingredients.length > 0) {
+      for (const ing of obj.ingredients) {
+        const key = (ing.name || '').toLowerCase().trim();
+        const dispo = telosStock[key] || 0;
+        const newCollected = Math.min(parseFloat(ing.qty) || 0, Math.round(dispo * 1000) / 1000);
+        if (newCollected !== (ing.collected || 0)) {
+          ing.collected = newCollected;
+          objChanged = true;
+        }
       }
-    }
-
-    if (objChanged) {
-      changed = true;
-      // Vérifier si tous les ingrédients sont maintenant couverts
-      const allDone = obj.ingredients.every(i => (i.collected || 0) >= (i.qty || 0));
-      if (allDone && !obj.done) {
-        obj.done = true;
-        obj.doneAt = new Date().toISOString();
-        newlyCompleted.push(obj);
-      }
-      // Mettre à jour le progrès global (current = moyenne pondérée des ingrédients)
-      if (obj.target > 0) {
+      if (objChanged) {
+        // Progression globale = ratio ingrédients collectés
         const totalCollected = obj.ingredients.reduce((s, i) => s + (i.collected || 0), 0);
         const totalRequired  = obj.ingredients.reduce((s, i) => s + (i.qty || 0), 0);
-        if (totalRequired > 0) {
+        if (totalRequired > 0 && obj.target > 0) {
           obj.current = Math.round((totalCollected / totalRequired) * obj.target * 100) / 100;
+        }
+        // Complété si tous les ingrédients couverts
+        const allDone = obj.ingredients.every(i => (i.collected || 0) >= (i.qty || 0));
+        if (allDone) { obj.done = true; obj.doneAt = new Date().toISOString(); newlyCompleted.push(obj); }
+      }
+
+    // ── Cas 2 : objectif manuel simple (resource + target, pas d'ingrédients) ──
+    } else if ((obj.resource || obj.cat === 'ressource') && obj.target > 0) {
+      const key = (obj.resource || '').toLowerCase().trim();
+      const dispo = key ? (telosStock[key] || 0) : 0;
+      const target = parseFloat(obj.target) || 0;
+      const newCurrent = Math.min(target, Math.round(dispo * 1000) / 1000);
+      if (newCurrent !== (obj.current || 0)) {
+        obj.current = newCurrent;
+        objChanged = true;
+        // Complété si stock atteint la cible
+        if (newCurrent >= target) {
+          obj.done = true;
+          obj.doneAt = new Date().toISOString();
+          newlyCompleted.push(obj);
         }
       }
     }
+
+    if (objChanged) changed = true;
   }
 
   if (changed) {
     await saveObjectifs();
     renderObjectifs();
-    // Notifier les objectifs complétés automatiquement
     for (const obj of newlyCompleted) {
-      toast('✅ Objectif complété !', obj.title + ' — Stock suffisant !', 'success');
+      toast('✅ Objectif complété !', obj.title + ' — Ressources disponibles en stock !', 'success');
       pushActivity('✅', 'Objectif complété automatiquement : ' + obj.title, '', true);
       pushLog('system', 'AUTO', 'Objectif auto-complété par ajout stock : ' + obj.title);
     }
@@ -5706,10 +5730,10 @@ async function syncFromUEX() {
 
     if (status) status.textContent = '0 / ' + commodities.length + ' prix récupérés...';
 
-    // ── ÉTAPE 2 : Prix moyens par commodité (commodities_averages?id_commodity=X) ──
+    // ── ÉTAPE 2 : Prix min achat / max vente par commodité ──
     const priceMap = {};
     let done = 0;
-    const BATCH = 5; // requêtes parallèles par lot
+    const BATCH = 5;
 
     for (let i = 0; i < commodities.length; i += BATCH) {
       const batch = commodities.slice(i, i + BATCH);
@@ -5717,20 +5741,32 @@ async function syncFromUEX() {
         const cid = c.id || c.id_commodity;
         if (!cid) return;
         try {
-          const avg = await apiFetch('commodities_averages?id_commodity=' + cid);
-          // avg peut être un tableau ou un objet
-          const entry = Array.isArray(avg) ? avg[0] : avg;
-          if (entry) {
+          // commodities_prices retourne les prix par terminal → on calcule min/max
+          const prices = await apiFetch('commodities_prices?id_commodity=' + cid);
+          const arr = Array.isArray(prices) ? prices : (prices ? [prices] : []);
+          if (arr.length) {
+            const buys  = arr.map(e => Number(e.price_buy  || e.trade_price_buy  || 0)).filter(v => v > 0);
+            const sells = arr.map(e => Number(e.price_sell || e.trade_price_sell || 0)).filter(v => v > 0);
             priceMap[cid] = {
+              buy:     buys.length  ? Math.min(...buys)  : 0,  // achat  = prix LE MOINS CHER
+              sell:    sells.length ? Math.max(...sells) : 0,  // vente  = prix LE PLUS ÉLEVÉ
+              buyAvg:  buys.length  ? buys.reduce((a,b)=>a+b,0)/buys.length  : 0,
+              sellAvg: sells.length ? sells.reduce((a,b)=>a+b,0)/sells.length : 0,
+              terminals: arr.length,
+            };
+          } else {
+            // Fallback sur averages si pas de données par terminal
+            const avg = await apiFetch('commodities_averages?id_commodity=' + cid);
+            const entry = Array.isArray(avg) ? avg[0] : avg;
+            if (entry) priceMap[cid] = {
               buy:  Number(entry.price_buy  || entry.trade_price_buy  || 0),
               sell: Number(entry.price_sell || entry.trade_price_sell || 0),
             };
           }
-        } catch(e) { /* pas de prix pour cette commodité */ }
+        } catch(e) { /* pas de prix */ }
         done++;
       }));
       if (status) status.textContent = done + ' / ' + commodities.length + ' prix récupérés...';
-      // Pause pour ne pas dépasser le rate limit (120 req/min)
       if (i + BATCH < commodities.length) await new Promise(r => setTimeout(r, 350));
     }
 
@@ -5758,10 +5794,16 @@ async function syncFromUEX() {
       const buyRef  = pData.buy  || Number(c.price_buy  || 0);
       const sellRef = pData.sell || Number(c.price_sell || 0);
 
+      const pEntry = priceMap[cid] || {};
+      const buyMin  = pEntry.buy  || buyRef;   // min achat  (ou fallback)
+      const sellMax = pEntry.sell || sellRef;  // max vente  (ou fallback)
+      const terminals = pEntry.terminals || 0;
+
       const existing = RESSOURCE_CATALOGUE.find(x => x.name.toLowerCase() === name.toLowerCase());
       if (existing) {
-        if (buyRef  > 0) existing.buyRef  = buyRef;
-        if (sellRef > 0) existing.sellRef = sellRef;
+        if (buyMin  > 0) { existing.buyRef  = buyMin;  existing.buyMin  = buyMin; }
+        if (sellMax > 0) { existing.sellRef = sellMax; existing.sellMax = sellMax; }
+        if (terminals)     existing.terminals = terminals;
         existing.cat       = existing.cat || cat;
         existing.fromUEX   = true;
         existing.uexId     = cid;
@@ -5770,7 +5812,9 @@ async function syncFromUEX() {
       } else {
         RESSOURCE_CATALOGUE.push({
           id:      'r_uex_' + (cid || Date.now() + '_' + Math.random().toString(36).slice(2,5)),
-          name, cat, quality: '', buyRef, sellRef, desc: c.description || '',
+          name, cat, quality: '', buyRef: buyMin, sellRef: sellMax,
+          buyMin, sellMax, terminals,
+          desc: c.description || '',
           fromUEX: true, uexId: cid, addedAt: now, updatedAt: now
         });
         added++;
@@ -6008,7 +6052,7 @@ async function renderBlueprints() {
   const tbody = document.getElementById('bp-tbody');
   if (!tbody) return;
   if (!SESSION) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">🔒 Connectez-vous pour accéder aux blueprints.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">🔒 Connectez-vous pour accéder aux blueprints.</td></tr>';
     return;
   }
 
@@ -6022,7 +6066,7 @@ async function renderBlueprints() {
   if (countEl) countEl.textContent = data.length + ' blueprint'+(data.length>1?'s':'');
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">Aucun blueprint — cliquez sur + AJOUTER</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">Aucun blueprint — cliquez sur + AJOUTER</td></tr>';
     return;
   }
 
