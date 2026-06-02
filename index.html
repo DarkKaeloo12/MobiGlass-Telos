@@ -1155,6 +1155,80 @@ body::before {
   0%,100% { border-color:rgba(247,140,30,0.5); box-shadow:none; }
   50%      { border-color:var(--orange); box-shadow:0 0 10px rgba(247,140,30,0.4); }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — Adaptation toutes résolutions
+══════════════════════════════════════════════════════════════════ */
+
+/* Canvas : toujours s'adapter au conteneur sans déformation */
+#stanton-canvas,
+#map-canvas-full {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* < 1400px : sidebar réduite */
+@media (max-width: 1400px) {
+  #sidebar { width: 200px !important; }
+  .n-main { font-size: 11px !important; }
+  .n-sub  { font-size: 9px !important; }
+  .nav-item { min-height: 54px; margin: 6px 8px !important; }
+  .kpi { padding: 14px !important; }
+  .kpi-val { font-size: 20px !important; }
+}
+
+/* < 1100px : sidebar icônes uniquement */
+@media (max-width: 1100px) {
+  #sidebar { width: 64px !important; overflow: visible; padding-top: 8px; }
+  .n-sub, .n-main { display: none !important; }
+  .nav-item { min-height: 48px; margin: 4px 6px !important; justify-content: center; border-radius: 12px !important; }
+  .n-icon { font-size: 20px !important; margin: 0 !important; }
+  .nav-badge { position: absolute; top: 2px; right: 2px; font-size: 8px; min-width: 14px; height: 14px; }
+  #sb-auth-btn { font-size: 9px !important; padding: 2px 6px !important; }
+  .sb-version { display: none !important; }
+  .tbl-wrap, .st-wrap { overflow-x: auto !important; }
+  .data-table { min-width: 700px; }
+  #kpi-strip { flex-wrap: wrap !important; gap: 8px !important; padding: 10px !important; }
+  .kpi { min-width: 120px; flex: 1 1 120px; }
+}
+
+/* < 800px : tablet */
+@media (max-width: 800px) {
+  #topbar { height: 56px !important; }
+  .tb-name { font-size: 13px !important; }
+  .modal { max-width: 98vw !important; width: 98vw !important; }
+  .modal-body { padding: 12px !important; }
+  .grid2 { grid-template-columns: 1fr !important; }
+  .grid2 > * { grid-column: span 1 !important; }
+  .data-table th, .data-table td { padding: 5px 6px !important; font-size: 10px !important; }
+  .obj-card, .cmd-card, .mission-card { padding: 10px 12px !important; }
+  .sec-bar { flex-wrap: wrap !important; gap: 6px !important; }
+}
+
+/* < 600px : mobile */
+@media (max-width: 600px) {
+  #sidebar { width: 48px !important; }
+  .n-icon { font-size: 16px !important; }
+  #topbar { height: 48px !important; padding: 0 8px !important; }
+  .tb-name { font-size: 11px !important; }
+  .tb-clock { display: none !important; }
+  .kpi { min-width: calc(50% - 8px); padding: 10px !important; }
+  .kpi-val { font-size: 16px !important; }
+  .modal { border-radius: 8px !important; }
+  .overlay { padding: 8px !important; }
+  .sec-bar { flex-direction: column !important; align-items: flex-start !important; }
+  .cmd-footer, .obj-meta { flex-wrap: wrap !important; gap: 4px !important; }
+}
+
+/* > 1920px : très grand écran */
+@media (min-width: 1920px) {
+  #sidebar { width: 280px !important; }
+  .n-main { font-size: 14px !important; }
+  .kpi-val { font-size: 26px !important; }
+  .data-table th, .data-table td { padding: 10px 14px !important; font-size: 13px !important; }
+}
 </style>
 
 
@@ -4282,22 +4356,18 @@ var MODALS = {
         return '<span onclick="document.getElementById(\'nc-icon-sel\').value=\''+ic+'\';document.querySelectorAll(\'#nc-icon-picker span\').forEach(function(s){s.style.background=\'\';s.style.borderColor=\'var(--border)\';});this.style.background=\'var(--orange-faint)\';this.style.borderColor=\'var(--orange)\';" style="font-size:20px;cursor:pointer;padding:4px 8px;border:1px solid var(--border);border-radius:3px;transition:all 0.15s;">'+ic+'</span>';
       }).join('');
 
-      // Ressources depuis le stock TELOS consolidé
+      // Ressources depuis le catalogue UEX (onglet Ressources)
       const allRes = [];
-      if (window._telosGroups) {
+      const _catalogue = (typeof RESSOURCE_CATALOGUE !== 'undefined' && RESSOURCE_CATALOGUE.length)
+        ? RESSOURCE_CATALOGUE
+        : (typeof UEX_COMMODITIES !== 'undefined' ? UEX_COMMODITIES.map(function(n){ return {name:n}; }) : []);
+      _catalogue.forEach(function(r) {
+        const n = r.name || r;
+        if (n && !allRes.includes(n)) allRes.push(n);
+      });
+      // Fallback : ressources du stock TELOS si catalogue vide
+      if (!allRes.length && window._telosGroups) {
         Object.values(window._telosGroups).forEach(function(g) { allRes.push(g.name); });
-      }
-      // Fallback : toutes les ressources uniques des joueurs via localStorage
-      if (!allRes.length) {
-        try {
-          const players = JSON.parse(localStorage.getItem('telos_uex-players') || '[]');
-          players.forEach(function(p) {
-            try {
-              const stocks = JSON.parse(localStorage.getItem('telos_uex-stocks-'+p.id) || '[]');
-              stocks.forEach(function(s) { if (s.res && !allRes.includes(s.res)) allRes.push(s.res); });
-            } catch(e) {}
-          });
-        } catch(e) {}
       }
       allRes.sort(function(a,b){ return a.localeCompare(b,'fr'); });
 
@@ -8209,18 +8279,40 @@ window.addEventListener('resize', () => {
   drawChart(chartDays);
 });
 
-// ResizeObserver pour réagir aux changements de taille du conteneur
+// ResizeObserver + window resize — adaptation canvas à toute résolution
 (function() {
-  if (!window.ResizeObserver) return;
-  const obs = new ResizeObserver(() => {
+  function resizeAllCanvas() {
     const hc = document.getElementById('stanton-canvas');
     const fc = document.getElementById('map-canvas-full');
-    if (hc) resizeCanvas(hc);
-    if (fc) resizeCanvas(fc);
+    if (hc) { resizeCanvas(hc); }
+    if (fc) { resizeCanvas(fc); }
+  }
+
+  // ResizeObserver sur les conteneurs directs des canvas
+  if (window.ResizeObserver) {
+    const obs = new ResizeObserver(resizeAllCanvas);
+    // Observer tous les panels et conteneurs possibles
+    ['stanton-canvas','map-canvas-full','panel-hub','panel-map',
+     '.hub-left','#hub-map-body','#map-body'].forEach(sel => {
+      const el = sel.startsWith('#') || sel.startsWith('.')
+        ? document.querySelector(sel)
+        : document.getElementById(sel);
+      if (el) obs.observe(el);
+    });
+    // Observer le body pour tout changement global
+    obs.observe(document.body);
+  }
+
+  // Fallback : window resize
+  let _resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(resizeAllCanvas, 80);
   });
-  // Observer le hub-left et le panel map
-  document.querySelectorAll('.hub-left, #panel-map').forEach(el => {
-    if (el) obs.observe(el);
+
+  // Orientation change (mobile/tablette)
+  window.addEventListener('orientationchange', function() {
+    setTimeout(resizeAllCanvas, 200);
   });
 })();
 
