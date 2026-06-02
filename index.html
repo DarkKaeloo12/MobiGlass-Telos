@@ -2232,6 +2232,7 @@ body::before {
 ════════════════════════════════════════════════════════════ */
 const ADMIN_ID = 'p_admin'; // DarkKaeloo admin
 let SESSION = null; // { pid, name, isAdmin }
+const PANELS_PUBLIC = ['hub', 'inscription']; // déclaré ici pour éviter ReferenceError
 // Code d'accès Gestionnaire — modifiable par l'Admin
 // SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
 const GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
@@ -5912,8 +5913,6 @@ async function syncBlueprintsFromWiki() {
   }
 }
 
-// Panels accessibles sans connexion
-const PANELS_PUBLIC = ['hub', 'inscription'];
 
 function showLoginWall(panelEl, id) {
   if (!panelEl) return;
