@@ -2288,9 +2288,23 @@ function setSession(player) {
   refreshStockPanel();
   // Recharger les blueprints cochés depuis la DB à chaque connexion
   loadPlayerOwnedBlueprints().then(() => renderBlueprints());
+  // Recharger le panel actif si c'était un login wall
+  setTimeout(()=>{ const _ap=document.querySelector('.panel.active'); if(_ap){ const _id=_ap.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_id)) goPanel(_id); }}, 50);
 }
 
 function logout() {
+  SESSION = null;
+  renderAuthBar();
+  // Afficher login wall sur le panel actif si protégé
+  const _apl = document.querySelector('.panel.active');
+  if (_apl) { const _idl=_apl.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_idl)) showLoginWall(_apl, _idl); }
+  pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
+  renderMissions();
+  updateNavRessources && updateNavRessources();
+  const _sb = document.querySelector('.pl-sidebar');
+  if (_sb) _sb.style.display = '';
+  toast('Déconnexion', 'Session TELOS fermée.', 'info');
+} {
   SESSION = null;
   renderAuthBar();
   goPanel('hub');
@@ -2646,9 +2660,23 @@ function setSession(player) {
   refreshStockPanel();
   // Recharger les blueprints cochés depuis la DB à chaque connexion
   loadPlayerOwnedBlueprints().then(() => renderBlueprints());
+  // Recharger le panel actif si c'était un login wall
+  setTimeout(()=>{ const _ap=document.querySelector('.panel.active'); if(_ap){ const _id=_ap.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_id)) goPanel(_id); }}, 50);
 }
 
 function logout() {
+  SESSION = null;
+  renderAuthBar();
+  // Afficher login wall sur le panel actif si protégé
+  const _apl = document.querySelector('.panel.active');
+  if (_apl) { const _idl=_apl.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_idl)) showLoginWall(_apl, _idl); }
+  pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
+  renderMissions();
+  updateNavRessources && updateNavRessources();
+  const _sb = document.querySelector('.pl-sidebar');
+  if (_sb) _sb.style.display = '';
+  toast('Déconnexion', 'Session TELOS fermée.', 'info');
+} {
   SESSION = null;
   renderAuthBar();
   // Fermer les panels sensibles
@@ -5884,6 +5912,41 @@ async function syncBlueprintsFromWiki() {
   }
 }
 
+// Panels accessibles sans connexion
+const PANELS_PUBLIC = ['hub', 'inscription'];
+
+function showLoginWall(panelEl, id) {
+  if (!panelEl) return;
+  // Vider et injecter le login wall
+  const ICONS = {
+    map:'🗺', partners:'👥', joueurs:'📦', stocks:'📦',
+    blueprints:'📐', commandes:'📋', objectifs:'🎯',
+    missions:'🛡', commerce:'💹', logs:'📡', ressources:'🔬'
+  };
+  const icon = ICONS[id] || '🔒';
+  panelEl.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:18px;padding:40px;">
+      <div style="font-size:52px;opacity:0.15;">${icon}</div>
+      <div style="font-size:11px;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;">Accès restreint</div>
+      <div style="font-size:13px;color:var(--text-dim);text-align:center;max-width:300px;line-height:1.6;">
+        Connectez-vous pour accéder à cet espace du réseau TELOS.
+      </div>
+      <button onclick="openLoginModal(null,()=>goPanel('${id}'))"
+        style="padding:10px 28px;border:1px solid var(--orange);background:rgba(247,140,30,0.08);color:var(--orange);font-family:var(--ui);font-size:11px;letter-spacing:2px;cursor:pointer;">
+        🔑 SE CONNECTER
+      </button>
+    </div>`;
+  panelEl._loginWall = true;
+}
+
+function clearLoginWall(panelEl) {
+  // Recharger le panel depuis l'HTML original si on avait affiché un login wall
+  if (panelEl && panelEl._loginWall) {
+    // On recharge la page n'est pas une option — on déclenche juste le render normal
+    panelEl._loginWall = false;
+  }
+}
+
 function goPanel(id, el) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -5895,11 +5958,20 @@ function goPanel(id, el) {
   if (el) el.classList.add('active');
   const p = document.getElementById('panel-'+id);
   if (p) p.classList.add('active');
+
+  // ── Login wall : panel vide si non connecté ──
+  if (!SESSION && !PANELS_PUBLIC.includes(id)) {
+    showLoginWall(p, id);
+    return;
+  }
+
+  // Si on vient de délocker un login wall, on laisse les renders ci-dessous reconstruire
+  if (p && p._loginWall) p._loginWall = false;
+
   if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); resizeCanvas(c); }, 60); }
   if (id==='joueurs')  { (async()=>renderGlobal())(); updateGlobalFilter(); }
   if (id==='stocks')   {
     renderStocksFromPlayers();
-    // Auto-sélectionner le joueur connecté
     if (SESSION) {
       const me = players.find(p => p.id === SESSION.pid);
       if (me) { selectedPid = me.id; renderStockTable((async()=>{ return (await DB.get('uex-stocks-'+me.id))||[]; })()); selectPlayer(me.id); }
@@ -5911,7 +5983,6 @@ function goPanel(id, el) {
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
   if (id==='blueprints') {
-    // Recharger les BPs cochés depuis DB avant de rendre
     if (SESSION) {
       loadPlayerOwnedBlueprints().then(() => renderBlueprints());
     } else {
@@ -6480,19 +6551,23 @@ const DEFAULT_DROITS = {
   Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:1,ressources:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,delete_data:1,manage_roles:1 },
 };
 
+// Couleurs personnalisées des rôles { roleName: '#rrggbb' }
+let ROLES_COLORS_CUSTOM = {};
+
 async function loadRolesConfig() {
   try {
     const saved = await DB.get('telos-roles-config');
     if (saved) {
       ROLES = saved.roles || ROLES;
       ROLES_CONFIG = saved.droits || null;
+      ROLES_COLORS_CUSTOM = saved.colors || {};
     }
     if (!ROLES_CONFIG) ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
   } catch(e) { ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS)); }
 }
 
 async function saveRolesConfig() {
-  await DB.set('telos-roles-config', { roles: ROLES, droits: ROLES_CONFIG });
+  await DB.set('telos-roles-config', { roles: ROLES, droits: ROLES_CONFIG, colors: ROLES_COLORS_CUSTOM });
 }
 
 function hasDroit(droit) {
@@ -7241,25 +7316,63 @@ function renderRolesDroitsPanel() {
   renderDroitsTable();
 }
 
+function _roleColorHex(r) {
+  // Retourne toujours une valeur hex valide pour input[type=color]
+  const v = ROLES_COLORS_CUSTOM[r] || ROLE_COLORS_DEFAULT[r] || ROLE_COLORS_POOL[ROLES.indexOf(r) % ROLE_COLORS_POOL.length] || '#aaaaaa';
+  // Si c'est une var() CSS, on retourne un fallback hex
+  if (v.startsWith('var(')) return '#aaaaaa';
+  return v;
+}
+
 function renderRolesNameList() {
   const el = document.getElementById('roles-name-list');
   if (!el) return;
-  el.innerHTML = ROLES.map((r, i) => `
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;">
+  el.innerHTML = ROLES.map((r, i) => {
+    const col = _roleColorHex(r);
+    return `
+    <div style="display:grid;grid-template-columns:1fr 38px auto;gap:6px;align-items:center;">
       <input class="form-input" type="text" value="${r}" data-role-idx="${i}"
-        style="padding:6px 9px;font-size:12px;"
+        style="padding:6px 9px;font-size:12px;border-left:3px solid ${col};"
         oninput="ROLES[${i}]=this.value; syncDroitsRoleKey(${i}, this.value);">
-      <div style="width:12px;height:12px;border-radius:50%;background:${ROLE_COLORS[r]||'var(--text)'};flex-shrink:0;"></div>
+      <label title="Choisir une couleur" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:38px;height:34px;border:1px solid var(--border);background:var(--bg3);">
+        <div style="width:18px;height:18px;border-radius:50%;background:${col};border:2px solid rgba(255,255,255,0.15);pointer-events:none;"></div>
+        <input type="color" value="${col}" data-role-color-idx="${i}"
+          style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;border:none;padding:0;"
+          oninput="setRoleColor(${i}, this.value)"
+          onchange="setRoleColor(${i}, this.value)">
+      </label>
       <button onclick="removeRole(${i})" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;" title="Supprimer ce rôle">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function setRoleColor(idx, hex) {
+  const name = ROLES[idx];
+  if (!name) return;
+  ROLES_COLORS_CUSTOM[name] = hex;
+  // Mettre à jour le cercle et la bordure de l'input en live
+  const row = document.querySelectorAll('#roles-name-list > div')[idx];
+  if (row) {
+    const circle = row.querySelector('label div');
+    const inp = row.querySelector('input[type="text"]');
+    if (circle) circle.style.background = hex;
+    if (inp) inp.style.borderLeftColor = hex;
+  }
+  // Mettre à jour le tableau des droits (couleurs dans les en-têtes)
+  renderDroitsTable();
 }
 
 function syncDroitsRoleKey(idx, newName) {
-  // Renommer la clé dans ROLES_CONFIG
   const oldName = Object.keys(ROLES_CONFIG)[idx];
   if (oldName && oldName !== newName) {
+    // Migrer droits
     ROLES_CONFIG[newName] = ROLES_CONFIG[oldName];
     delete ROLES_CONFIG[oldName];
+    // Migrer couleur custom
+    if (ROLES_COLORS_CUSTOM[oldName]) {
+      ROLES_COLORS_CUSTOM[newName] = ROLES_COLORS_CUSTOM[oldName];
+      delete ROLES_COLORS_CUSTOM[oldName];
+    }
   }
   renderDroitsTable();
 }
@@ -7268,6 +7381,8 @@ function addRole() {
   const name = 'Nouveau rôle';
   ROLES.push(name);
   ROLES_CONFIG[name] = { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 };
+  // Couleur auto depuis le pool
+  ROLES_COLORS_CUSTOM[name] = ROLE_COLORS_POOL[(ROLES.length - 1) % ROLE_COLORS_POOL.length];
   renderRolesNameList();
   renderDroitsTable();
 }
@@ -7278,6 +7393,7 @@ function removeRole(idx) {
   if (!confirm(`Supprimer le rôle "${name}" ?`)) return;
   ROLES.splice(idx, 1);
   delete ROLES_CONFIG[name];
+  delete ROLES_COLORS_CUSTOM[name];
   renderRolesNameList();
   renderDroitsTable();
 }
@@ -7336,6 +7452,7 @@ async function resetRolesConfig() {
   if (!confirm('Réinitialiser tous les rôles et droits aux valeurs par défaut ?')) return;
   ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
   ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
+  ROLES_COLORS_CUSTOM = {};
   await saveRolesConfig();
   renderRolesDroitsPanel();
   toast('Réinitialisé', 'Rôles et droits remis par défaut.', 'info');
@@ -7383,9 +7500,15 @@ async function loadPlayerOwnedBlueprints() {
 async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCache||{};for(const p of players){if(!window._playerBpCache[p.id]){const bps=(await DB.get('player-blueprints-'+p.id))||[];window._playerBpCache[p.id]=bps;}}}
 const UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
 function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟠 Craft Vaisseau',color:'#f97316',range:'500–600'};return{key:'craft_fps',label:'💎 Craft FPS',color:'#60a5fa',range:'600+'};}
-const ROLE_COLORS_DEFAULT={Trader:'var(--blue)',Mineur:'var(--orange)',Transporteur:'var(--green)',Explorateur:'var(--purple)',Gestionnaire:'var(--red)'};
-const ROLE_COLORS_POOL=['var(--blue)','var(--orange)','var(--green)','var(--purple)','var(--red)','#59d0ff','#f472b6','#a3e635'];
-const ROLE_COLORS = new Proxy({}, { get(t,k){ return ROLE_COLORS_DEFAULT[k] || ROLE_COLORS_POOL[ROLES.indexOf(k)%ROLE_COLORS_POOL.length] || 'var(--text)'; } });
+const ROLE_COLORS_DEFAULT={Trader:'#60a5fa',Mineur:'#f79028',Transporteur:'#00ffa3',Explorateur:'#a78bfa',Gestionnaire:'#ff4444'};
+const ROLE_COLORS_POOL=['#60a5fa','#f79028','#00ffa3','#a78bfa','#ff4444','#59d0ff','#f472b6','#a3e635','#fb923c','#34d399'];
+const ROLE_COLORS = new Proxy({}, { get(t,k){
+  // Priorité : couleur custom → défaut → pool
+  return (typeof ROLES_COLORS_CUSTOM !== 'undefined' && ROLES_COLORS_CUSTOM[k])
+    || ROLE_COLORS_DEFAULT[k]
+    || ROLE_COLORS_POOL[ROLES.indexOf(k) % ROLE_COLORS_POOL.length]
+    || '#aaaaaa';
+}});
 
 function startAutoSave() { /* Supabase gère la persistance automatiquement */ }
 
