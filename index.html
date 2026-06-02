@@ -2264,6 +2264,7 @@ document.addEventListener('click', function(e) {
     case 'obj-toggle':  toggleObjDone(id); break;
     case 'obj-delete':       deleteObjectif(id); break;
     case 'obj-check-stock':  refreshObjStockInfo(id).then(() => renderObjectifs()); break;
+    case 'bp-remove-ing':    removeBpIngredient(id); break;
   }
 });
 
@@ -5733,35 +5734,51 @@ async function syncFromUEX() {
     const commodities = await apiFetch('commodities');
     if (!commodities || !commodities.length) throw new Error('Aucune commodité reçue');
 
-    // ── ÉTAPE 2 : Prix min achat / max vente — UNE SEULE requête ──
-    // commodities_averages (sans paramètre) retourne TOUT le catalogue avec les prix
-    if (status) status.textContent = 'Récupération des prix UEX...';
+    // ── ÉTAPE 2 : Prix min achat / max vente ──
+    // On utilise les champs de prix directement dans l'objet commodities
+    // puis on tente commodities_prices_all (1 seule requête globale) pour les min/max précis
+    if (status) status.textContent = 'Récupération des prix...';
     const priceMap = {};
+
+    // D'abord : extraire les prix déjà dans commodities (fallback garanti)
+    commodities.forEach(com => {
+      const cid = com.id || com.id_commodity;
+      if (!cid) return;
+      priceMap[cid] = {
+        buy:  Number(com.price_buy_min  || com.price_buy  || com.trade_price_buy  || com.buy  || 0),
+        sell: Number(com.price_sell_max || com.price_sell || com.trade_price_sell || com.sell || 0),
+      };
+    });
+
+    // Ensuite : tenter commodities_prices pour avoir les vrais min/max par terminal
+    // UEX 2.0 supporte ?id_star_system=68 (Stanton) pour limiter les résultats
     try {
-      // Essai 1 : endpoint global averages (1 requête pour tout)
-      const allAvg = await apiFetch('commodities_averages');
-      const avgArr = Array.isArray(allAvg) ? allAvg : [];
-      avgArr.forEach(e => {
-        const cid = e.id_commodity || e.id;
-        if (!cid) return;
-        priceMap[cid] = {
-          // UEX fournit price_buy_min / price_sell_max dans l'agrégat
-          buy:  Number(e.price_buy_min  || e.price_buy  || e.trade_price_buy  || 0),
-          sell: Number(e.price_sell_max || e.price_sell || e.trade_price_sell || 0),
-        };
-      });
-      if (status) status.textContent = avgArr.length + ' prix récupérés (global)';
+      if (status) status.textContent = 'Chargement prix par terminal (Stanton)...';
+      const allPrices = await apiFetch('commodities_prices?id_star_system=68');
+      const pricesArr = Array.isArray(allPrices) ? allPrices : [];
+      if (pricesArr.length > 0) {
+        // Agréger : min achat et max vente par commodity
+        const agg = {};
+        pricesArr.forEach(p => {
+          const cid = p.id_commodity;
+          if (!cid) return;
+          const buy  = Number(p.price_buy  || p.trade_price_buy  || 0);
+          const sell = Number(p.price_sell || p.trade_price_sell || 0);
+          if (!agg[cid]) agg[cid] = { buys:[], sells:[] };
+          if (buy  > 0) agg[cid].buys.push(buy);
+          if (sell > 0) agg[cid].sells.push(sell);
+        });
+        Object.entries(agg).forEach(([cid, {buys, sells}]) => {
+          priceMap[cid] = {
+            buy:  buys.length  ? Math.min(...buys)  : (priceMap[cid]?.buy  || 0),
+            sell: sells.length ? Math.max(...sells) : (priceMap[cid]?.sell || 0),
+          };
+        });
+        if (status) status.textContent = pricesArr.length + ' prix terminaux chargés';
+      }
     } catch(e) {
-      // Fallback : prix depuis l'objet commodities lui-même (champs inline)
-      if (status) status.textContent = 'Fallback prix inline...';
-      commodities.forEach(c => {
-        const cid = c.id || c.id_commodity;
-        if (!cid) return;
-        priceMap[cid] = {
-          buy:  Number(c.price_buy_min  || c.price_buy  || c.trade_price_buy  || 0),
-          sell: Number(c.price_sell_max || c.price_sell || c.trade_price_sell || 0),
-        };
-      });
+      // Pas grave — on garde les prix inline
+      if (status) status.textContent = 'Prix inline utilisés (min/max terminaux indisponibles)';
     }
 
     // ── ÉTAPE 3 : Mapping catégories UEX → TELOS ──
@@ -6119,7 +6136,7 @@ function refreshBpIngredients() {
     +'<option value="SCU"'+(i.unit==='SCU'||!i.unit?' selected':'')+'>SCU</option>'
     +'<option value="unité"'+(i.unit==='unité'?' selected':'')+'>Unité</option>'
     +'</select>'
-    +'<button onclick="removeBpIngredient('+i.id+')" style="padding:4px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:11px;">✕</button>'
+    +'<button data-action="bp-remove-ing" data-id="'+i.id+'" style="padding:4px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:11px;">✕</button>'
     +'</div>'
   ).join('');
 }
