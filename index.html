@@ -2248,6 +2248,27 @@ function showLoginWall(){} // stub
 ════════════════════════════════════════════════════════════ */
 var ADMIN_ID = 'p_admin'; // DarkKaeloo admin
 var SESSION = null; // { pid, name, isAdmin }
+
+// ══ DISPATCHER GLOBAL — évite les problèmes de quotes dans les onclick ══════
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id     = btn.dataset.id   || '';
+  const id2    = btn.dataset.id2  || '';
+  e.stopPropagation();
+  switch(action) {
+    case 'cmd-status':  setCmdStatus(id, id2); break;
+    case 'cmd-edit':    editCommande(id); break;
+    case 'cmd-check':   checkCmdStock(id); break;
+    case 'cmd-delete':  deleteCommande(id); break;
+    case 'cmd-cancel':  cancelCommande(id); break;
+    case 'obj-edit':    editObjectif(id); break;
+    case 'obj-toggle':  toggleObjDone(id); break;
+    case 'obj-delete':  deleteObjectif(id); break;
+  }
+});
+
 var PANELS_PUBLIC = ['hub', 'inscription'];
 // Code d'accès Gestionnaire — modifiable par l'Admin
 // SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
@@ -4571,10 +4592,10 @@ function renderObjectifs() {
           ${o.desc ? '<div class="obj-desc">' + esc(o.desc) + '</div>' : ''}
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;">
-          ${SESSION ? '<button onclick="editObjectif('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✏ ÉDITER</button>' : ''}
-          ${!o.done && SESSION ? '<button onclick="toggleObjDone('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ VALIDER</button>' : ''}
-          ${o.done && SESSION ? '<button onclick="toggleObjDone('+JSON.stringify(o.id)+')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">↺ RÉACTIVER</button>' : ''}
-          ${canManageRoles() ? '<button onclick="deleteObjectif('+JSON.stringify(o.id)+')" style="padding:3px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>' : ''}
+          ${SESSION ? '<button data-action="obj-edit" data-id="'+o.id+'" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">✏ ÉDITER</button>' : ''}
+          ${!o.done && SESSION ? '<button data-action="obj-toggle" data-id="'+o.id+'" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ VALIDER</button>' : ''}
+          ${o.done && SESSION ? '<button data-action="obj-toggle" data-id="'+o.id+'" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">↺ RÉACTIVER</button>' : ''}
+          ${canManageRoles() ? '<button data-action="obj-delete" data-id="'+o.id+'" style="padding:3px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✕</button>' : ''}
         </div>
       </div>
       <div class="obj-meta">
@@ -4970,13 +4991,14 @@ function renderCommandes() {
       <div class="cmd-footer">
         <!-- Changer statut -->
         ${(()=>{
+          const S='padding:3px 9px;cursor:pointer;font-family:var(--ui);font-size:10px;border:';
           let _s='';
-          if(c.status==='attente') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'en_cours\')" style="padding:3px 10px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;">▶ EN COURS</button>';
-          if(c.status==='en_cours') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'livree\')" style="padding:3px 10px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-size:10px;font-family:var(--ui);letter-spacing:1px;font-weight:700;">✓ LIVRÉE</button>';
-          if(c.status==='livree'||c.status==='annulee') _s+='<button onclick="setCmdStatus('+JSON.stringify(c.id)+',\'attente\')" style="padding:3px 10px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">↺ ROUVRIR</button>';
-          _s+='<button onclick="editCommande('+JSON.stringify(c.id)+')" style="padding:3px 9px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">✏</button>';
-          _s+='<button onclick="checkCmdStock('+JSON.stringify(c.id)+')" title="Vérifier le stock TELOS" style="padding:3px 9px;border:1px solid rgba(89,208,255,0.5);color:#59d0ff;background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">📦</button>';
-          _s+='<button onclick="deleteCommande('+JSON.stringify(c.id)+')" title="Supprimer" style="padding:3px 9px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-size:10px;font-family:var(--ui);">🗑</button>';
+          if(c.status==='attente')                   _s+='<button data-action="cmd-status" data-id="'+c.id+'" data-id2="en_cours" style="'+S+'1px solid var(--orange);color:var(--orange);background:transparent;letter-spacing:1px;">▶ EN COURS</button>';
+          if(c.status==='en_cours')                  _s+='<button data-action="cmd-status" data-id="'+c.id+'" data-id2="livree"   style="'+S+'1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);font-weight:700;">✓ LIVRÉE</button>';
+          if(c.status==='livree'||c.status==='annulee') _s+='<button data-action="cmd-status" data-id="'+c.id+'" data-id2="attente" style="'+S+'1px solid var(--text-dim);color:var(--text-dim);background:transparent;">↺ ROUVRIR</button>';
+          _s+='<button data-action="cmd-edit"   data-id="'+c.id+'" style="'+S+'1px solid var(--orange);color:var(--orange);background:transparent;">✏</button>';
+          _s+='<button data-action="cmd-check"  data-id="'+c.id+'" title="Vérifier le stock TELOS" style="'+S+'1px solid rgba(89,208,255,0.5);color:#59d0ff;background:transparent;">📦</button>';
+          _s+='<button data-action="cmd-delete" data-id="'+c.id+'" title="Supprimer" style="'+S+'1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;">🗑</button>';
           return _s;
         })()}
         <span style="margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);">${new Date(c.createdAt).toLocaleDateString('fr-FR')}</span>
