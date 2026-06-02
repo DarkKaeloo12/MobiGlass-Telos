@@ -2235,8 +2235,8 @@ var SESSION = null; // { pid, name, isAdmin }
 var PANELS_PUBLIC = ['hub', 'inscription'];
 // Code d'accès Gestionnaire — modifiable par l'Admin
 // SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
-const GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
-let _gestionnaireCodeHash = null;
+var GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
+var _gestionnaireCodeHash = null;
 
 async function getGestionnaireHash() {
   if (_gestionnaireCodeHash) return _gestionnaireCodeHash;
@@ -2357,7 +2357,7 @@ async function updateKPIs() {
 }
 
 // Valeurs de référence pour les deltas
-let _kpiPrev = { val: 0, profit: 0, res: 0, partners: 0 };
+var _kpiPrev = { val: 0, profit: 0, res: 0, partners: 0 };
 
 /* ════════════════════════════════════════════════════════════
    HELPER — Rendu avatar universel
@@ -2505,11 +2505,11 @@ async function doLogin() {
 /* ── Chargement depuis données embarquées + localStorage ── */
 /* ── Export HTML avec données intégrées ── */
 /* ── Auto-sauvegarde toutes les 5 minutes ── */
-let _autoSaveTimer = null;
+var _autoSaveTimer = null;
 /* ════ DATABASE — Supabase ════ */
-const SUPABASE_URL='https://ykdamleudeatahrxicgk.supabase.co';const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZGFtbGV1ZGVhdGFocnhpY2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDA4OTAsImV4cCI6MjA5NTgxNjg5MH0.G4XABQpw95k9AsZoW7eQVrQcAuLDfeK8nUGaWN8dEc8';let _sb=null;
+var SUPABASE_URL='https://ykdamleudeatahrxicgk.supabase.co';const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZGFtbGV1ZGVhdGFocnhpY2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDA4OTAsImV4cCI6MjA5NTgxNjg5MH0.G4XABQpw95k9AsZoW7eQVrQcAuLDfeK8nUGaWN8dEc8';let _sb=null;
 function getSB(){if(_sb)return _sb;try{const{createClient}=window.supabase;_sb=createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){}return _sb;}
-const DB={
+var DB={
   async get(k){try{const sb=getSB();if(!sb)throw 0;const{data,error}=await sb.from('telos_store').select('value').eq('key',k).maybeSingle();if(!error&&data){try{localStorage.setItem('telos_'+k,JSON.stringify(data.value));}catch(e){}return data.value;}}catch(e){console.warn('[DB.get]',e?.message||e);}try{const v=localStorage.getItem('telos_'+k);if(v)return JSON.parse(v);}catch(e){}return null;},
   async set(k,v){try{const sb=getSB();if(!sb)throw 0;const{error}=await sb.from('telos_store').upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:'key'});if(error)console.warn('[DB.set]',error.message);}catch(e){console.warn('[DB.set]',e?.message||e);}try{localStorage.setItem('telos_'+k,JSON.stringify(v));}catch(e){}},
   async del(k){try{const sb=getSB();if(sb)await sb.from('telos_store').delete().eq('key',k);}catch(e){}try{localStorage.removeItem('telos_'+k);}catch(e){}},
@@ -2519,7 +2519,7 @@ const DB={
 /* Migration automatique localStorage → IndexedDB au premier lancement */
 
 /* ════ STATIC DATA (dashboard demo) ════ */
-const RESOURCES = [
+var RESOURCES = [
   { name:'Quantanium', cat:'rare',    qty:120, buy:24.80, sell:42.10, delta:3.2,  loc:'Aaron Halo' },
   { name:'Titanium',   cat:'metal',   qty:340, buy:5.20,  sell:8.10,  delta:-0.4, loc:'Area18' },
   { name:'Bexalite',   cat:'rare',    qty:12,  buy:54.00, sell:71.20, delta:5.1,  loc:'New Babbage' },
@@ -2531,7 +2531,7 @@ const RESOURCES = [
   { name:'Beryl',      cat:'mineral', qty:140, buy:9.80,  sell:14.60, delta:0.6,  loc:'microTech' },
 ];
 
-const STATIC_PARTNERS = [
+var STATIC_PARTNERS = [
   { name:'DarkKaeloo',      id:'TELOS-0001', rank:'Fondateur',  credits:7842512, vol:1380000, trades:142, rep:95 },
   { name:'Yann4023',        id:'TELOS-0042', rank:'Partenaire', credits:2100450, vol:890000,  trades:87,  rep:78 },
   { name:'Kuro_Shinigami',  id:'TELOS-0107', rank:'Associé',    credits:890200,  vol:420000,  trades:34,  rep:62 },
@@ -2541,7 +2541,7 @@ const STATIC_PARTNERS = [
 ];
 
 // Missions stockées en DB — chargées au démarrage
-let MISSIONS = [];
+var MISSIONS = [];
 
 async function loadMissions() {
   const stored = await DB.get('telos-missions');
@@ -2861,8 +2861,8 @@ async function doLogin() {
   if (_loginTarget?.action) _loginTarget.action();
 }
 
-const LIVE_ACTIVITY = [];
-const MAX_ACTIVITY = 20;
+var LIVE_ACTIVITY = [];
+var MAX_ACTIVITY = 20;
 
 function pushActivity(icon, desc, amt, pos, logType) {
   LIVE_ACTIVITY.unshift({ icon, desc, amt, pos, ts: Date.now() });
@@ -2885,24 +2885,24 @@ function timeAgo(ts) {
 
 // SYS_LOGS_DATA remplacé — le mini-log hub lit directement FULL_LOGS_DATA
 
-const FULL_LOGS_DATA = []; // Alimenté en temps réel par les actions
+var FULL_LOGS_DATA = []; // Alimenté en temps réel par les actions
 
-const BUYS  = [
+var BUYS  = [
   { res:'Gold',     qty:120, price:7.45,  total:894,  loc:'Lorville',    time:'il y a 25min' },
   { res:'Laranite', qty:50,  price:15.90, total:795,  loc:'Lorville',    time:'il y a 8h' },
   { res:'Beryl',    qty:140, price:9.80,  total:1372, loc:'microTech',   time:'il y a 1j' },
 ];
-const SELLS = [
+var SELLS = [
   { res:'Quantanium', qty:45,  price:31.70, total:1382, loc:'Area18',      time:'il y a 10min' },
   { res:'Titanium',   qty:200, price:8.10,  total:1620, loc:'Lorville',    time:'il y a 1h' },
 ];
-const ROUTES = [
+var ROUTES = [
   { from:'Lorville',    to:'Area18',      res:'Quantanium', margin:'+27.8%', profit:'+6.90/u' },
   { from:'New Babbage', to:'Lorville',    res:'Diamond',    margin:'+44.8%', profit:'+14.80/u' },
   { from:'Orison',      to:'New Babbage', res:'Gold',       margin:'+69.1%', profit:'+5.15/u' },
   { from:'New Babbage', to:'Orison',      res:'Hephaestanite', margin:'+36.4%', profit:'+6.70/u' },
 ];
-const OPPS = [
+var OPPS = [
   { res:'Bexalite', desc:'Prix en hausse +5.1% — acheter maintenant', action:'ACHETER',    color:'var(--green)' },
   { res:'Titanium', desc:'Stock bas à New Babbage — opportunité vente', action:'VENDRE',   color:'var(--blue)' },
   { res:'Laranite', desc:'Réapprovisionnement urgent (<10 restantes)', action:'URGENT',    color:'var(--orange)' },
@@ -2912,10 +2912,10 @@ const OPPS = [
    PLAYERS STATE
 ════════════════════════════════════════════════════════════ */
 var players     = [];
-let selectedPid = null;
-let confirmCb   = null;
-let stockCat    = 'all';
-let stockSort   = { k:'profit', d:-1 };
+var selectedPid = null;
+var confirmCb   = null;
+var stockCat    = 'all';
+var stockSort   = { k:'profit', d:-1 };
 
 /* ════════════════════════════════════════════════════════════
    CLOCK
@@ -2932,10 +2932,10 @@ function tick(){
    STANTON MAP — v6 : positions exactes calées sur carte SC 3.9.1
    Tout fixe. Vue Commerce = interactive.
 ════════════════════════════════════════════ */
-let mapView = 'global';
-let mapCanvas, mapCtx, mapW, mapH;
-let mapAnim = 0;
-let hoveredPlanet = null;
+var mapView = 'global';
+var mapCanvas, mapCtx, mapW, mapH;
+var mapAnim = 0;
+var hoveredPlanet = null;
 
 /*
   MÉTHODOLOGIE :
@@ -2953,10 +2953,10 @@ let hoveredPlanet = null;
     Hurston  ≈ 0.116, Crusader ≈ 0.213, ArcCorp ≈ 0.317, microTech ≈ 0.427
 */
 
-const ORBIT_TILT  = Math.PI * (-0.068);  // -12.24°
-const ORBIT_RATIO = 0.615;
+var ORBIT_TILT  = Math.PI * (-0.068);  // -12.24°
+var ORBIT_RATIO = 0.615;
 
-const SYSTEM_ORBITS = [
+var SYSTEM_ORBITS = [
   { ratio:0.190, col:'rgba(90,135,195,0.50)', lw:1.1 }, // Hurston
   { ratio:0.286, col:'rgba(90,135,195,0.48)', lw:1.0 }, // Crusader
   { ratio:0.538, col:'rgba(90,135,195,0.42)', lw:0.95}, // ArcCorp
@@ -2964,7 +2964,7 @@ const SYSTEM_ORBITS = [
 ];
 
 // Planètes — fx/fy mesurés sur image (fraction de IW/2 et IH/2)
-const PLANETS = [
+var PLANETS = [
   {
     name:'HURSTON', sub:'Lorville',
     fx:+0.1374, fy:+0.2328,
@@ -3008,7 +3008,7 @@ const PLANETS = [
   dr = distance en fraction de W du canvas
   Valeurs calculées depuis pixels image SC 3.9.1
 */
-const MOONS = [
+var MOONS = [
   // Hurston
   { name:'Aberdeen', pi:0, ao:-1.7735, dr:0.0620, moonR:7, col1:'#b8c0c8', col2:'#383e44' },
   { name:'Arial',    pi:0, ao:+1.9456, dr:0.0560, moonR:7, col1:'#c0b8a8', col2:'#3c3428' },
@@ -3027,7 +3027,7 @@ const MOONS = [
   { name:'Euterpe',  pi:3, ao:+2.2719, dr:0.0620, moonR:7, col1:'#d0c8d8', col2:'#282030' },
 ];
 
-const STATIONS = [
+var STATIONS = [
   // Hurston — L-points + Everus Harbor
   { name:'HUR-L1',        pi:0, ao:-2.948, dr:0.115 },
   { name:'HUR-L2',        pi:0, ao:-0.283, dr:0.125 },
@@ -3056,7 +3056,7 @@ const STATIONS = [
   { name:'MIC-L1',        pi:3, ao:-2.719, dr:0.092 },
 ];
 
-let tradeRoutes = [];
+var tradeRoutes = [];
 
 // ── Géométrie ──────────────────────────────────────────────────────
 
@@ -3397,7 +3397,7 @@ function setMapView(v) {
   document.getElementById('btn-global').classList.toggle('active', v==='global');
   document.getElementById('btn-commerce').classList.toggle('active', v==='commerce');
 }
-let mapScale=1, mapOffX=0, mapOffY=0;
+var mapScale=1, mapOffX=0, mapOffY=0;
 function centerMap() { mapScale=1; mapOffX=0; mapOffY=0; }
 
 function resizeCanvas(canvas) {
@@ -3414,8 +3414,8 @@ function resizeCanvas(c){ if(!c) return; if(c.width!==c.offsetWidth||c.height!==
 /* ════════════════════════════════════════════════════════════
    PROFIT CHART
 ════════════════════════════════════════════════════════════ */
-const PROFIT_SEED = [480000,520000,490000,700000,650000,820000,900000,870000,1050000,980000,1100000,890000,1200000,1100000,1380000];
-let chartDays = 7;
+var PROFIT_SEED = [480000,520000,490000,700000,650000,820000,900000,870000,1050000,980000,1100000,890000,1200000,1100000,1380000];
+var chartDays = 7;
 
 function drawChart(days){
   const svg=document.getElementById('profit-chart'), W=400, H=100, pad=10;
@@ -3490,7 +3490,7 @@ function renderSysLogs(){
       <span class="log-ok">OK</span>
     </div>`).join('');
 }
-let logFilter = 'all';
+var logFilter = 'all';
 
 function setLogFilter(f, btn) {
   logFilter = f;
@@ -3541,7 +3541,7 @@ function spark(r){
 }
 
 // Cache des prix marché par ressource (pour enrichir les stocks joueurs)
-const MARKET_PRICES = {};
+var MARKET_PRICES = {};
 RESOURCES.forEach(r=>{ MARKET_PRICES[r.name.toLowerCase()] = r; });
 
 // Construit une ligne de données unifiée depuis un stock joueur
@@ -4212,7 +4212,7 @@ async function fluctuate(){
 /* ════════════════════════════════════════════════════════════
    MODAL (generic)
 ════════════════════════════════════════════════════════════ */
-const MODALS = {
+var MODALS = {
 
   'new-contract':{
     title:'+ NOUVEAU CONTRAT',
@@ -4341,7 +4341,7 @@ const MODALS = {
   },
 
 };
-let currentModal=null;
+var currentModal=null;
 function openModal(id){ const m=MODALS[id]; if(!m) return; currentModal=m; document.getElementById('modal-title').textContent=m.title; document.getElementById('modal-body').innerHTML=typeof m.body==='function'?m.body():m.body; document.getElementById('modal-overlay').classList.add('open'); }
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); currentModal=null; }
 async function confirmModal(){ if(currentModal?.ok) await currentModal.ok(); closeModal(); }
@@ -4388,10 +4388,10 @@ function refreshStockPanel() {
 /* ════════════════════════════════════════════════════════════
    CATALOGUE RESSOURCES — Admin/Gestionnaire uniquement
 ════════════════════════════════════════════════════════════ */
-let RESSOURCE_CATALOGUE = [];
-let _resCatFilter = 'all';
+var RESSOURCE_CATALOGUE = [];
+var _resCatFilter = 'all';
 
-const CAT_LABELS = {
+var CAT_LABELS = {
   mineral:'⛏ Minéraux', salvage:'🔧 Salvage', ressources:'📦 Ressources',
   equipements:'🛡 Équipements', armement:'⚔ Armement', accessoires:'🎒 Accessoires', autre:'○ Autre'
 };
@@ -4473,13 +4473,13 @@ function goToRessources(el) {
 /* ════════════════════════════════════════════════════════════
    OBJECTIFS — Système de suivi par onglet
 ════════════════════════════════════════════════════════════ */
-let OBJECTIFS = [];
-let _objTab = 'tous';
-let _editObjId = null;
+var OBJECTIFS = [];
+var _objTab = 'tous';
+var _editObjId = null;
 
-const OBJ_CAT_LABELS = { ressource:'📦 Ressource', craft:'🔧 Craft', autre:'○ Autre' };
-const OBJ_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', critique:'var(--red)' };
-const OBJ_PRIO_LABELS = { normale:'⚪ Normale', haute:'🟠 Haute', critique:'🔴 Critique' };
+var OBJ_CAT_LABELS = { ressource:'📦 Ressource', craft:'🔧 Craft', autre:'○ Autre' };
+var OBJ_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', critique:'var(--red)' };
+var OBJ_PRIO_LABELS = { normale:'⚪ Normale', haute:'🟠 Haute', critique:'🔴 Critique' };
 
 async function loadObjectifs() {
   OBJECTIFS = (await DB.get('telos-objectifs')) || [];
@@ -4605,7 +4605,7 @@ function renderObjectifs() {
 /* ════════════════════════════════════════════════════════════
    OBJECTIFS × BLUEPRINTS — Sélection et suivi des ingrédients
 ════════════════════════════════════════════════════════════ */
-let _objIngredients = []; // [{name, qty, collected}]
+var _objIngredients = []; // [{name, qty, collected}]
 
 function onObjCatChange(cat) {
   const bpField = document.getElementById('obj-bp-field');
@@ -4836,16 +4836,16 @@ async function updateObjProgress(id, val) {
 /* ════════════════════════════════════════════════════════════
    COMMANDES — Système interne & externe
 ════════════════════════════════════════════════════════════ */
-let COMMANDES = [];
-let _cmdTab = 'toutes';
-let _cmdType = 'interne';
-let _editCmdId = null;
+var COMMANDES = [];
+var _cmdTab = 'toutes';
+var _cmdType = 'interne';
+var _editCmdId = null;
 
-const CMD_STATUS_LABELS = {
+var CMD_STATUS_LABELS = {
   attente:'En attente', en_cours:'En cours', livree:'Livrée', annulee:'Annulée'
 };
-const CMD_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', urgente:'var(--red)' };
-const CMD_PRIO_ICONS  = { normale:'⚪', haute:'🟠', urgente:'🔴' };
+var CMD_PRIO_COLORS = { normale:'var(--text-dim)', haute:'var(--orange)', urgente:'var(--red)' };
+var CMD_PRIO_ICONS  = { normale:'⚪', haute:'🟠', urgente:'🔴' };
 
 async function loadCommandes() {
   COMMANDES = (await DB.get('telos-commandes')) || [];
@@ -4968,7 +4968,7 @@ function renderCommandes() {
 }
 
 // Ingrédients de base du blueprint (avant multiplication)
-let _cmdBpBaseIngredients = [];
+var _cmdBpBaseIngredients = [];
 
 function openAddCommande(editId) {
   editId = editId||null;
@@ -5271,8 +5271,8 @@ async function checkCmdStock(id) {
    UEX API SYNC — Synchronisation temps réel du catalogue
    API : https://api.uexcorp.uk/2.0/commodities
 ════════════════════════════════════════════════════════════ */
-const UEX_API_BASE = 'https://api.uexcorp.uk/2.0';
-let _uexSyncRunning = false;
+var UEX_API_BASE = 'https://api.uexcorp.uk/2.0';
+var _uexSyncRunning = false;
 
 async function syncFromUEX() {
   if (_uexSyncRunning) return;
@@ -5585,12 +5585,12 @@ async function autoSyncUEX() {
 /* ════════════════════════════════════════════════════════════
    BLUEPRINTS — Catalogue Corp
 ════════════════════════════════════════════════════════════ */
-let BLUEPRINTS = [];
-let _bpFilter = 'all';
-let _editBpId = null;
-let _bpIngredients = [];
+var BLUEPRINTS = [];
+var _bpFilter = 'all';
+var _editBpId = null;
+var _bpIngredients = [];
 
-const BP_CAT_LABELS = {
+var BP_CAT_LABELS = {
   vaisseau:'🚀 Vaisseau', fps:'🛡 FPS', composant:'🔧 Composant', autre:'○ Autre'
 };
 
@@ -5782,7 +5782,7 @@ async function saveBlueprint() {
    Endpoint : https://api.star-citizen.wiki/api/blueprints?limit=100&page=N
    Données  : output.name, output.type_label, ingredients, craft_time_seconds
 ════════════════════════════════════════════════════════════ */
-let _bpSyncRunning = false;
+var _bpSyncRunning = false;
 
 async function syncBlueprintsFromWiki() {
   if (_bpSyncRunning) return;
@@ -6350,7 +6350,7 @@ async function refreshDatalist() {
 /* ════════════════════════════════════════════════════════════
    ÉDITION DES PRIX — Modal inline
 ════════════════════════════════════════════════════════════ */
-let _editStockId = null;
+var _editStockId = null;
 
 async function openEditStock(sid) {
   if (!requireAuth(selectedPid, () => openEditStock(sid))) return;
@@ -6427,7 +6427,7 @@ async function saveEditStock() {
 /* ════════════════════════════════════════════════════════════
    AVATAR PICKER
 ════════════════════════════════════════════════════════════ */
-const SC_AVATARS = [
+var SC_AVATARS = [
   { label:'Pilote',      icon:'🧑‍✈️' },
   { label:'Mineur',      icon:'⛏' },
   { label:'Chasseur',    icon:'🎯' },
@@ -6526,14 +6526,14 @@ async function saveAvatar(avatarData) {
    ÉDITION DU RÔLE
 ════════════════════════════════════════════════════════════ */
 // Rôles dynamiques — chargés depuis DB, avec fallback
-let ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+var ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
 
 // Droits par défaut — structure : { roleKey: { tab: bool, ... } }
 // Chargé depuis DB via loadRolesConfig()
-let ROLES_CONFIG = null;
+var ROLES_CONFIG = null;
 
 // Définition des onglets/fonctions contrôlables
-const DROITS_DEFS = [
+var DROITS_DEFS = [
   { id:'hub',         label:'🏠 Tableau de bord',   desc:'Accès au hub principal' },
   { id:'map',         label:'🗺 Carte Stanton',      desc:'Carte interactive' },
   { id:'partners',    label:'👥 Partenaires',         desc:'Voir la liste des partenaires' },
@@ -6554,7 +6554,7 @@ const DROITS_DEFS = [
   { id:'manage_roles',label:'⬡ Gérer les rôles',     desc:'Attribuer les rôles aux joueurs' },
 ];
 
-const DEFAULT_DROITS = {
+var DEFAULT_DROITS = {
   Trader:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
   Mineur:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
   Transporteur:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
@@ -6563,7 +6563,7 @@ const DEFAULT_DROITS = {
 };
 
 // Couleurs personnalisées des rôles { roleName: '#rrggbb' }
-let ROLES_COLORS_CUSTOM = {};
+var ROLES_COLORS_CUSTOM = {};
 
 async function loadRolesConfig() {
   try {
@@ -6729,7 +6729,7 @@ function ncSetRewardType(type) {
   });
 }
 
-const UEX_COMMODITIES = ['Acryliplex Composite','Agricium','Agricultural Supplies','Altruciatoxin','Aluminum','Amioshi Plague','Ammonia','Aphorite','Argon','Aslarite','Astatine','Atlasium','Audio Visual Equipment','Beradom','Beryl','Bexalite','Bioplastic','Borase','CK13 Gid Seed Blend','Carbon','Carbon Silk','Carinite','Cave Kopion Horn','Chlorine','Cobalt','Compboard','Construction Materials','Copper','Corundum','DCSR2','Decari Pod','Degnous Root','Diamond','Diamond Laminate','Distilled Spirits','Dolivine','Dymantium','Dynaflex','Etam','Feynmaline','Fluorine','Foam','Fresh Food','Gasping Weevil Eggs','Glacosite','Gold','Golden Medmon','Hadanite','Heart Of The Woods','Helium','Hephaestanite','Hexapolymesh Coating','Human Food Bars','Hydrogen','Hydrogen Fuel','Iodine','Iron','Irradiated Kopion Horn','Jaclium','Janalite','Kopion Horn','Krypton','Laranite','Lindinium','Luminalia Gift','Marok Gem','Maze','Medical Supplies','Mercury','Methane','Neograph','Neon','Nitrogen','Omnapoxy','Organics','Osoian Hides','Ouratite','Partillium','Party Favors','Pitambu','Potassium','Pressurized Ice','Processed Food','Prota','Quantanium','Quantum Fuel','Quartz','Ranta Dung','Recycled Material Composite','Revenant Pod','Revenant Tree Pollen','Riccite','Sadaryx','Savrilium','Scrap','Silicon','Slam','Souvenirs','Steel','Stileron','Stims','Sunset Berries','Taranite','Tin','Titanium','Torite','Tritium','Tungsten','Waste','Widow','Wuotan Seed','Xapyen','Year Of The Pig Envelope'];
+var UEX_COMMODITIES = ['Acryliplex Composite','Agricium','Agricultural Supplies','Altruciatoxin','Aluminum','Amioshi Plague','Ammonia','Aphorite','Argon','Aslarite','Astatine','Atlasium','Audio Visual Equipment','Beradom','Beryl','Bexalite','Bioplastic','Borase','CK13 Gid Seed Blend','Carbon','Carbon Silk','Carinite','Cave Kopion Horn','Chlorine','Cobalt','Compboard','Construction Materials','Copper','Corundum','DCSR2','Decari Pod','Degnous Root','Diamond','Diamond Laminate','Distilled Spirits','Dolivine','Dymantium','Dynaflex','Etam','Feynmaline','Fluorine','Foam','Fresh Food','Gasping Weevil Eggs','Glacosite','Gold','Golden Medmon','Hadanite','Heart Of The Woods','Helium','Hephaestanite','Hexapolymesh Coating','Human Food Bars','Hydrogen','Hydrogen Fuel','Iodine','Iron','Irradiated Kopion Horn','Jaclium','Janalite','Kopion Horn','Krypton','Laranite','Lindinium','Luminalia Gift','Marok Gem','Maze','Medical Supplies','Mercury','Methane','Neograph','Neon','Nitrogen','Omnapoxy','Organics','Osoian Hides','Ouratite','Partillium','Party Favors','Pitambu','Potassium','Pressurized Ice','Processed Food','Prota','Quantanium','Quantum Fuel','Quartz','Ranta Dung','Recycled Material Composite','Revenant Pod','Revenant Tree Pollen','Riccite','Sadaryx','Savrilium','Scrap','Silicon','Slam','Souvenirs','Steel','Stileron','Stims','Sunset Berries','Taranite','Tin','Titanium','Torite','Tritium','Tungsten','Waste','Widow','Wuotan Seed','Xapyen','Year Of The Pig Envelope'];
 function checkUexName(val) {
   const hint = document.getElementById('ps-uex-hint') || document.getElementById('ares-uex-hint');
   const hint2 = document.getElementById('ares-uex-hint');
@@ -6763,7 +6763,7 @@ function checkUexName(val) {
   }
 }
 
-const QUALITY_META = {
+var QUALITY_META = {
   '':          { label:'',                          color:'var(--text-dim)',   score:'—'    },
   'mediocre':  { label:'Qualité Médiocre',          color:'#6b7280',          score:'< 500'  },
   'basique':    { label:'Qualité Basique',            color:'#ef4444',          score:'500–600'},
@@ -6808,9 +6808,9 @@ async function openPlayerStock(){
 function closePSModal(){ document.getElementById('ps-overlay').classList.remove('open'); }
 
 /* ─── Modal retrait ressource — identique à l'ajout ─── */
-let _rmStocks     = [];
-let _rmSelectedId = null;
-let _rmCatFilter  = 'all';
+var _rmStocks     = [];
+var _rmSelectedId = null;
+var _rmCatFilter  = 'all';
 
 async function openRemoveStock(){
   if (!selectedPid){ toast('Aucun partenaire sélectionné','','error'); return; }
@@ -7509,11 +7509,11 @@ async function loadPlayerOwnedBlueprints() {
   return myBps;
 }
 async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCache||{};for(const p of players){if(!window._playerBpCache[p.id]){const bps=(await DB.get('player-blueprints-'+p.id))||[];window._playerBpCache[p.id]=bps;}}}
-const UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
+var UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
 function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟠 Craft Vaisseau',color:'#f97316',range:'500–600'};return{key:'craft_fps',label:'💎 Craft FPS',color:'#60a5fa',range:'600+'};}
-const ROLE_COLORS_DEFAULT={Trader:'#60a5fa',Mineur:'#f79028',Transporteur:'#00ffa3',Explorateur:'#a78bfa',Gestionnaire:'#ff4444'};
-const ROLE_COLORS_POOL=['#60a5fa','#f79028','#00ffa3','#a78bfa','#ff4444','#59d0ff','#f472b6','#a3e635','#fb923c','#34d399'];
-const ROLE_COLORS = new Proxy({}, { get(t,k){
+var ROLE_COLORS_DEFAULT={Trader:'#60a5fa',Mineur:'#f79028',Transporteur:'#00ffa3',Explorateur:'#a78bfa',Gestionnaire:'#ff4444'};
+var ROLE_COLORS_POOL=['#60a5fa','#f79028','#00ffa3','#a78bfa','#ff4444','#59d0ff','#f472b6','#a3e635','#fb923c','#34d399'];
+var ROLE_COLORS = new Proxy({}, { get(t,k){
   // Priorité : couleur custom → défaut → pool
   return (typeof ROLES_COLORS_CUSTOM !== 'undefined' && ROLES_COLORS_CUSTOM[k])
     || ROLE_COLORS_DEFAULT[k]
