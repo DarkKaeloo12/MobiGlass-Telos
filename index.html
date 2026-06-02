@@ -1229,6 +1229,21 @@ body::before {
   .kpi-val { font-size: 26px !important; }
   .data-table th, .data-table td { padding: 10px 14px !important; font-size: 13px !important; }
 }
+
+/* ══ BANQUE ══════════════════════════════════════════════ */
+.bank-tab.active { color: var(--text-bright) !important; border-bottom-color: var(--orange) !important; }
+.bank-row { cursor: pointer; transition: background .12s; }
+.bank-row:hover { background: rgba(247,140,30,0.05); }
+.bank-amount-credit { color: var(--green); font-weight: 700; font-family: var(--mono); }
+.bank-amount-debit  { color: var(--red);   font-weight: 700; font-family: var(--mono); }
+.bank-badge { display:inline-block;padding:2px 8px;font-size:9px;letter-spacing:1px;border:1px solid currentColor;font-family:var(--ui);text-transform:uppercase; }
+.bank-member-card { background:var(--bg3);border:1px solid var(--border);padding:16px;border-radius:4px;display:flex;flex-direction:column;gap:8px; }
+.bank-member-card:hover { border-color:rgba(247,140,30,0.35); }
+.bank-stat-card { background:var(--bg3);border:1px solid var(--border);padding:16px;border-radius:4px; }
+.bank-pg-btn { padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;cursor:pointer; }
+.bank-pg-btn.active { border-color:var(--orange);color:var(--orange); }
+.bank-pg-btn:hover { border-color:rgba(247,140,30,.5);color:var(--orange); }
+
 </style>
 
 
@@ -1352,6 +1367,11 @@ function showLoginWall(){} // stub
       <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
     </div>
 	
+    <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
+      <div class="n-icon">🏦</div>
+      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
+    </div>
+
 	<div class="nav-divider"></div>
     <div class="nav-item" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
@@ -1752,6 +1772,96 @@ function showLoginWall(){} // stub
 
 
       <!-- ══ LOGS ══ -->
+      <!-- ══ BANQUE ══ -->
+      <div class="panel" id="panel-banque" style="flex-direction:column;gap:0;overflow:hidden;">
+
+        <!-- Header -->
+        <div class="sec-bar" style="padding:14px 20px;flex-shrink:0;justify-content:space-between;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span style="font-size:22px;">🏦</span>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text-bright);letter-spacing:1px;">BANQUE TELOS</div>
+              <div style="font-size:10px;color:var(--text-dim);">Trésorerie de la corporation</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="text-align:right;">
+              <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Trésorerie</div>
+              <div id="bank-total" style="font-size:22px;font-weight:700;color:var(--orange);font-family:var(--mono);">0 aUEC</div>
+            </div>
+            <button class="btn success" onclick="openBankTransaction()" style="padding:8px 18px;letter-spacing:1px;font-size:11px;">+ NOUVELLE TRANSACTION</button>
+          </div>
+        </div>
+
+        <!-- KPI Strip -->
+        <div id="bank-kpi" style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2);overflow-x:auto;"></div>
+
+        <!-- Onglets -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 20px;background:var(--bg2);">
+          <button class="bank-tab active" id="btab-transactions" onclick="setBankTab('transactions',this)" style="padding:8px 18px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">📋 TRANSACTIONS</button>
+          <button class="bank-tab" id="btab-membres" onclick="setBankTab('membres',this)" style="padding:8px 18px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">👥 MEMBRES</button>
+          <button class="bank-tab" id="btab-stats" onclick="setBankTab('stats',this)" style="padding:8px 18px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">📊 STATISTIQUES</button>
+        </div>
+
+        <!-- Filtres transactions -->
+        <div id="bank-filters" style="display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;align-items:center;background:var(--bg2);">
+          <input type="date" id="bank-date-from" class="form-input" style="width:140px;padding:5px 10px;font-size:11px;" onchange="renderBankTransactions()">
+          <span style="color:var(--text-dim);font-size:11px;">→</span>
+          <input type="date" id="bank-date-to" class="form-input" style="width:140px;padding:5px 10px;font-size:11px;" onchange="renderBankTransactions()">
+          <select id="bank-cat-filter" class="form-input" style="width:160px;padding:5px 10px;font-size:11px;height:auto;" onchange="renderBankTransactions()">
+            <option value="">Toutes catégories</option>
+            <option value="don">💰 Don / Contribution</option>
+            <option value="depense">📤 Dépense</option>
+            <option value="commerce">💹 Commerce</option>
+            <option value="craft">🔧 Craft</option>
+            <option value="recompense">🎖 Récompense</option>
+            <option value="penalite">⚠ Pénalité</option>
+            <option value="autre">○ Autre</option>
+          </select>
+          <select id="bank-type-filter" class="form-input" style="width:140px;padding:5px 10px;font-size:11px;height:auto;" onchange="renderBankTransactions()">
+            <option value="">Tous types</option>
+            <option value="credit">↑ Crédit</option>
+            <option value="debit">↓ Débit</option>
+          </select>
+          <input type="text" id="bank-search" class="form-input" placeholder="Rechercher..." style="width:200px;padding:5px 10px;font-size:11px;" oninput="renderBankTransactions()">
+          <button onclick="resetBankFilters()" style="padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;cursor:pointer;letter-spacing:1px;">✕ RESET</button>
+          <div style="margin-left:auto;font-size:10px;color:var(--text-dim);" id="bank-count"></div>
+        </div>
+
+        <!-- Onglet Transactions -->
+        <div id="bank-panel-transactions" style="flex:1;overflow-y:auto;padding:0;">
+          <table class="data-table" style="width:100%;">
+            <thead><tr>
+              <th style="width:110px;">Date</th>
+              <th>Membre</th>
+              <th style="width:100px;">Type</th>
+              <th>Description</th>
+              <th style="width:120px;">Catégorie</th>
+              <th style="width:120px;text-align:right;">Montant</th>
+              <th style="width:90px;">Statut</th>
+              <th style="width:60px;"></th>
+            </tr></thead>
+            <tbody id="bank-tbody"></tbody>
+          </table>
+          <div id="bank-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
+            <div style="font-size:32px;opacity:.2;margin-bottom:10px;">🏦</div>
+            Aucune transaction
+          </div>
+          <!-- Pagination -->
+          <div id="bank-pagination" style="display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- Onglet Membres -->
+        <div id="bank-panel-membres" style="display:none;flex:1;overflow-y:auto;padding:20px;">
+          <div id="bank-membres-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
+        </div>
+
+        <!-- Onglet Statistiques -->
+        <div id="bank-panel-stats" style="display:none;flex:1;overflow-y:auto;padding:20px;">
+          <div id="bank-stats-content" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+        </div>
+      </div>
+
       <div class="panel" id="panel-logs">
         <div class="toolbar">
           <div class="search-box" style="max-width:240px;flex:1;">
@@ -2385,6 +2495,9 @@ function canManageRoles() {
 function updateNavRessources() {
   const el = document.getElementById('nav-ressources');
   if (el) el.style.display = canManageRoles() ? '' : 'none';
+  // Banque visible pour gestionnaires/admins uniquement
+  const elB = document.getElementById('nav-banque');
+  if (elB) elB.style.display = canManageRoles() ? '' : 'none';
   // Blueprints visible pour tous les membres connectés
   const el2 = document.getElementById('nav-blueprints');
   if (el2) el2.style.display = SESSION ? '' : 'none';
@@ -6627,6 +6740,7 @@ function goPanel(id, el) {
       renderBlueprints();
     }
   }
+  if (id==='banque') { loadBankData().then(() => renderBanque()); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -8245,6 +8359,7 @@ async function init(){
   // Load players from persistent storage
   players=(await DB.get('uex-players'))||[];
   await loadRolesConfig();
+  await loadBankData();
   renderPlayerList();
   updateBadges();
   updateGlobalFilter();
@@ -8315,6 +8430,321 @@ window.addEventListener('resize', () => {
     setTimeout(resizeAllCanvas, 200);
   });
 })();
+
+/* ════════════════════════════════════════════════════════════
+   BANQUE TELOS — Trésorerie de la corporation
+════════════════════════════════════════════════════════════ */
+var BANK_DATA = [];        // Toutes les transactions
+var _bankTab = 'transactions';
+var _bankPage = 1;
+var _bankPerPage = 15;
+var _bankEditId = null;
+
+var BANK_CAT_META = {
+  don:       { label:'💰 Don',         color:'var(--green)'  },
+  depense:   { label:'📤 Dépense',     color:'var(--red)'    },
+  commerce:  { label:'💹 Commerce',    color:'#60a5fa'       },
+  craft:     { label:'🔧 Craft',       color:'var(--orange)' },
+  recompense:{ label:'🎖 Récompense',  color:'#f59e0b'       },
+  penalite:  { label:'⚠ Pénalité',    color:'var(--red)'    },
+  autre:     { label:'○ Autre',        color:'var(--text-dim)'},
+};
+
+async function loadBankData() {
+  BANK_DATA = (await DB.get('telos-bank')) || [];
+}
+async function saveBankData() {
+  await DB.set('telos-bank', BANK_DATA);
+}
+
+// ── Visiblité nav banque ──
+function updateNavBanque() {
+  const el = document.getElementById('nav-banque');
+  if (el) el.style.display = canManageRoles() ? '' : 'none';
+}
+
+// ── Onglets ──
+function setBankTab(tab, btn) {
+  _bankTab = tab;
+  // Sécuriser les boutons tab
+  document.querySelectorAll('.bank-tab').forEach(b => {
+    b.style.color = 'var(--text-dim)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  if (btn) { btn.style.color = 'var(--text-bright)'; btn.style.borderBottomColor = 'var(--orange)'; }
+  const activeBtnEl = document.getElementById('btab-'+tab);
+  if (activeBtnEl) { activeBtnEl.style.color = 'var(--text-bright)'; activeBtnEl.style.borderBottomColor = 'var(--orange)'; }
+  ['transactions','membres','stats'].forEach(t => {
+    const p = document.getElementById('bank-panel-'+t);
+    const b = document.getElementById('btab-'+t);
+    if (p) p.style.display = t===tab ? (t==='transactions'?'flex':'block') : 'none';
+    if (b) { b.classList.toggle('active', t===tab); b.style.color=t===tab?'var(--text-bright)':'var(--text-dim)'; b.style.borderBottomColor=t===tab?'var(--orange)':'transparent'; }
+  });
+  if (tab==='transactions') renderBankTransactions();
+  if (tab==='membres')      renderBankMembres();
+  if (tab==='stats')        renderBankStats();
+}
+
+function resetBankFilters() {
+  ['bank-date-from','bank-date-to','bank-cat-filter','bank-type-filter','bank-search'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  renderBankTransactions();
+}
+
+// ── Rendu principal banque ──
+function renderBanque() {
+  renderBankKPI();
+  setBankTab(_bankTab, document.getElementById('btab-'+_bankTab));
+}
+
+function renderBankKPI() {
+  const el = document.getElementById('bank-kpi');
+  if (!el) return;
+  const now = Date.now();
+  const d7  = now - 7*24*3600*1000;
+  const credits7 = BANK_DATA.filter(t=>t.type==='credit'&&new Date(t.date).getTime()>=d7).reduce((s,t)=>s+(t.amount||0),0);
+  const debits7  = BANK_DATA.filter(t=>t.type==='debit' &&new Date(t.date).getTime()>=d7).reduce((s,t)=>s+(t.amount||0),0);
+  const total    = BANK_DATA.reduce((s,t)=>s+(t.type==='credit'?1:-1)*(t.amount||0),0);
+  const todayStr = new Date().toISOString().slice(0,10);
+  const txToday  = BANK_DATA.filter(t=>t.date?.slice(0,10)===todayStr).length;
+  // Update total
+  const tot = document.getElementById('bank-total');
+  if (tot) tot.textContent = Math.round(total).toLocaleString('fr-FR')+' aUEC';
+  const kpiData = [
+    { label:'Revenus (7j)', val:'+'+Math.round(credits7).toLocaleString('fr-FR')+' aUEC', color:'var(--green)', sub: BANK_DATA.filter(t=>t.type==='credit'&&new Date(t.date).getTime()>=d7).length+' transactions' },
+    { label:'Dépenses (7j)', val:'-'+Math.round(debits7).toLocaleString('fr-FR')+' aUEC', color:'var(--red)', sub: BANK_DATA.filter(t=>t.type==='debit'&&new Date(t.date).getTime()>=d7).length+' transactions' },
+    { label:"Aujourd'hui", val:txToday+' tx', color:'var(--blue)', sub: txToday>0?'Dernière à '+BANK_DATA.filter(t=>t.date?.slice(0,10)===todayStr).at(-1)?.date?.slice(11,16)||'—':'Aucune' },
+    { label:'Total transactions', val:BANK_DATA.length.toLocaleString('fr-FR'), color:'var(--text-bright)', sub:'Depuis la création' },
+  ];
+  el.innerHTML = kpiData.map(k=>`
+    <div style="padding:12px 20px;border-right:1px solid var(--border);min-width:180px;flex-shrink:0;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">${k.label}</div>
+      <div style="font-size:18px;font-weight:700;color:${k.color};font-family:var(--mono);">${k.val}</div>
+      <div style="font-size:9px;color:var(--text-dim);margin-top:2px;">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── Transactions ──
+function getBankFiltered() {
+  const search   = (document.getElementById('bank-search')?.value||'').toLowerCase();
+  const cat      = document.getElementById('bank-cat-filter')?.value||'';
+  const type     = document.getElementById('bank-type-filter')?.value||'';
+  const dateFrom = document.getElementById('bank-date-from')?.value||'';
+  const dateTo   = document.getElementById('bank-date-to')?.value||'';
+  return BANK_DATA.filter(t => {
+    if (search && !( (t.desc||'').toLowerCase().includes(search) || (t.member||'').toLowerCase().includes(search) )) return false;
+    if (cat  && t.cat  !== cat)  return false;
+    if (type && t.type !== type) return false;
+    if (dateFrom && t.date < dateFrom) return false;
+    if (dateTo   && t.date > dateTo+'T23:59') return false;
+    return true;
+  }).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+
+function renderBankTransactions() {
+  const tbody = document.getElementById('bank-tbody');
+  const empty = document.getElementById('bank-empty');
+  const countEl = document.getElementById('bank-count');
+  if (!tbody) return;
+  const data = getBankFiltered();
+  const total = data.length;
+  const pages = Math.max(1, Math.ceil(total/_bankPerPage));
+  if (_bankPage > pages) _bankPage = 1;
+  const slice = data.slice((_bankPage-1)*_bankPerPage, _bankPage*_bankPerPage);
+  if (countEl) countEl.textContent = total ? _bankPage*_bankPerPage-_bankPerPage+1+'-'+Math.min(_bankPage*_bankPerPage,total)+' sur '+total+' transactions' : '';
+  if (!slice.length) { tbody.innerHTML=''; empty.style.display='block'; renderBankPagination(0,0); return; }
+  empty.style.display='none';
+  const catMeta = (cat)=>BANK_CAT_META[cat]||{ label:cat, color:'var(--text-dim)' };
+  const memberName = (mid)=>{
+    const p=players.find(x=>x.id===mid); return p?p.name:(mid||'Système');
+  };
+  tbody.innerHTML = slice.map(t => {
+    const cm = catMeta(t.cat);
+    const isCredit = t.type==='credit';
+    const amt = (isCredit?'+':'-')+Math.round(t.amount||0).toLocaleString('fr-FR')+' aUEC';
+    const dateStr = t.date ? t.date.slice(0,10)+'<br><span style="font-size:9px;color:var(--text-dim);">'+t.date.slice(11,16)+'</span>' : '—';
+    return `<tr class="bank-row" onclick="openBankDetail('${t.id}')">
+      <td style="font-size:11px;line-height:1.4;">${dateStr}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:28px;height:28px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--orange);flex-shrink:0;">${memberName(t.memberId).charAt(0).toUpperCase()}</div>
+          <span style="font-size:12px;color:var(--text-bright);">${esc(memberName(t.memberId))}</span>
+        </div>
+      </td>
+      <td><span class="bank-badge" style="color:${isCredit?'var(--green)':'var(--red)'};">${isCredit?'↑ DON':'↓ DÉBIT'}</span></td>
+      <td>
+        <div style="font-size:12px;color:var(--text-bright);">${esc(t.desc||'—')}</div>
+        ${t.note?'<div style="font-size:10px;color:var(--text-dim);">'+esc(t.note)+'</div>':''}
+      </td>
+      <td><span style="font-size:10px;color:${cm.color};">${cm.label}</span></td>
+      <td style="text-align:right;" class="${isCredit?'bank-amount-credit':'bank-amount-debit'}">${amt}</td>
+      <td><span style="font-size:10px;color:var(--green);">✓ Validée</span></td>
+      <td>
+        ${canManageRoles()?`<button data-action="bank-delete" data-id="${t.id}" style="padding:2px 7px;border:1px solid rgba(255,68,68,0.35);background:transparent;color:var(--red);font-size:10px;cursor:pointer;">🗑</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+  renderBankPagination(total, pages);
+}
+
+function renderBankPagination(total, pages) {
+  const el = document.getElementById('bank-pagination');
+  if (!el) return;
+  if (pages <= 1) { el.innerHTML=''; return; }
+  let html = '';
+  // Afficher N par page
+  html += `<select class="form-input" style="width:80px;padding:4px 8px;font-size:11px;height:auto;" onchange="_bankPerPage=parseInt(this.value);_bankPage=1;renderBankTransactions()">
+    ${[10,15,25,50].map(n=>`<option value="${n}" ${_bankPerPage===n?'selected':''}>${n}</option>`).join('')}
+  </select><span style="font-size:10px;color:var(--text-dim);">par page</span>`;
+  html += `<button class="bank-pg-btn" onclick="_bankPage=1;renderBankTransactions()">«</button>`;
+  html += `<button class="bank-pg-btn" onclick="_bankPage=Math.max(1,_bankPage-1);renderBankTransactions()">‹</button>`;
+  // Pages
+  const range = [];
+  for (let i=1;i<=pages;i++) {
+    if (i<=2||i>=pages-1||Math.abs(i-_bankPage)<=1) range.push(i);
+    else if (range[range.length-1]!=='…') range.push('…');
+  }
+  range.forEach(p => {
+    if (p==='…') html+='<span style="color:var(--text-dim);padding:0 4px;">…</span>';
+    else html+=`<button class="bank-pg-btn ${p===_bankPage?'active':''}" onclick="_bankPage=${p};renderBankTransactions()">${p}</button>`;
+  });
+  html += `<button class="bank-pg-btn" onclick="_bankPage=Math.min(${pages},_bankPage+1);renderBankTransactions()">›</button>`;
+  html += `<button class="bank-pg-btn" onclick="_bankPage=${pages};renderBankTransactions()">»</button>`;
+  html += `<span style="margin-left:auto;font-size:10px;color:var(--text-dim);">${_bankPage*_bankPerPage-_bankPerPage+1}-${Math.min(_bankPage*_bankPerPage,total)} sur ${total}</span>`;
+  el.innerHTML = html;
+}
+
+// ── Membres ──
+function renderBankMembres() {
+  const el = document.getElementById('bank-membres-list');
+  if (!el) return;
+  const byMember = {};
+  BANK_DATA.forEach(t => {
+    const mid = t.memberId||'';
+    if (!byMember[mid]) byMember[mid] = { id:mid, credits:0, debits:0, count:0 };
+    if (t.type==='credit') byMember[mid].credits += t.amount||0;
+    else                   byMember[mid].debits  += t.amount||0;
+    byMember[mid].count++;
+  });
+  const sorted = Object.values(byMember).sort((a,b)=>b.credits-a.credits);
+  if (!sorted.length) { el.innerHTML='<div style="color:var(--text-dim);padding:20px;">Aucune donnée.</div>'; return; }
+  el.innerHTML = sorted.map(m => {
+    const p = players.find(x=>x.id===m.id);
+    const name = p?.name || m.id || 'Système';
+    const net = m.credits - m.debits;
+    return `<div class="bank-member-card">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;background:var(--bg2);border:1px solid var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--orange);">${name.charAt(0).toUpperCase()}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-bright);">${esc(name)}</div>
+          <div style="font-size:9px;color:var(--text-dim);">${m.count} transaction${m.count>1?'s':''}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;">
+        <div><div style="font-size:9px;color:var(--text-dim);">Contributions</div><div style="font-size:13px;color:var(--green);font-family:var(--mono);">+${Math.round(m.credits).toLocaleString('fr-FR')}</div></div>
+        <div><div style="font-size:9px;color:var(--text-dim);">Dépenses</div><div style="font-size:13px;color:var(--red);font-family:var(--mono);">-${Math.round(m.debits).toLocaleString('fr-FR')}</div></div>
+        <div><div style="font-size:9px;color:var(--text-dim);">Solde net</div><div style="font-size:13px;color:${net>=0?'var(--green)':'var(--red)'};font-family:var(--mono);">${net>=0?'+':''}${Math.round(net).toLocaleString('fr-FR')}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Statistiques ──
+function renderBankStats() {
+  const el = document.getElementById('bank-stats-content');
+  if (!el) return;
+  const byCat = {};
+  BANK_DATA.forEach(t => {
+    if (!byCat[t.cat]) byCat[t.cat] = { credits:0, debits:0, count:0 };
+    if (t.type==='credit') byCat[t.cat].credits += t.amount||0;
+    else                   byCat[t.cat].debits  += t.amount||0;
+    byCat[t.cat].count++;
+  });
+  const totalCredits = BANK_DATA.filter(t=>t.type==='credit').reduce((s,t)=>s+(t.amount||0),0);
+  const totalDebits  = BANK_DATA.filter(t=>t.type==='debit').reduce((s,t)=>s+(t.amount||0),0);
+  const balance = totalCredits - totalDebits;
+  el.innerHTML = `
+    <div class="bank-stat-card" style="grid-column:span 2;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px;">BILAN GLOBAL</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div><div style="font-size:9px;color:var(--text-dim);">Total crédits</div><div style="font-size:20px;color:var(--green);font-family:var(--mono);font-weight:700;">+${Math.round(totalCredits).toLocaleString('fr-FR')} aUEC</div></div>
+        <div><div style="font-size:9px;color:var(--text-dim);">Total débits</div><div style="font-size:20px;color:var(--red);font-family:var(--mono);font-weight:700;">-${Math.round(totalDebits).toLocaleString('fr-FR')} aUEC</div></div>
+        <div><div style="font-size:9px;color:var(--text-dim);">Solde net</div><div style="font-size:20px;color:${balance>=0?'var(--green)':'var(--red)'};font-family:var(--mono);font-weight:700;">${balance>=0?'+':''}${Math.round(balance).toLocaleString('fr-FR')} aUEC</div></div>
+        <div><div style="font-size:9px;color:var(--text-dim);">Transactions</div><div style="font-size:20px;color:var(--text-bright);font-family:var(--mono);font-weight:700;">${BANK_DATA.length}</div></div>
+      </div>
+    </div>
+    ${Object.entries(byCat).sort((a,b)=>b[1].credits+b[1].debits-a[1].credits-a[1].debits).map(([cat,d])=>{
+      const cm = BANK_CAT_META[cat]||{label:cat,color:'var(--text-dim)'};
+      return `<div class="bank-stat-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:12px;color:\${cm.color};">\${cm.label}</span>
+          <span style="font-size:10px;color:var(--text-dim);">\${d.count} tx</span>
+        </div>
+        <div style="font-size:13px;color:var(--green);font-family:var(--mono);">+\${Math.round(d.credits).toLocaleString('fr-FR')}</div>
+        <div style="font-size:13px;color:var(--red);font-family:var(--mono);">-\${Math.round(d.debits).toLocaleString('fr-FR')}</div>
+      </div>`;
+    }).join('')}`;
+}
+
+// ── Detail / suppression ──
+function openBankDetail(id) { /* futur : modal détail */ }
+
+async function deleteBankTransaction(id) {
+  const t = BANK_DATA.find(x=>x.id===id);
+  if (!t||!confirm('Supprimer cette transaction ?')) return;
+  BANK_DATA = BANK_DATA.filter(x=>x.id!==id);
+  await saveBankData();
+  renderBanque();
+  toast('Transaction supprimée','','info');
+}
+
+// ── Modal nouvelle transaction ──
+function openBankTransaction(editId) {
+  _bankEditId = editId||null;
+  const t = editId ? BANK_DATA.find(x=>x.id===editId) : null;
+  // Peupler le select membres
+  const mSel = document.getElementById('bt-member');
+  if (mSel) mSel.innerHTML = '<option value="">— Membre —</option>'
+    + players.map(p=>`<option value="${p.id}"${t?.memberId===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
+  // Pré-remplir
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  set('bt-type',   t?.type   ||'credit');
+  set('bt-amount', t?.amount ||'');
+  set('bt-desc',   t?.desc   ||'');
+  set('bt-note',   t?.note   ||'');
+  set('bt-cat',    t?.cat    ||'don');
+  set('bt-date',   t?.date?.slice(0,16)||new Date().toISOString().slice(0,16));
+  document.getElementById('bt-overlay').classList.add('open');
+}
+
+async function saveBankTransaction() {
+  const memberId = document.getElementById('bt-member')?.value||'';
+  const amount   = parseFloat(document.getElementById('bt-amount')?.value)||0;
+  const desc     = document.getElementById('bt-desc')?.value.trim()||'';
+  if (!desc)   { toast('Description requise','','error'); return; }
+  if (!amount) { toast('Montant requis','','error'); return; }
+  const entry = {
+    id:       _bankEditId||('btx_'+Date.now()),
+    memberId,
+    type:     document.getElementById('bt-type')?.value||'credit',
+    amount:   Math.abs(amount),
+    desc,
+    note:     document.getElementById('bt-note')?.value.trim()||'',
+    cat:      document.getElementById('bt-cat')?.value||'don',
+    date:     document.getElementById('bt-date')?.value||new Date().toISOString().slice(0,16),
+    createdBy:SESSION?.pid||'',
+  };
+  if (_bankEditId) BANK_DATA = BANK_DATA.map(x=>x.id===_bankEditId?entry:x);
+  else BANK_DATA.unshift(entry);
+  await saveBankData();
+  document.getElementById('bt-overlay').classList.remove('open');
+  renderBanque();
+  const memberName = players.find(p=>p.id===memberId)?.name||'Système';
+  pushActivity('🏦', (_bankEditId?'Transaction modifiée':'Nouvelle transaction banque')+' : '+desc, (entry.type==='credit'?'+':'-')+Math.round(amount).toLocaleString('fr-FR')+' aUEC', true);
+  toast(_bankEditId?'Transaction modifiée':'Transaction enregistrée', desc, 'success');
+  _bankEditId = null;
+}
 
 </script>
 
