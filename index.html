@@ -2286,6 +2286,8 @@ function setSession(player) {
   if (plSb) plSb.style.display = 'none';
   toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
   refreshStockPanel();
+  // Recharger les blueprints cochés depuis la DB à chaque connexion
+  loadPlayerOwnedBlueprints().then(() => renderBlueprints());
 }
 
 function logout() {
@@ -2642,6 +2644,8 @@ function setSession(player) {
   renderObjectifs();
   toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
   refreshStockPanel();
+  // Recharger les blueprints cochés depuis la DB à chaque connexion
+  loadPlayerOwnedBlueprints().then(() => renderBlueprints());
 }
 
 function logout() {
@@ -5906,7 +5910,14 @@ function goPanel(id, el) {
   if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
-  if (id==='blueprints') { renderBlueprints(); }
+  if (id==='blueprints') {
+    // Recharger les BPs cochés depuis DB avant de rendre
+    if (SESSION) {
+      loadPlayerOwnedBlueprints().then(() => renderBlueprints());
+    } else {
+      renderBlueprints();
+    }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -6010,7 +6021,8 @@ async function selectPlayer(id){
   renderPlayerList(document.getElementById('pl-search').value);
   // Badge blueprints
   if (!window._playerBpCache) window._playerBpCache = {};
-  if (!window._playerBpCache[id]) window._playerBpCache[id] = (await DB.get('player-blueprints-'+id)) || [];
+  // Toujours recharger depuis DB pour être à jour
+  window._playerBpCache[id] = (await DB.get('player-blueprints-' + id)) || [];
   const bpBadge = document.getElementById('badge-blueprints');
   if (bpBadge) { const _n=window._playerBpCache[id].length; bpBadge.textContent=_n; bpBadge.style.display=_n>0?'':'none'; }
   const stocks=(await DB.get('uex-stocks-'+id))||[];
@@ -6431,7 +6443,67 @@ async function saveAvatar(avatarData) {
 /* ════════════════════════════════════════════════════════════
    ÉDITION DU RÔLE
 ════════════════════════════════════════════════════════════ */
-const ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+// Rôles dynamiques — chargés depuis DB, avec fallback
+let ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+
+// Droits par défaut — structure : { roleKey: { tab: bool, ... } }
+// Chargé depuis DB via loadRolesConfig()
+let ROLES_CONFIG = null;
+
+// Définition des onglets/fonctions contrôlables
+const DROITS_DEFS = [
+  { id:'hub',         label:'🏠 Tableau de bord',   desc:'Accès au hub principal' },
+  { id:'map',         label:'🗺 Carte Stanton',      desc:'Carte interactive' },
+  { id:'partners',    label:'👥 Partenaires',         desc:'Voir la liste des partenaires' },
+  { id:'stocks',      label:'📦 Stocks TELOS',        desc:'Voir le stock global' },
+  { id:'blueprints',  label:'📐 Blueprints',          desc:'Voir les blueprints' },
+  { id:'commandes',   label:'📋 Commandes',           desc:'Voir les commandes' },
+  { id:'objectifs',   label:'🎯 Objectifs',           desc:'Voir les objectifs' },
+  { id:'missions',    label:'🛡 Missions',             desc:'Voir les missions' },
+  { id:'commerce',    label:'💹 Commerce',            desc:'Voir le panneau commerce' },
+  { id:'logs',        label:'📡 Logs',                desc:'Accès aux journaux' },
+  { id:'ressources',  label:'🔬 Ressources UEX',      desc:'Accès données UEX (admin/gest.)' },
+  { id:'edit_stock',  label:'✏ Modifier stock',       desc:'Ajouter/modifier son propre stock' },
+  { id:'add_commande',label:'+ Créer commande',       desc:'Créer une commande' },
+  { id:'add_objectif',label:'+ Créer objectif',       desc:'Créer un objectif' },
+  { id:'add_mission', label:'+ Créer mission',        desc:'Créer une mission (Gest.)' },
+  { id:'add_blueprint',label:'+ Ajouter blueprint',  desc:'Ajouter un blueprint' },
+  { id:'delete_data', label:'🗑 Supprimer données',   desc:'Supprimer commandes/objectifs/BP' },
+  { id:'manage_roles',label:'⬡ Gérer les rôles',     desc:'Attribuer les rôles aux joueurs' },
+];
+
+const DEFAULT_DROITS = {
+  Trader:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
+  Mineur:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
+  Transporteur:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
+  Explorateur:   { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
+  Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:1,ressources:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,delete_data:1,manage_roles:1 },
+};
+
+async function loadRolesConfig() {
+  try {
+    const saved = await DB.get('telos-roles-config');
+    if (saved) {
+      ROLES = saved.roles || ROLES;
+      ROLES_CONFIG = saved.droits || null;
+    }
+    if (!ROLES_CONFIG) ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
+  } catch(e) { ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS)); }
+}
+
+async function saveRolesConfig() {
+  await DB.set('telos-roles-config', { roles: ROLES, droits: ROLES_CONFIG });
+}
+
+function hasDroit(droit) {
+  if (!SESSION) return false;
+  if (SESSION.isAdmin) return true;
+  const player = players.find(p => p.id === SESSION.pid);
+  if (!player) return false;
+  const cfg = ROLES_CONFIG?.[player.role];
+  if (!cfg) return true; // pas de config → accès par défaut
+  return !!cfg[droit];
+}
 
 function openEditRole(pid) {
   if (!SESSION) { openLoginModal(null, () => openEditRole(pid)); return; }
@@ -7139,15 +7211,181 @@ async function resetAll() {
 async function testSupabaseConnection(){try{const sb=getSB();if(!sb)throw new Error('no client');const{error}=await sb.from('telos_store').select('key').limit(1);if(error)throw new Error(error.message);console.log('[TELOS] ✅ Supabase connecté');return true;}catch(e){console.warn('[TELOS] ⚠',e.message);return false;}}
 async function migrateLocalStorageToSupabase(){const btn=document.getElementById('btn-migrate'),status=document.getElementById('migrate-status');if(btn){btn.disabled=true;btn.textContent='⏳...';}const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith('telos_'))keys.push(k.slice(6));}if(!keys.length){if(status)status.textContent='⚠ Aucune donnée';if(btn){btn.disabled=false;btn.textContent='📤 MIGRER';}return;}let done=0;for(const k of keys){try{const r=localStorage.getItem('telos_'+k);if(r){await DB.set(k,JSON.parse(r));done++;}}catch(e){}if(status)status.textContent=done+'/'+keys.length;}if(status)status.textContent='✅ '+done+' migrées';if(btn){btn.disabled=false;btn.textContent='✅ MIGRÉ';}toast('Migration',done+' clés migrées','success');}
 async function testSupabaseWrite(){const el=document.getElementById('supa-write-status');if(el)el.textContent='⏳...';try{const sb=getSB();if(!sb)throw new Error('no client');const tk='_t'+Date.now();const{error:we}=await sb.from('telos_store').upsert({key:tk,value:{t:1},updated_at:new Date().toISOString()},{onConflict:'key'});if(we)throw new Error(we.message);const{data,error:re}=await sb.from('telos_store').select('value').eq('key',tk).maybeSingle();if(re||!data)throw new Error('lecture échouée');await sb.from('telos_store').delete().eq('key',tk);if(el){el.textContent='✅ OK';el.style.color='var(--green)';}toast('Supabase OK','Fonctionne','success');}catch(e){if(el){el.textContent='❌ '+e.message;el.style.color='var(--red)';}toast('Erreur',e.message,'error');}}
-function openSettings(){document.getElementById('settings-overlay').classList.add('open');testSupabaseConnection().then(ok=>{const el=document.getElementById('supa-status');if(el){el.textContent=ok?'✅ Connecté':'⚠ Hors ligne';el.style.color=ok?'var(--green)':'var(--orange)';}});const s=document.getElementById('settings-admin-section');if(s)s.style.display=SESSION?.isAdmin?'':'none';}
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('open');
+  testSupabaseConnection().then(ok=>{
+    const el=document.getElementById('supa-status');
+    if(el){ el.textContent=ok?'✅ Connecté':'⚠ Hors ligne'; el.style.color=ok?'var(--green)':'var(--orange)'; }
+  });
+  const s=document.getElementById('settings-admin-section');
+  if(s) s.style.display=SESSION?.isAdmin?'':'none';
+  // Onglet rôles visible seulement admin
+  const stabRoles=document.getElementById('stab-roles');
+  if(stabRoles) stabRoles.style.display=SESSION?.isAdmin?'':'none';
+  openSettingsTab('general');
+}
+
+function openSettingsTab(tab) {
+  ['general','roles'].forEach(t=>{
+    const panel=document.getElementById('stab-panel-'+t);
+    const btn=document.getElementById('stab-'+t);
+    if(panel) panel.style.display = t===tab ? 'flex' : 'none';
+    if(btn){ btn.style.color=t===tab?'var(--text-bright)':'var(--text-dim)'; btn.style.borderBottomColor=t===tab?'var(--orange)':'transparent'; }
+  });
+  if(tab==='roles') renderRolesDroitsPanel();
+}
+
+// ── Rendu du panneau Rôles & Droits ──
+function renderRolesDroitsPanel() {
+  renderRolesNameList();
+  renderDroitsTable();
+}
+
+function renderRolesNameList() {
+  const el = document.getElementById('roles-name-list');
+  if (!el) return;
+  el.innerHTML = ROLES.map((r, i) => `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;">
+      <input class="form-input" type="text" value="${r}" data-role-idx="${i}"
+        style="padding:6px 9px;font-size:12px;"
+        oninput="ROLES[${i}]=this.value; syncDroitsRoleKey(${i}, this.value);">
+      <div style="width:12px;height:12px;border-radius:50%;background:${ROLE_COLORS[r]||'var(--text)'};flex-shrink:0;"></div>
+      <button onclick="removeRole(${i})" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;" title="Supprimer ce rôle">✕</button>
+    </div>`).join('');
+}
+
+function syncDroitsRoleKey(idx, newName) {
+  // Renommer la clé dans ROLES_CONFIG
+  const oldName = Object.keys(ROLES_CONFIG)[idx];
+  if (oldName && oldName !== newName) {
+    ROLES_CONFIG[newName] = ROLES_CONFIG[oldName];
+    delete ROLES_CONFIG[oldName];
+  }
+  renderDroitsTable();
+}
+
+function addRole() {
+  const name = 'Nouveau rôle';
+  ROLES.push(name);
+  ROLES_CONFIG[name] = { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 };
+  renderRolesNameList();
+  renderDroitsTable();
+}
+
+function removeRole(idx) {
+  if (ROLES.length <= 1) { toast('Impossible','Au moins un rôle requis.','error'); return; }
+  const name = ROLES[idx];
+  if (!confirm(`Supprimer le rôle "${name}" ?`)) return;
+  ROLES.splice(idx, 1);
+  delete ROLES_CONFIG[name];
+  renderRolesNameList();
+  renderDroitsTable();
+}
+
+function renderDroitsTable() {
+  const thead = document.getElementById('droits-thead');
+  const tbody = document.getElementById('droits-tbody');
+  if (!thead || !tbody) return;
+
+  // En-tête : Fonction | Rôle1 | Rôle2 ...
+  thead.innerHTML = '<tr>'
+    + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-dim);font-size:9px;letter-spacing:1px;min-width:160px;">FONCTION / ONGLET</th>'
+    + ROLES.map(r=>`<th style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;"><span style="display:inline-block;padding:1px 6px;border:1px solid ${ROLE_COLORS[r]||'var(--border)'};color:${ROLE_COLORS[r]||'var(--text)'};font-size:9px;letter-spacing:1px;">${r}</span></th>`).join('')
+    + '<th style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;"><span style="color:#fff;font-size:9px;letter-spacing:1px;">ADMIN</span></th>'
+    + '</tr>';
+
+  // Corps : une ligne par droit
+  tbody.innerHTML = DROITS_DEFS.map(def => {
+    const cells = ROLES.map(r => {
+      const cfg = ROLES_CONFIG[r] || {};
+      const val = !!cfg[def.id];
+      return `<td style="text-align:center;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <input type="checkbox" ${val?'checked':''} title="${def.desc}"
+          onchange="setDroit('${r}','${def.id}',this.checked)"
+          style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange);">
+      </td>`;
+    }).join('');
+    return `<tr onmouseover="this.style.background='rgba(247,140,30,0.04)'" onmouseout="this.style.background=''">
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="font-size:10px;color:var(--text-bright);">${def.label}</div>
+        <div style="font-size:9px;color:var(--text-dim);">${def.desc}</div>
+      </td>
+      ${cells}
+      <td style="text-align:center;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--green);font-size:12px;">✓</td>
+    </tr>`;
+  }).join('');
+}
+
+function setDroit(role, droit, val) {
+  if (!ROLES_CONFIG[role]) ROLES_CONFIG[role] = {};
+  ROLES_CONFIG[role][droit] = val ? 1 : 0;
+}
+
+async function saveRolesAndDroits() {
+  // Synchroniser les noms depuis les inputs
+  const inputs = document.querySelectorAll('#roles-name-list input[data-role-idx]');
+  inputs.forEach((inp, i) => { if (ROLES[i] !== undefined) ROLES[i] = inp.value.trim() || ROLES[i]; });
+  await saveRolesConfig();
+  // Mettre à jour le select dans openEditRole
+  toast('Rôles & droits sauvegardés', 'Configuration enregistrée.', 'success');
+  renderRolesNameList();
+  renderDroitsTable();
+}
+
+async function resetRolesConfig() {
+  if (!confirm('Réinitialiser tous les rôles et droits aux valeurs par défaut ?')) return;
+  ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+  ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
+  await saveRolesConfig();
+  renderRolesDroitsPanel();
+  toast('Réinitialisé', 'Rôles et droits remis par défaut.', 'info');
+}
 function closeSettings(){document.getElementById('settings-overlay').classList.remove('open');}
 async function saveGestCode(){if(!SESSION?.isAdmin)return;const c1=document.getElementById('new-gest-code')?.value.trim(),c2=document.getElementById('confirm-gest-code')?.value.trim(),msg=document.getElementById('gest-code-msg');if(!c1){if(msg){msg.textContent='Requis';msg.style.color='var(--red)';}return;}if(c1!==c2){if(msg){msg.textContent='Différents';msg.style.color='var(--red)';}return;}await DB.set('telos-gestionnaire-code-hash',await sha256(c1));if(msg){msg.textContent='✓';msg.style.color='var(--green)';}toast('Code','Mis à jour','success');}
-async function toggleBpOwner(bpId,checked){if(!SESSION){toast('Connexion requise','','error');return;}const pid=SESSION.pid;let myBps=(await DB.get('player-blueprints-'+pid))||[];if(checked){if(!myBps.includes(bpId))myBps.push(bpId);}else{myBps=myBps.filter(id=>id!==bpId);}await DB.set('player-blueprints-'+pid,myBps);try{localStorage.setItem('telos_player-blueprints-'+pid,JSON.stringify(myBps));}catch(e){}if(!window._playerBpCache)window._playerBpCache={};window._playerBpCache[pid]=myBps;const bp=BLUEPRINTS.find(x=>x.id===bpId);if(bp){if(!bp.owners)bp.owners=[];if(checked){if(!bp.owners.includes(pid))bp.owners.push(pid);}else{bp.owners=bp.owners.filter(id=>id!==pid);}await saveBlueprints();}await renderBlueprints();const _bb=document.getElementById('badge-blueprints');if(_bb){const _n=myBps.length;_bb.textContent=_n;_bb.style.display=_n>0?'':'none';}toast(checked?'✓ Blueprint sauvegardé':'Blueprint retiré',bp?.name||'',checked?'success':'info');}
-async function loadPlayerOwnedBlueprints(){if(!SESSION)return;const pid=SESSION.pid;let myBps=null;try{const ls=localStorage.getItem('telos_player-blueprints-'+pid);myBps=ls?JSON.parse(ls):null;}catch(e){}if(!myBps)myBps=(await DB.get('player-blueprints-'+pid))||[];if(!window._playerBpCache)window._playerBpCache={};window._playerBpCache[pid]=myBps;}
+async function toggleBpOwner(bpId, checked) {
+  if (!SESSION) { toast('Connexion requise','','error'); return; }
+  const pid = SESSION.pid;
+  // Toujours relire depuis DB pour être sûr d'avoir l'état le plus récent
+  let myBps = (await DB.get('player-blueprints-' + pid)) || [];
+  if (checked) { if (!myBps.includes(bpId)) myBps.push(bpId); }
+  else { myBps = myBps.filter(id => id !== bpId); }
+  // Sauvegarder uniquement en DB (pas de localStorage)
+  await DB.set('player-blueprints-' + pid, myBps);
+  // Mettre à jour le cache mémoire
+  if (!window._playerBpCache) window._playerBpCache = {};
+  window._playerBpCache[pid] = myBps;
+  // Mettre à jour bp.owners dans l'objet blueprint et sauvegarder
+  const bp = BLUEPRINTS.find(x => x.id === bpId);
+  if (bp) {
+    if (!bp.owners) bp.owners = [];
+    if (checked) { if (!bp.owners.includes(pid)) bp.owners.push(pid); }
+    else { bp.owners = bp.owners.filter(id => id !== pid); }
+    await saveBlueprints();
+  }
+  await renderBlueprints();
+  // Badge
+  const _bb = document.getElementById('badge-blueprints');
+  if (_bb) { _bb.textContent = myBps.length; _bb.style.display = myBps.length > 0 ? '' : 'none'; }
+  toast(checked ? '✓ Blueprint sauvegardé' : 'Blueprint retiré', bp?.name || '', checked ? 'success' : 'info');
+}
+async function loadPlayerOwnedBlueprints() {
+  if (!SESSION) return;
+  const pid = SESSION.pid;
+  // Toujours depuis DB — jamais localStorage
+  const myBps = (await DB.get('player-blueprints-' + pid)) || [];
+  if (!window._playerBpCache) window._playerBpCache = {};
+  window._playerBpCache[pid] = myBps;
+  // Mettre à jour le badge
+  const _bb = document.getElementById('badge-blueprints');
+  if (_bb) { _bb.textContent = myBps.length; _bb.style.display = myBps.length > 0 ? '' : 'none'; }
+  return myBps;
+}
 async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCache||{};for(const p of players){if(!window._playerBpCache[p.id]){const bps=(await DB.get('player-blueprints-'+p.id))||[];window._playerBpCache[p.id]=bps;}}}
 const UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
 function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟠 Craft Vaisseau',color:'#f97316',range:'500–600'};return{key:'craft_fps',label:'💎 Craft FPS',color:'#60a5fa',range:'600+'};}
-const ROLE_COLORS={Trader:'var(--blue)',Mineur:'var(--orange)',Transporteur:'var(--green)',Explorateur:'var(--purple)',Gestionnaire:'var(--red)'};
+const ROLE_COLORS_DEFAULT={Trader:'var(--blue)',Mineur:'var(--orange)',Transporteur:'var(--green)',Explorateur:'var(--purple)',Gestionnaire:'var(--red)'};
+const ROLE_COLORS_POOL=['var(--blue)','var(--orange)','var(--green)','var(--purple)','var(--red)','#59d0ff','#f472b6','#a3e635'];
+const ROLE_COLORS = new Proxy({}, { get(t,k){ return ROLE_COLORS_DEFAULT[k] || ROLE_COLORS_POOL[ROLES.indexOf(k)%ROLE_COLORS_POOL.length] || 'var(--text)'; } });
 
 function startAutoSave() { /* Supabase gère la persistance automatiquement */ }
 
@@ -7184,6 +7422,7 @@ async function init(){
   setInterval(fluctuate,8500);
   // Load players from persistent storage
   players=(await DB.get('uex-players'))||[];
+  await loadRolesConfig();
   renderPlayerList();
   updateBadges();
   updateGlobalFilter();
@@ -7506,5 +7745,77 @@ window.addEventListener('resize', () => {
     </div>
   </div>
 </div>
-<div class="overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()"><div class="modal" style="max-width:460px;"><div class="modal-head"><span class="modal-title">⚙ PARAMÈTRES</span><button class="modal-close" onclick="closeSettings()">✕</button></div><div class="modal-body" style="gap:14px;"><div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;"><div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">◈ Supabase</div><div style="font-size:11px;color:var(--text-dim);">ykdamleudeatahrxicgk.supabase.co</div><div id="supa-status" style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">Vérification...</div><button onclick="testSupabaseWrite()" style="margin-top:6px;padding:4px 12px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;font-family:var(--ui);font-size:10px;cursor:pointer;">🔬 TESTER</button><span id="supa-write-status" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span></div><div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);"><div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;margin-bottom:6px;">📤 Migration → Supabase</div><div style="display:flex;align-items:center;gap:10px;"><button id="btn-migrate" onclick="migrateLocalStorageToSupabase()" style="padding:6px 16px;border:1px solid var(--orange);background:rgba(247,140,30,0.08);color:var(--orange);font-family:var(--ui);font-size:11px;cursor:pointer;">📤 MIGRER</button><span id="migrate-status" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);"></span></div></div><div id="settings-admin-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--red);"><div style="font-size:9px;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;margin-bottom:8px;">⬡ ADMIN</div><div class="form-field"><label class="form-lbl">Nouveau code</label><input class="form-input" type="password" id="new-gest-code" maxlength="40"></div><div class="form-field"><label class="form-lbl">Confirmer</label><input class="form-input" type="password" id="confirm-gest-code" maxlength="40"></div><button onclick="saveGestCode()" style="margin-top:6px;padding:5px 14px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;">⬡ ENREGISTRER</button><span id="gest-code-msg" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span></div></div><div class="modal-foot"><button class="btn" onclick="closeSettings()">Fermer</button></div></div></div></body>
+<div class="overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+<div class="modal" style="max-width:700px;width:96vw;">
+  <div class="modal-head">
+    <span class="modal-title">⚙ PARAMÈTRES</span>
+    <button class="modal-close" onclick="closeSettings()">✕</button>
+  </div>
+
+  <!-- Onglets settings -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 18px;background:var(--bg2);">
+    <button id="stab-general" onclick="openSettingsTab('general')" style="padding:8px 16px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">⚙ GÉNÉRAL</button>
+    <button id="stab-roles" onclick="openSettingsTab('roles')" style="padding:8px 16px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">⬡ RÔLES &amp; DROITS</button>
+  </div>
+
+  <!-- Onglet GÉNÉRAL -->
+  <div id="stab-panel-general" class="modal-body" style="gap:14px;max-height:70vh;overflow-y:auto;">
+    <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">◈ Supabase</div>
+      <div style="font-size:11px;color:var(--text-dim);">ykdamleudeatahrxicgk.supabase.co</div>
+      <div id="supa-status" style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">Vérification...</div>
+      <button onclick="testSupabaseWrite()" style="margin-top:6px;padding:4px 12px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;font-family:var(--ui);font-size:10px;cursor:pointer;">🔬 TESTER</button>
+      <span id="supa-write-status" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span>
+    </div>
+    <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;margin-bottom:6px;">📤 Migration → Supabase</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="btn-migrate" onclick="migrateLocalStorageToSupabase()" style="padding:6px 16px;border:1px solid var(--orange);background:rgba(247,140,30,0.08);color:var(--orange);font-family:var(--ui);font-size:11px;cursor:pointer;">📤 MIGRER</button>
+        <span id="migrate-status" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);"></span>
+      </div>
+    </div>
+    <div id="settings-admin-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--red);">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;margin-bottom:8px;">⬡ ADMIN</div>
+      <div class="form-field"><label class="form-lbl">Nouveau code</label><input class="form-input" type="password" id="new-gest-code" maxlength="40"></div>
+      <div class="form-field"><label class="form-lbl">Confirmer</label><input class="form-input" type="password" id="confirm-gest-code" maxlength="40"></div>
+      <button onclick="saveGestCode()" style="margin-top:6px;padding:5px 14px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;">⬡ ENREGISTRER</button>
+      <span id="gest-code-msg" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span>
+    </div>
+  </div>
+
+  <!-- Onglet RÔLES & DROITS -->
+  <div id="stab-panel-roles" class="modal-body" style="display:none;gap:14px;max-height:70vh;overflow-y:auto;">
+
+    <!-- Section noms des rôles -->
+    <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--orange);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;">⬡ Noms des rôles</div>
+        <button onclick="addRole()" style="padding:3px 10px;border:1px dashed var(--orange);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;cursor:pointer;letter-spacing:1px;">+ Ajouter</button>
+      </div>
+      <div id="roles-name-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <!-- Section droits par rôle -->
+    <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:10px;">🔐 Droits par rôle</div>
+      <div style="overflow-x:auto;">
+        <table id="droits-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:var(--ui);">
+          <thead id="droits-thead"></thead>
+          <tbody id="droits-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:9px;color:var(--text-dim);">Admin = accès total par défaut · ✓ = autorisé · — = refusé</div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="resetRolesConfig()" style="padding:5px 14px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;">↺ RÉINITIALISER</button>
+      <button onclick="saveRolesAndDroits()" style="padding:5px 16px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;font-weight:700;">💾 ENREGISTRER</button>
+    </div>
+  </div>
+
+  <div class="modal-foot">
+    <button class="btn" onclick="closeSettings()">Fermer</button>
+  </div>
+</div>
+</div></body>
 </html>
