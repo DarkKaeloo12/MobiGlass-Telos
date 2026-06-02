@@ -2265,7 +2265,8 @@ document.addEventListener('click', function(e) {
     case 'cmd-cancel':  cancelCommande(id); break;
     case 'obj-edit':    editObjectif(id); break;
     case 'obj-toggle':  toggleObjDone(id); break;
-    case 'obj-delete':  deleteObjectif(id); break;
+    case 'obj-delete':       deleteObjectif(id); break;
+    case 'obj-check-stock':  refreshObjStockInfo(id).then(() => renderObjectifs()); break;
   }
 });
 
@@ -4618,7 +4619,20 @@ function renderObjectifs() {
       </div>` : ''}
       ${o.ingredients && o.ingredients.length ? `
       <div style="margin-top:10px;border-top:1px solid rgba(247,140,30,0.1);padding-top:8px;">
-        <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:6px;">${o.autoCreated ? '⚠ Ressources à approvisionner' : '📐 Ingrédients Blueprint'}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;">${o.autoCreated ? '⚠ Ressources à approvisionner' : '📐 Ingrédients Blueprint'}</div>
+          ${!o.done ? '<button data-action="obj-check-stock" data-id="'+o.id+'" style="padding:1px 8px;border:1px solid rgba(89,208,255,0.4);background:transparent;color:#59d0ff;font-family:var(--ui);font-size:9px;cursor:pointer;letter-spacing:1px;">⟳ STOCK</button>' : ''}
+        </div>
+        ${o._stockInfo ? `<div style="margin-bottom:6px;padding:5px 8px;background:var(--bg);border:1px solid ${o._stockInfo.allOk ? 'rgba(0,255,163,0.25)' : 'rgba(255,68,68,0.25)'};border-left:3px solid ${o._stockInfo.allOk ? 'var(--green)' : 'var(--red)'};font-size:9px;font-family:var(--mono);">
+          ${o._stockInfo.allOk ? '✅ Stock net suffisant — toutes les ressources disponibles' : '⚠ Stock insuffisant (hors commandes actives)'}
+          <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
+          ${o._stockInfo.lines.map(l => '<span style="color:' + (l.ok ? 'var(--green)' : 'var(--red)') + ';">'
+            + (l.ok ? '✓' : '✗') + ' ' + esc(l.name)
+            + ' : net ' + l.netVal + ' SCU'
+            + (l.resVal > 0 ? ' (brut ' + l.brutVal + ' − réservé ' + l.resVal + ')' : ' (brut ' + l.brutVal + ')')
+            + ' / requis ' + l.needed + ' SCU</span>').join('')}
+          </div>
+        </div>` : ''}
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${o.ingredients.map((ing,idx) => {
             const pct = ing.qty>0 ? Math.min(100,Math.round((ing.collected||0)/ing.qty*100)) : 0;
@@ -4815,6 +4829,8 @@ async function saveObjectif() {
   renderObjectifs();
   pushActivity('🎯', (_editObjId ? 'Objectif modifié : ' : 'Nouvel objectif : ') + title, '', true);
   toast(_editObjId ? 'Objectif modifié' : 'Objectif créé', title, 'success');
+  // Contrôle stock immédiat après création
+  refreshAllObjStockInfo();
 }
 
 async function updateIngredient(objId, ingIdx, val) {
@@ -5211,6 +5227,76 @@ async function saveCommande() {
   toast(_editCmdId?'Commande modifiée':'Commande créée', entry.title, 'success');
   // Contrôle automatique du stock en arrière-plan (uniquement à la création)
   if (!_editCmdId) checkStockForCommande(entry);
+  // Une commande réserve du stock → recalculer les objectifs
+  refreshAllObjStockInfo();
+}
+
+// ══ CONTRÔLE STOCK/COMMANDES POUR LES OBJECTIFS ═════════════════════════════
+// Calcule pour chaque ingrédient : stock dispo - stock réservé par commandes actives
+async function getStockNetForObjectif() {
+  // Stock brut TELOS (tous joueurs)
+  const brut = {};
+  for (const p of players) {
+    const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
+    for (const s of stocks) {
+      const key = (s.res || s.name || '').toLowerCase().trim();
+      if (key) brut[key] = (brut[key] || 0) + (parseFloat(s.qty) || 0);
+    }
+  }
+
+  // Stock réservé par les commandes actives (attente + en_cours)
+  const reserved = {};
+  const activeStatuses = ['attente', 'en_cours'];
+  for (const cmd of COMMANDES) {
+    if (!activeStatuses.includes(cmd.status)) continue;
+    const resources = cmd.resources?.length
+      ? cmd.resources
+      : (cmd.resource ? [{ name: cmd.resource, qty: cmd.qty || 0 }] : []);
+    for (const r of resources) {
+      const key = (r.name || '').toLowerCase().trim();
+      if (key) reserved[key] = (reserved[key] || 0) + (parseFloat(r.qty) || 0);
+    }
+  }
+
+  // Stock net = brut - réservé (min 0)
+  const net = {};
+  const allKeys = new Set([...Object.keys(brut), ...Object.keys(reserved)]);
+  for (const key of allKeys) {
+    net[key] = Math.max(0, (brut[key] || 0) - (reserved[key] || 0));
+  }
+
+  return { brut, reserved, net };
+}
+
+// Calcule la disponibilité pour un objectif donné et met à jour son champ stockInfo
+async function refreshObjStockInfo(objId) {
+  const obj = OBJECTIFS.find(o => o.id === objId);
+  if (!obj || obj.done || !obj.ingredients?.length) return;
+
+  const { brut, reserved, net } = await getStockNetForObjectif();
+  const lines = [];
+  let allOk = true;
+
+  for (const ing of obj.ingredients) {
+    const key = (ing.name || '').toLowerCase().trim();
+    const brutVal = Math.round((brut[key] || 0) * 100) / 100;
+    const resVal  = Math.round((reserved[key] || 0) * 100) / 100;
+    const netVal  = Math.round((net[key] || 0) * 100) / 100;
+    const needed  = parseFloat(ing.qty) || 0;
+    const ok = netVal >= needed;
+    if (!ok) allOk = false;
+    lines.push({ name: ing.name, needed, brutVal, resVal, netVal, ok });
+  }
+
+  obj._stockInfo = { lines, allOk, updatedAt: Date.now() };
+  return obj._stockInfo;
+}
+
+// Rafraîchit tous les objectifs actifs avec ingrédients
+async function refreshAllObjStockInfo() {
+  const active = OBJECTIFS.filter(o => !o.done && o.ingredients?.length);
+  for (const o of active) await refreshObjStockInfo(o.id);
+  renderObjectifs();
 }
 
 // ══ CONTRÔLE STOCK AUTOMATIQUE À LA CRÉATION D'UNE COMMANDE ════════════════
@@ -5338,6 +5424,76 @@ async function deleteCommande(id) {
   renderCommandes();
   toast('Commande supprimée', comm.title, 'info');
 }
+
+// ══ SYNC AUTO DES OBJECTIFS AVEC LE STOCK TELOS ════════════════════════════
+// Appelée après chaque modification de stock — met à jour les objectifs actifs
+async function syncObjectifsWithStock() {
+  // Ne traiter que les objectifs actifs avec des ingrédients (auto ou manuels)
+  const activeObjs = OBJECTIFS.filter(o =>
+    !o.done && o.ingredients && o.ingredients.length > 0
+  );
+  if (!activeObjs.length) return;
+
+  // Agréger tout le stock TELOS (tous les joueurs)
+  const telosStock = {};
+  for (const p of players) {
+    const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
+    for (const s of stocks) {
+      const key = (s.res || s.name || '').toLowerCase().trim();
+      if (!key) continue;
+      telosStock[key] = (telosStock[key] || 0) + (parseFloat(s.qty) || 0);
+    }
+  }
+
+  let changed = false;
+  let newlyCompleted = [];
+
+  for (const obj of activeObjs) {
+    let objChanged = false;
+
+    for (const ing of obj.ingredients) {
+      const key = (ing.name || '').toLowerCase().trim();
+      const dispo = telosStock[key] || 0;
+      // Le collecté = min(dispo, requis) — on ne peut pas dépasser ce qui est requis
+      const newCollected = Math.min(parseFloat(ing.qty) || 0, Math.round(dispo * 1000) / 1000);
+      if (newCollected !== (ing.collected || 0)) {
+        ing.collected = newCollected;
+        objChanged = true;
+      }
+    }
+
+    if (objChanged) {
+      changed = true;
+      // Vérifier si tous les ingrédients sont maintenant couverts
+      const allDone = obj.ingredients.every(i => (i.collected || 0) >= (i.qty || 0));
+      if (allDone && !obj.done) {
+        obj.done = true;
+        obj.doneAt = new Date().toISOString();
+        newlyCompleted.push(obj);
+      }
+      // Mettre à jour le progrès global (current = moyenne pondérée des ingrédients)
+      if (obj.target > 0) {
+        const totalCollected = obj.ingredients.reduce((s, i) => s + (i.collected || 0), 0);
+        const totalRequired  = obj.ingredients.reduce((s, i) => s + (i.qty || 0), 0);
+        if (totalRequired > 0) {
+          obj.current = Math.round((totalCollected / totalRequired) * obj.target * 100) / 100;
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    await saveObjectifs();
+    renderObjectifs();
+    // Notifier les objectifs complétés automatiquement
+    for (const obj of newlyCompleted) {
+      toast('✅ Objectif complété !', obj.title + ' — Stock suffisant !', 'success');
+      pushActivity('✅', 'Objectif complété automatiquement : ' + obj.title, '', true);
+      pushLog('system', 'AUTO', 'Objectif auto-complété par ajout stock : ' + obj.title);
+    }
+  }
+}
+
 
 async function checkCmdStock(id) {
   const comm = COMMANDES.find(x=>x.id===id);
@@ -6558,6 +6714,7 @@ async function saveEditStock() {
   renderPartners();
   renderAuthBar();
   updateKPIs();
+  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
 
   const p = players.find(x => x.id === selectedPid);
   pushActivity('✏', `Prix mis à jour : ${s.res} — ${newPrice.toFixed(2)} / ${newSellprice.toFixed(2)} aUEC (${p?.name||''})`, '', true);
@@ -7163,6 +7320,7 @@ async function confirmRemoveStock(){
   renderPlayerList(document.getElementById('pl-search').value);
   renderGlobal();
   renderStocksFromPlayers();
+  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
   renderPartners();
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
   const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
@@ -7236,6 +7394,7 @@ async function addPlayerStock(){
   renderGlobal();
   renderStocksFromPlayers(); // Met à jour le panel Stocks
   renderPartners();          // Met à jour le panel Partenaires
+  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());  // Recalcul objectifs
   const p=players.find(x=>x.id===selectedPid);
   // Refresh hero stats
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
@@ -7266,6 +7425,7 @@ function confirmDelStock(sid,res){
       const delEntry = stocks.find(s=>s.id===sid);
       stocks=stocks.filter(s=>s.id!==sid);
       await DB.set('uex-stocks-'+selectedPid,stocks);
+      syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
       const pDel = players.find(p=>p.id===selectedPid);
       if (delEntry) pushActivity('🗑', `Suppression : ${delEntry.qty}× ${delEntry.res} (${pDel?.name||''})`, '', false);
       renderStockTable(stocks);
