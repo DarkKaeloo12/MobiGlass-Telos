@@ -5697,29 +5697,34 @@ async function syncFromUEX() {
 
   const BEARER   = '0b7797b0ee37052d9c8dfe493305b7a2d1ab8f43';
   const API_BASE = 'https://api.uexcorp.uk/2.0';
-  const PROXIES  = [
-    u => 'https://corsproxy.io/?' + encodeURIComponent(u),
-    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-    u => 'https://proxy.cors.sh/' + u,
-    u => u,
-  ];
 
   async function apiFetch(endpoint) {
     const url = API_BASE + '/' + endpoint;
+    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BEARER };
+    // Stratégies dans l'ordre : direct d'abord (fonctionne si CORS OK), puis proxies
+    const strategies = [
+      () => fetch(url, { headers }),
+      () => fetch('https://corsproxy.io/?' + encodeURIComponent(url), { headers }),
+      () => fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)),
+      () => fetch('https://corsproxy.io/?' + encodeURIComponent(url)),
+    ];
     let lastErr;
-    for (const makeUrl of PROXIES) {
+    for (const attempt of strategies) {
       try {
-        const r = await fetch(makeUrl(url), {
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BEARER }
-        });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const r = await attempt();
+        if (!r.ok) { if (r.status === 429) throw new Error('429'); throw new Error('HTTP ' + r.status); }
         const j = await r.json();
-        if (j.status === 'ok' && j.data !== undefined) return j.data;
+        if (j && j.status === 'ok' && j.data !== undefined) return j.data;
         if (Array.isArray(j)) return j;
-        throw new Error(j.message || 'Réponse invalide');
-      } catch(e) { lastErr = e; }
+        if (j && typeof j === 'object' && !j.status) return j; // réponse brute
+        throw new Error(j?.message || 'Réponse invalide');
+      } catch(e) {
+        lastErr = e;
+        // Ne pas réessayer sur 429 (rate limit) — attendre
+        if (e.message === '429') { await new Promise(r => setTimeout(r, 2000)); }
+      }
     }
-    throw lastErr || new Error('Échec');
+    throw lastErr || new Error('Échec toutes stratégies');
   }
 
   try {
@@ -5728,46 +5733,35 @@ async function syncFromUEX() {
     const commodities = await apiFetch('commodities');
     if (!commodities || !commodities.length) throw new Error('Aucune commodité reçue');
 
-    if (status) status.textContent = '0 / ' + commodities.length + ' prix récupérés...';
-
-    // ── ÉTAPE 2 : Prix min achat / max vente par commodité ──
+    // ── ÉTAPE 2 : Prix min achat / max vente — UNE SEULE requête ──
+    // commodities_averages (sans paramètre) retourne TOUT le catalogue avec les prix
+    if (status) status.textContent = 'Récupération des prix UEX...';
     const priceMap = {};
-    let done = 0;
-    const BATCH = 5;
-
-    for (let i = 0; i < commodities.length; i += BATCH) {
-      const batch = commodities.slice(i, i + BATCH);
-      await Promise.all(batch.map(async c => {
+    try {
+      // Essai 1 : endpoint global averages (1 requête pour tout)
+      const allAvg = await apiFetch('commodities_averages');
+      const avgArr = Array.isArray(allAvg) ? allAvg : [];
+      avgArr.forEach(e => {
+        const cid = e.id_commodity || e.id;
+        if (!cid) return;
+        priceMap[cid] = {
+          // UEX fournit price_buy_min / price_sell_max dans l'agrégat
+          buy:  Number(e.price_buy_min  || e.price_buy  || e.trade_price_buy  || 0),
+          sell: Number(e.price_sell_max || e.price_sell || e.trade_price_sell || 0),
+        };
+      });
+      if (status) status.textContent = avgArr.length + ' prix récupérés (global)';
+    } catch(e) {
+      // Fallback : prix depuis l'objet commodities lui-même (champs inline)
+      if (status) status.textContent = 'Fallback prix inline...';
+      commodities.forEach(c => {
         const cid = c.id || c.id_commodity;
         if (!cid) return;
-        try {
-          // commodities_prices retourne les prix par terminal → on calcule min/max
-          const prices = await apiFetch('commodities_prices?id_commodity=' + cid);
-          const arr = Array.isArray(prices) ? prices : (prices ? [prices] : []);
-          if (arr.length) {
-            const buys  = arr.map(e => Number(e.price_buy  || e.trade_price_buy  || 0)).filter(v => v > 0);
-            const sells = arr.map(e => Number(e.price_sell || e.trade_price_sell || 0)).filter(v => v > 0);
-            priceMap[cid] = {
-              buy:     buys.length  ? Math.min(...buys)  : 0,  // achat  = prix LE MOINS CHER
-              sell:    sells.length ? Math.max(...sells) : 0,  // vente  = prix LE PLUS ÉLEVÉ
-              buyAvg:  buys.length  ? buys.reduce((a,b)=>a+b,0)/buys.length  : 0,
-              sellAvg: sells.length ? sells.reduce((a,b)=>a+b,0)/sells.length : 0,
-              terminals: arr.length,
-            };
-          } else {
-            // Fallback sur averages si pas de données par terminal
-            const avg = await apiFetch('commodities_averages?id_commodity=' + cid);
-            const entry = Array.isArray(avg) ? avg[0] : avg;
-            if (entry) priceMap[cid] = {
-              buy:  Number(entry.price_buy  || entry.trade_price_buy  || 0),
-              sell: Number(entry.price_sell || entry.trade_price_sell || 0),
-            };
-          }
-        } catch(e) { /* pas de prix */ }
-        done++;
-      }));
-      if (status) status.textContent = done + ' / ' + commodities.length + ' prix récupérés...';
-      if (i + BATCH < commodities.length) await new Promise(r => setTimeout(r, 350));
+        priceMap[cid] = {
+          buy:  Number(c.price_buy_min  || c.price_buy  || c.trade_price_buy  || 0),
+          sell: Number(c.price_sell_max || c.price_sell || c.trade_price_sell || 0),
+        };
+      });
     }
 
     // ── ÉTAPE 3 : Mapping catégories UEX → TELOS ──
