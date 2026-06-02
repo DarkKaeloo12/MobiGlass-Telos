@@ -1458,6 +1458,7 @@ function showLoginWall(){} // stub
               <th onclick="sortStocks('name')">Ressource ↕</th>
               <th onclick="sortStocks('cat')">Catégorie ↕</th>
               <th onclick="sortStocks('player')">Partenaire ↕</th>
+              <th title="Pas de qualité assignée" style="color:var(--text-dim);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_aucune')">⚪ Qté ↕<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
               <th title="Qualité &lt;500 — vente uniquement" style="color:var(--orange);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vente')">🔴 Vente ↕<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
               <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vaisseau')">🔵 Craft V. ↕<div style="font-size:8px;opacity:.7;">500–800</div></th>
               <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_fps')">🟢 Craft FPS ↕<div style="font-size:8px;opacity:.7;">800–1000</div></th>
@@ -1476,8 +1477,6 @@ function showLoginWall(){} // stub
 
         <!-- Footer totaux -->
         <div id="telos-footer" style="display:flex;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;"></div>
-      <div id="telos-tier-bar"></div>
-      <div id="telos-tier-bar"></div>
       </div>
 
       <!-- ══ COMMERCE ══ -->
@@ -1649,6 +1648,7 @@ function showLoginWall(){} // stub
                   <table class="data-table" style="width:100%">
                     <thead><tr>
                       <th>Ressource</th><th>Catégorie</th>
+                      <th title="Pas de qualité assignée" style="color:var(--text-dim);white-space:nowrap;">⚪ Qté<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
                       <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 Vente<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
                       <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;white-space:nowrap;">🔵 Craft V.<div style="font-size:8px;opacity:.7;">500–800</div></th>
                       <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);white-space:nowrap;">🟢 Craft FPS<div style="font-size:8px;opacity:.7;">800–1000</div></th>
@@ -1669,7 +1669,6 @@ function showLoginWall(){} // stub
                   <div class="sf-cell"><div class="sf-lbl">Unités totales (SCU)</div><div class="sf-val" id="sf-units">0</div></div>
                   <div class="sf-cell"><div class="sf-lbl">Valeur totale</div><div class="sf-val green" id="sf-total">0 aUEC</div></div>
                 </div>
-        <div id="pl-tier-bar"></div>
               </div>
             </div>
           </div>
@@ -2270,6 +2269,11 @@ document.addEventListener('click', function(e) {
     case 'obj-delete':       deleteObjectif(id); break;
     case 'obj-check-stock':  refreshObjStockInfo(id).then(() => renderObjectifs()); break;
     case 'bp-remove-ing':    removeBpIngredient(id); break;
+    case 'miss-accept':   acceptMission(id); break;
+    case 'miss-complete': completeMission(id); break;
+    case 'miss-validate': validateMission(id); break;
+    case 'miss-reject':   rejectMission(id); break;
+    case 'miss-delete':   deleteMission(id); break;
   }
 });
 
@@ -2657,6 +2661,17 @@ async function rejectMission(id) {
   renderMissions();
   toast('Mission rejetée', 'La mission est de nouveau disponible.', 'info');
 }
+
+async function deleteMission(id) {
+  const m = MISSIONS.find(x => x.id === id);
+  if (!m || !confirm('Supprimer la mission "' + m.title + '" ?')) return;
+  MISSIONS = MISSIONS.filter(x => x.id !== id);
+  await saveMissions();
+  renderMissions();
+  toast('Mission supprimée', m.title, 'info');
+  pushLog('system', 'ADMIN', 'Mission supprimée : ' + m.title);
+}
+
 
 /* ════════════════════════════════════════════════════════════
    PERSISTENT STORAGE — window.storage avec fallback localStorage
@@ -3688,7 +3703,7 @@ async function renderStocksFromPlayers() {
       groups[key] = {
         name: r.name, cat: r.cat,
         totalQty: 0, totalBuyVal: 0, totalSellVal: 0,
-        qtyVente: 0, qtyVaisseau: 0, qtyFps: 0,
+        qtyAucune: 0, qtyVente: 0, qtyVaisseau: 0, qtyFps: 0,
         partners: [],
       };
     }
@@ -3697,9 +3712,10 @@ async function renderStocksFromPlayers() {
     g.totalBuyVal  += r.buy  * r.qty;
     g.totalSellVal += r.sell * r.qty;
     const _rb = qualityBucket(r);
-    if (_rb==='vente')    g.qtyVente    += r.qty;
+    if (_rb==='aucune')        g.qtyAucune   += r.qty;
+    else if (_rb==='vente')    g.qtyVente    += r.qty;
     else if (_rb==='vaisseau') g.qtyVaisseau += r.qty;
-    else                  g.qtyFps      += r.qty;
+    else                       g.qtyFps      += r.qty;
     const ex = g.partners.find(p=>p.pid===r.pid);
     if (ex) {
       ex.qty     += r.qty;
@@ -3770,6 +3786,7 @@ async function renderStocksFromPlayers() {
           ${nb>1?`<span style="font-size:9px;color:var(--text-dim);margin-left:2px;">(${nb})</span>`:''}
         </div>
       </td>
+      ${qtyCell(g.qtyAucune,  'aucune')}
       ${qtyCell(g.qtyVente,   'vente')}
       ${qtyCell(g.qtyVaisseau,'vaisseau')}
       ${qtyCell(g.qtyFps,     'fps')}
@@ -3789,15 +3806,7 @@ async function renderStocksFromPlayers() {
   const fP  =fV-fA;
   // Push to KPI strip
   _pushKPI(fA, fP, consolidated.length, players.length);
-  // Barre tier UEX
-  try {
-    const _allSt = [];
-    for (const _pp of players) {
-      const _pst = (await DB.get('uex-stocks-'+_pp.id))||[];
-      _allSt.push(..._pst);
-    }
-    renderTierBar(computeTierSummary(_allSt), 'telos-tier-bar');
-  } catch(e) {}
+
 
   const fEl =document.getElementById('telos-footer');
   if (fEl) fEl.innerHTML=`
@@ -4215,18 +4224,20 @@ function renderMissions(){
     const isAccepted= m.status === 'accepted';
     const isDone    = m.status === 'done';
 
-    // Boutons d'action selon rôle et état
+    // Boutons d'action selon rôle et état — data-action pour éviter les pb de quotes
+    const S = 'font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;';
     let actions = '';
-    if (isOpen && SESSION && !isDone) {
-      actions = `<button onclick="acceptMission('${m.id}')" style="padding:3px 12px;border:1px solid var(--orange);background:var(--orange-faint);color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;">► ACCEPTER</button>`;
-    }
-    if (isAccepted && isMine) {
-      actions = `<button onclick="completeMission('${m.id}')" style="padding:3px 12px;border:1px solid var(--green);background:rgba(0,255,163,0.08);color:var(--green);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;">✓ MARQUER TERMINÉ</button>`;
-    }
+    if (isOpen && SESSION && !isDone)
+      actions += `<button data-action="miss-accept" data-id="${m.id}" style="${S}padding:3px 12px;border:1px solid var(--orange);background:var(--orange-faint);color:var(--orange);text-transform:uppercase;">► ACCEPTER</button>`;
+    if (isAccepted && isMine)
+      actions += `<button data-action="miss-complete" data-id="${m.id}" style="${S}padding:3px 12px;border:1px solid var(--green);background:rgba(0,255,163,0.08);color:var(--green);text-transform:uppercase;">✓ MARQUER TERMINÉ</button>`;
     if (isPending && isManager) {
-      actions = `<button onclick="validateMission('${m.id}')" style="padding:3px 12px;border:1px solid var(--green);background:rgba(0,255,163,0.08);color:var(--green);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;margin-right:5px;">✓ VALIDER</button>
-                 <button onclick="rejectMission('${m.id}')" style="padding:3px 10px;border:1px solid rgba(255,68,68,0.4);background:transparent;color:var(--red);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;">✕ REJETER</button>`;
+      actions += `<button data-action="miss-validate" data-id="${m.id}" style="${S}padding:3px 12px;border:1px solid var(--green);background:rgba(0,255,163,0.08);color:var(--green);">✓ VALIDER</button>`;
+      actions += `<button data-action="miss-reject"   data-id="${m.id}" style="${S}padding:3px 10px;border:1px solid rgba(255,68,68,0.4);background:transparent;color:var(--red);">✕ REJETER</button>`;
     }
+    // Bouton supprimer — admin/gestionnaire uniquement
+    if (isManager)
+      actions += `<button data-action="miss-delete" data-id="${m.id}" title="Supprimer la mission" style="${S}padding:3px 9px;border:1px solid rgba(255,68,68,0.35);background:transparent;color:var(--red);margin-left:auto;">🗑</button>`;
 
     const assignInfo = m.assignedName ? `<span style="font-size:10px;color:var(--text-dim);margin-left:8px;">→ ${esc(m.assignedName)}</span>` : '';
 
@@ -4243,7 +4254,7 @@ function renderMissions(){
           ${isPending ? `<span style="font-size:10px;color:var(--purple);letter-spacing:1px;">⏳ Validation requise</span>` : ''}
           ${isDone && m.validatedBy ? `<span style="font-size:10px;color:var(--green);">✓ Validé par ${esc(m.validatedBy)}</span>` : ''}
         </div>
-        ${actions ? `<div style="margin-top:8px;display:flex;gap:6px;">${actions}</div>` : ''}
+        ${actions ? `<div style="margin-top:8px;display:flex;gap:6px;align-items:center;">${actions}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -6738,13 +6749,11 @@ function renderTierBar(summary, containerId) {
 // ══ HELPERS QUALITÉ ══════════════════════════════════════════════════════════
 // Retourne la 'bucket' de qualité pour un item de stock
 function qualityBucket(s) {
-  // Les ressources sans qualité définie n'ont pas de colonne séparée
   const q = s.quality || '';
-  if (!q || q === '') return 'vente';   // pas de qualité = vente directe
-  // Scores numériques par clé
+  if (!q || q === '') return 'aucune';  // pas de qualité = colonne dédiée
   const scores = { mediocre:250, basique:550, acceptable:650, honnete:750, moyenne:850, haute:950 };
   const score = scores[q] || 0;
-  if (score < 500)  return 'vente';    // < 500 : vente / bloqué objectifs
+  if (score < 500)  return 'vente';    // < 500 : vente uniquement
   if (score < 800)  return 'vaisseau'; // 500–800 : craft vaisseau
   return 'fps';                        // 800–1000 : craft FPS
 }
@@ -6752,7 +6761,7 @@ function qualityBucket(s) {
 // Colore une quantité selon la bucket
 function qtyCell(qty, bucket) {
   if (!qty) return '<td class="td-dim" style="text-align:center;">—</td>';
-  const colors = { vente:'var(--orange)', vaisseau:'#60a5fa', fps:'var(--green)' };
+  const colors = { aucune:'var(--text-bright)', vente:'var(--orange)', vaisseau:'#60a5fa', fps:'var(--green)' };
   const col = colors[bucket] || 'var(--text)';
   return '<td style="text-align:center;color:'+col+';font-weight:600;">'+Number(qty).toLocaleString('fr-FR')+'</td>';
 }
@@ -6772,6 +6781,7 @@ function renderStockTable(stocks){
     const profit  = s.sellprice>0 ? sellVal - buyVal : null;
     const marginCls = margin>=0 ? 'td-green' : 'td-red';
     const _bucket = qualityBucket(s);
+    const _qa = _bucket==='aucune'   ? s.qty : 0;
     const _qv = _bucket==='vente'    ? s.qty : 0;
     const _qc = _bucket==='vaisseau' ? s.qty : 0;
     const _qf = _bucket==='fps'      ? s.qty : 0;
@@ -6782,6 +6792,7 @@ function renderStockTable(stocks){
         ${s.note ? `<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;" title="${esc(s.note)}">${esc(s.note)}</div>` : ''}
       </td>
       <td><span class="cat-badge ${catCls(s.cat)}">${catLbl(s.cat)}</span></td>
+      ${qtyCell(_qa,'aucune')}
       ${qtyCell(_qv,'vente')}
       ${qtyCell(_qc,'vaisseau')}
       ${qtyCell(_qf,'fps')}
@@ -6812,9 +6823,7 @@ function renderStockTable(stocks){
   document.getElementById('sf-distinct').textContent = stocks.length;
   document.getElementById('sf-units').textContent    = tu.toLocaleString('fr-FR');
   document.getElementById('sf-total').textContent    = Math.round(tv).toLocaleString('fr-FR')+' aUEC';
-  // Barre tier UEX
-  const _tierSum = computeTierSummary(stocks);
-  renderTierBar(_tierSum, 'pl-tier-bar');
+
 }
 
 /* Open player stock modal */
