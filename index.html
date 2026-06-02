@@ -4720,6 +4720,20 @@ function onObjResSelect(val) {
   autoGenObjTitle();
 }
 
+function onObjQualityChange(val) {
+  const badge = document.getElementById('obj-quality-badge');
+  if (!badge) return;
+  if (!val) { badge.style.display = 'none'; return; }
+  const meta = QUALITY_META[val];
+  if (!meta || !meta.label) { badge.style.display = 'none'; return; }
+  const bucketMap = { mediocre:'🔴 Vente uniquement', basique:'🔵 Craft Vaisseau', acceptable:'🔵 Craft Vaisseau',
+    honnete:'🔵 Craft Vaisseau', moyenne:'🟢 Craft FPS', haute:'🟢 Craft FPS' };
+  badge.style.display = 'block';
+  badge.style.borderLeftColor = meta.color;
+  badge.style.color = meta.color;
+  badge.textContent = meta.label + '  ·  SCU ' + meta.score + '  →  ' + (bucketMap[val] || '');
+}
+
 function onObjResCustom(val) {
   const selEl = document.getElementById('obj-res-select');
   if (val && selEl) selEl.value = '';
@@ -4876,6 +4890,9 @@ function openAddObjectif(editId) {
   set('obj-current',  o?.current  || 0);
   set('obj-dl',       o?.dl       || '');
   set('obj-reward',   o?.reward   || '');
+  // Qualité requise
+  const qSel = document.getElementById('obj-quality');
+  if (qSel) { qSel.value = o?.quality || ''; onObjQualityChange(o?.quality || ''); }
 
   // Ressource
   if (o?.resource) {
@@ -4929,12 +4946,14 @@ async function saveObjectif() {
   const bpId    = document.getElementById('obj-bp-select')?.value || '';
   const action  = document.getElementById('obj-action')?.value   || 'collecter';
   const resource = getObjResName();
+  const quality  = document.getElementById('obj-quality')?.value  || '';
   const entry = {
     id:          _editObjId || ('obj_' + Date.now()),
     title,
     action,
     resource,
     cat:         document.getElementById('obj-cat')?.value      || OBJ_ACTION_CAT[action] || 'ressource',
+    quality,
     priority:    document.getElementById('obj-priority')?.value || 'normale',
     desc:        document.getElementById('obj-desc')?.value.trim()   || '',
     target:      parseFloat(document.getElementById('obj-target')?.value) || 0,
@@ -5372,6 +5391,16 @@ function objStockBucket(obj) {
   const action    = obj.action    || '';
   const craftType = obj.craftType || '';
   const bpId      = obj.bpId     || '';
+  const quality   = obj.quality  || '';
+
+  // Priorité 0 : qualité explicite choisie dans le modal
+  if (quality) {
+    const scores = { mediocre:250, basique:550, acceptable:650, honnete:750, moyenne:850, haute:950 };
+    const score = scores[quality] || 0;
+    if (score < 500)  return ['vente'];    // médiocre → vente (ne compte pas)
+    if (score < 800)  return ['vaisseau']; // basique/acceptable/honnête
+    return ['fps'];                        // moyenne/haute
+  }
 
   // Priorité 1 : craftType explicite de la commande source
   if (craftType === 'craft_fps')      return ['fps'];
@@ -5382,7 +5411,6 @@ function objStockBucket(obj) {
     const bp = bpId ? (BLUEPRINTS||[]).find(x=>x.id===bpId) : null;
     if (bp?.cat === 'fps')      return ['fps'];
     if (bp?.cat === 'vaisseau') return ['vaisseau'];
-    // Craft sans précision : les deux buckets
     return ['vaisseau', 'fps'];
   }
 
@@ -8234,6 +8262,21 @@ window.addEventListener('resize', () => {
             <option value="">— Sélectionner une ressource —</option>
           </select>
           <input class="form-input" type="text" id="obj-res-custom" placeholder="ou saisir manuellement..." style="margin-top:5px;font-size:12px;" oninput="onObjResCustom(this.value)">
+        </div>
+
+        <!-- QUALITÉ requise -->
+        <div class="form-field" id="obj-quality-field" style="grid-column:span 2;">
+          <label class="form-lbl">Qualité requise <span style="color:var(--text-dim);font-size:9px;">détermine quel stock est comptabilisé</span></label>
+          <select class="form-input" id="obj-quality" style="height:auto;padding:9px 11px;" onchange="onObjQualityChange(this.value)">
+            <option value="">⚪ Sans qualité (stock non classé)</option>
+            <option value="mediocre">🔴 Médiocre — &lt;500 (vente uniquement)</option>
+            <option value="basique">🟠 Basique — 500–600 (Craft Vaisseau)</option>
+            <option value="acceptable">🟠 Acceptable — 600–700 (Craft Vaisseau)</option>
+            <option value="honnete">🟡 Honnête — 700–800 (Craft Vaisseau)</option>
+            <option value="moyenne">🟢 Moyenne — 800–900 (Craft FPS)</option>
+            <option value="haute">💎 Haute — 900–1000 (Craft FPS)</option>
+          </select>
+          <div id="obj-quality-badge" style="margin-top:5px;display:none;padding:4px 10px;font-size:10px;border-left:3px solid var(--border);font-family:var(--mono);"></div>
         </div>
 
         <!-- BLUEPRINT (visible si action = craft) -->
