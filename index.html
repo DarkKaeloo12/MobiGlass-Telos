@@ -4660,15 +4660,74 @@ function renderObjectifs() {
 ════════════════════════════════════════════════════════════ */
 var _objIngredients = []; // [{name, qty, collected}]
 
+// ── Actions selon le select Action ──
+var OBJ_ACTION_LABELS = { collecter:'Collecter', craft:'Crafter', livraison:'Livrer', mission:'Mission', commerce:'Vendre', autre:'Objectif' };
+var OBJ_ACTION_UNIT   = { collecter:'SCU', craft:'unité(s)', livraison:'SCU', mission:'', commerce:'aUEC', autre:'' };
+var OBJ_ACTION_CAT    = { collecter:'ressource', craft:'craft', livraison:'ressource', mission:'autre', commerce:'commerce', autre:'autre' };
+
+function onObjActionChange(val) {
+  const resField = document.getElementById('obj-res-field');
+  const bpField  = document.getElementById('obj-bp-field');
+  const ingField = document.getElementById('obj-ingredients-field');
+  const showRes  = ['collecter','livraison','commerce'].includes(val);
+  const showBp   = val === 'craft';
+  if (resField) resField.style.display = showRes ? '' : 'none';
+  if (bpField)  { bpField.style.display = showBp ? '' : 'none'; if (showBp) populateObjBpSelect(); }
+  if (ingField) ingField.style.display = showBp && _objIngredients.length ? 'flex' : 'none';
+  const catEl = document.getElementById('obj-cat');
+  if (catEl) catEl.value = OBJ_ACTION_CAT[val] || 'autre';
+  const unitEl = document.getElementById('obj-unit');
+  if (unitEl && !unitEl._userEdited) unitEl.value = OBJ_ACTION_UNIT[val] || '';
+  if (!showBp) { _objIngredients = []; refreshObjIngredients(); }
+  autoGenObjTitle();
+}
+
+function onObjResSelect(val) {
+  const customEl = document.getElementById('obj-res-custom');
+  if (val && customEl) customEl.value = '';
+  autoGenObjTitle();
+}
+
+function onObjResCustom(val) {
+  const selEl = document.getElementById('obj-res-select');
+  if (val && selEl) selEl.value = '';
+  autoGenObjTitle();
+}
+
+function getObjResName() {
+  return document.getElementById('obj-res-select')?.value
+      || document.getElementById('obj-res-custom')?.value.trim()
+      || '';
+}
+
+function autoGenObjTitle() {
+  const titleEl = document.getElementById('obj-title');
+  if (!titleEl || titleEl._userEdited) return;
+  const action = document.getElementById('obj-action')?.value || 'autre';
+  const label  = OBJ_ACTION_LABELS[action] || 'Objectif';
+  const qty    = document.getElementById('obj-target')?.value || '';
+  const unit   = document.getElementById('obj-unit')?.value || '';
+  const res    = getObjResName();
+  const bp     = document.getElementById('obj-bp-select');
+  const bpName = bp?.selectedIndex > 0 ? bp.options[bp.selectedIndex].text : '';
+  let title = label;
+  if (action === 'craft' && bpName) title = 'Crafter : ' + bpName;
+  else if (res) title = label + (qty?' '+qty:'') + (unit?' '+unit:'') + ' — ' + res;
+  else if (qty) title = label + ' ' + qty + (unit?' '+unit:'');
+  titleEl.value = title;
+}
+
+function populateObjResSelect() {
+  const sel = document.getElementById('obj-res-select');
+  if (!sel) return;
+  const resources = RESSOURCE_CATALOGUE.length ? RESSOURCE_CATALOGUE : (UEX_COMMODITIES || []);
+  const opts = resources.map(r => r.name || r.commodity_name || r).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">— Sélectionner —</option>'
+    + opts.map(name => '<option value="'+name+'">'+name+'</option>').join('');
+}
+
 function onObjCatChange(cat) {
-  const bpField = document.getElementById('obj-bp-field');
-  if (bpField) bpField.style.display = cat === 'craft' ? 'flex' : 'none';
-  if (cat === 'craft') populateObjBpSelect();
-  else {
-    _objIngredients = [];
-    refreshObjIngredients();
-    document.getElementById('obj-ingredients-field').style.display = 'none';
-  }
+  // compat — no-op, géré par onObjActionChange
 }
 
 function populateObjBpSelect(selectedId) {
@@ -4765,33 +4824,66 @@ function openAddObjectif(editId) {
   _editObjId = editId;
   const o = editId ? OBJECTIFS.find(x => x.id === editId) : null;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+
+  // Peupler le select ressources depuis le catalogue
+  populateObjResSelect();
+
+  // Détecter l'action depuis la catégorie existante
+  const catToAction = { ressource:'collecter', craft:'craft', commerce:'commerce', autre:'autre' };
+  const action = o?.action || catToAction[o?.cat] || 'collecter';
+  set('obj-action',   action);
+  onObjActionChange(action);  // met à jour visibilité des champs
+
+  // Remplir les champs
   set('obj-title',    o?.title    || '');
-  set('obj-cat',      o?.cat      || 'ressource');
+  set('obj-cat',      o?.cat      || OBJ_ACTION_CAT[action] || 'ressource');
   set('obj-priority', o?.priority || 'normale');
   set('obj-desc',     o?.desc     || '');
   set('obj-target',   o?.target   || '');
-  set('obj-unit',     o?.unit     || '');
+  set('obj-unit',     o?.unit     || OBJ_ACTION_UNIT[action] || 'SCU');
   set('obj-current',  o?.current  || 0);
   set('obj-dl',       o?.dl       || '');
   set('obj-reward',   o?.reward   || '');
-  // Gestion blueprint
-  const cat = o?.cat || 'ressource';
-  onObjCatChange(cat);
-  if (cat === 'craft' && o?.bpId) {
+
+  // Ressource
+  if (o?.resource) {
+    const resSel = document.getElementById('obj-res-select');
+    if (resSel) {
+      const opt = Array.from(resSel.options).find(op => op.value === o.resource);
+      if (opt) resSel.value = o.resource;
+      else { set('obj-res-custom', o.resource); }
+    }
+  }
+
+  // Blueprint
+  if (action === 'craft' && o?.bpId) {
     const selBp = document.getElementById('obj-bp-select');
     if (selBp) { selBp.value = o.bpId; onObjBpSelect(o.bpId); }
   }
-  // Restaurer les collectes si édition
-  if (o?.ingredients) {
-    _objIngredients = o.ingredients.map(i => ({...i}));
-    refreshObjIngredients();
-    const ingField = document.getElementById('obj-ingredients-field');
-    if (ingField) ingField.style.display = _objIngredients.length ? 'flex' : 'none';
+
+  // Ingrédients
+  _objIngredients = o?.ingredients ? o.ingredients.map(i => ({...i})) : [];
+  refreshObjIngredients();
+  const ingField = document.getElementById('obj-ingredients-field');
+  if (ingField) ingField.style.display = _objIngredients.length ? 'flex' : 'none';
+
+  // Titre modal
+  const titleEl = document.getElementById('obj-modal-title');
+  if (titleEl) titleEl.textContent = editId ? "✏ MODIFIER L'OBJECTIF" : "🎯 CRÉER UN OBJECTIF";
+
+  // Flag userEdited sur le titre pour éviter l'auto-gen si édition
+  const titleInput = document.getElementById('obj-title');
+  if (titleInput) {
+    titleInput._userEdited = !!editId;
+    titleInput.addEventListener('input', () => { titleInput._userEdited = true; }, { once: true });
   }
-  const title = document.getElementById('obj-modal-title');
-  if (title) title.textContent = editId ? '✏ MODIFIER L&#39;OBJECTIF' : '🎯 CRÉER UN OBJECTIF';
+  const unitInput = document.getElementById('obj-unit');
+  if (unitInput) {
+    unitInput._userEdited = !!editId;
+    unitInput.addEventListener('input', () => { unitInput._userEdited = true; }, { once: true });
+  }
+
   document.getElementById('obj-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('obj-title')?.focus(), 80);
 }
 
 function closeAddObjectif() {
@@ -4802,11 +4894,15 @@ function closeAddObjectif() {
 async function saveObjectif() {
   const title = document.getElementById('obj-title')?.value.trim();
   if (!title) { toast('Titre requis', '', 'error'); return; }
-  const bpId = document.getElementById('obj-bp-select')?.value || '';
+  const bpId    = document.getElementById('obj-bp-select')?.value || '';
+  const action  = document.getElementById('obj-action')?.value   || 'collecter';
+  const resource = getObjResName();
   const entry = {
     id:          _editObjId || ('obj_' + Date.now()),
     title,
-    cat:         document.getElementById('obj-cat')?.value      || 'ressource',
+    action,
+    resource,
+    cat:         document.getElementById('obj-cat')?.value      || OBJ_ACTION_CAT[action] || 'ressource',
     priority:    document.getElementById('obj-priority')?.value || 'normale',
     desc:        document.getElementById('obj-desc')?.value.trim()   || '',
     target:      parseFloat(document.getElementById('obj-target')?.value) || 0,
@@ -7916,35 +8012,52 @@ window.addEventListener('resize', () => {
 
 <!-- ══════════════ OBJECTIF MODAL ══════════════ -->
 <div class="overlay" id="obj-overlay" onclick="if(event.target===this)closeAddObjectif()">
-  <div class="modal" style="max-width:500px;">
+  <div class="modal" style="max-width:520px;">
     <div class="modal-head">
       <span class="modal-title" id="obj-modal-title">🎯 CRÉER UN OBJECTIF</span>
       <button class="modal-close" onclick="closeAddObjectif()">✕</button>
     </div>
-    <div class="modal-body" style="gap:13px;">
+    <div class="modal-body" style="gap:13px;max-height:80vh;overflow-y:auto;">
       <div class="grid2">
+
+        <!-- ACTION -->
         <div class="form-field" style="grid-column:span 2;">
-          <label class="form-lbl">Titre <span class="req">*</span></label>
-          <input class="form-input" type="text" id="obj-title" placeholder="ex: Accumuler 500 SCU de Quantanium" maxlength="100">
-        </div>
-        <div class="form-field">
-          <label class="form-lbl">Catégorie <span class="req">*</span></label>
-          <select class="form-input" id="obj-cat" style="height:auto;padding:9px 11px;" onchange="onObjCatChange(this.value)">
-            <option value="ressource">📦 Ressource</option>
-            <option value="craft">🔧 Craft</option>
+          <label class="form-lbl">Action <span class="req">*</span></label>
+          <select class="form-input" id="obj-action" style="height:auto;padding:9px 11px;" onchange="onObjActionChange(this.value)">
+            <option value="collecter">📦 Collecter une ressource</option>
+            <option value="craft">🔧 Crafter un blueprint</option>
+            <option value="livraison">🚚 Livraison</option>
+            <option value="mission">🛡 Mission</option>
+            <option value="commerce">💹 Commerce / Vente</option>
             <option value="autre">○ Autre</option>
           </select>
         </div>
 
-        <!-- Sélecteur Blueprint (visible si catégorie = craft) -->
-        <div class="form-field" id="obj-bp-field" style="display:none;">
+        <!-- RESSOURCE (visible si action = collecter / livraison / commerce) -->
+        <div class="form-field" id="obj-res-field" style="grid-column:span 2;">
+          <label class="form-lbl">Ressource <span class="req">*</span></label>
+          <select class="form-input" id="obj-res-select" style="height:auto;padding:9px 11px;" onchange="onObjResSelect(this.value)">
+            <option value="">— Sélectionner une ressource —</option>
+          </select>
+          <input class="form-input" type="text" id="obj-res-custom" placeholder="ou saisir manuellement..." style="margin-top:5px;font-size:12px;" oninput="onObjResCustom(this.value)">
+        </div>
+
+        <!-- BLUEPRINT (visible si action = craft) -->
+        <div class="form-field" id="obj-bp-field" style="display:none;grid-column:span 2;">
           <label class="form-lbl">Blueprint associé</label>
           <select class="form-input" id="obj-bp-select" style="height:auto;padding:9px 11px;" onchange="onObjBpSelect(this.value)">
             <option value="">— Sélectionner un blueprint —</option>
           </select>
-          <div id="obj-bp-preview" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;font-size:11px;">
-          </div>
+          <div id="obj-bp-preview" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;font-size:11px;"></div>
         </div>
+
+        <!-- TITRE (auto-généré mais éditable) -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Titre <span class="req">*</span></label>
+          <input class="form-input" type="text" id="obj-title" placeholder="ex: Collecter 500 SCU de Quantanium" maxlength="100">
+        </div>
+
+        <!-- PRIORITÉ + CATÉGORIE interne -->
         <div class="form-field">
           <label class="form-lbl">Priorité</label>
           <select class="form-input" id="obj-priority" style="height:auto;padding:9px 11px;">
@@ -7953,17 +8066,24 @@ window.addEventListener('resize', () => {
             <option value="critique">🔴 Critique</option>
           </select>
         </div>
-        <div class="form-field" style="grid-column:span 2;">
-          <label class="form-lbl">Description</label>
-          <textarea class="form-input" id="obj-desc" rows="2" placeholder="Détails de l'objectif..." style="resize:vertical;min-height:60px;"></textarea>
+        <div class="form-field">
+          <label class="form-lbl">Catégorie interne</label>
+          <select class="form-input" id="obj-cat" style="height:auto;padding:9px 11px;">
+            <option value="ressource">📦 Ressource</option>
+            <option value="craft">🔧 Craft</option>
+            <option value="commerce">💹 Commerce</option>
+            <option value="autre">○ Autre</option>
+          </select>
         </div>
+
+        <!-- QUANTITÉ + UNITÉ -->
         <div class="form-field">
           <label class="form-lbl">Quantité cible</label>
           <input class="form-input" type="number" id="obj-target" min="1" step="1" placeholder="ex: 500">
         </div>
         <div class="form-field">
           <label class="form-lbl">Unité</label>
-          <input class="form-input" type="text" id="obj-unit" placeholder="SCU, unités, k aUEC..." maxlength="20">
+          <input class="form-input" type="text" id="obj-unit" placeholder="SCU, unités, k aUEC..." maxlength="20" value="SCU">
         </div>
         <div class="form-field">
           <label class="form-lbl">Progression actuelle</label>
@@ -7973,12 +8093,17 @@ window.addEventListener('resize', () => {
           <label class="form-lbl">Date limite</label>
           <input class="form-input" type="date" id="obj-dl">
         </div>
+
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Description</label>
+          <textarea class="form-input" id="obj-desc" rows="2" placeholder="Détails de l'objectif..." style="resize:vertical;min-height:50px;"></textarea>
+        </div>
         <div class="form-field" style="grid-column:span 2;">
           <label class="form-lbl">Récompense</label>
           <input class="form-input" type="text" id="obj-reward" placeholder="ex: +50 000 aUEC, +5 🫆 Empreinte...">
         </div>
 
-        <!-- Ingrédients blueprint (généré automatiquement) -->
+        <!-- Ingrédients (blueprint craft) -->
         <div class="form-field" id="obj-ingredients-field" style="display:none;grid-column:span 2;">
           <label class="form-lbl">Ingrédients à collecter</label>
           <div id="obj-ingredients-list" style="display:flex;flex-direction:column;gap:5px;"></div>
