@@ -2230,9 +2230,9 @@ body::before {
 /* ════════════════════════════════════════════════════════════
    AUTH — SYSTÈME CORPO TELOS
 ════════════════════════════════════════════════════════════ */
-const ADMIN_ID = 'p_admin'; // DarkKaeloo admin
-let SESSION = null; // { pid, name, isAdmin }
-const PANELS_PUBLIC = ['hub', 'inscription']; // déclaré ici pour éviter ReferenceError
+var ADMIN_ID = 'p_admin'; // DarkKaeloo admin
+var SESSION = null; // { pid, name, isAdmin }
+var PANELS_PUBLIC = ['hub', 'inscription'];
 // Code d'accès Gestionnaire — modifiable par l'Admin
 // SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
 const GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
@@ -2911,7 +2911,7 @@ const OPPS = [
 /* ════════════════════════════════════════════════════════════
    PLAYERS STATE
 ════════════════════════════════════════════════════════════ */
-let players     = [];
+var players     = [];
 let selectedPid = null;
 let confirmCb   = null;
 let stockCat    = 'all';
@@ -3160,6 +3160,15 @@ function drawMap(canvas, ctx, t) {
   nb2.addColorStop(0,'rgba(18,32,75,0.13)'); nb2.addColorStop(0.5,'rgba(12,22,55,0.06)'); nb2.addColorStop(1,'rgba(8,15,40,0)');
   ctx.fillStyle=nb2; ctx.fillRect(0,0,W,H);
 
+  // ── Zoom / pan ──
+  const _sc = canvas._mapScale || 1;
+  const _ox = canvas._mapOffX  || 0;
+  const _oy = canvas._mapOffY  || 0;
+  ctx.save();
+  ctx.translate(W/2 + _ox, H/2 + _oy);
+  ctx.scale(_sc, _sc);
+  ctx.translate(-W/2, -H/2);
+
   // ══ ÉTOILES (4 couches) ══════════════════════════════════════════
   for(let i=0;i<500;i++){
     const sx=((Math.sin(i*31.41+7)*0.5+0.5)*W)|0, sy=((Math.sin(i*17.23+7)*0.5+0.5)*H)|0;
@@ -3331,6 +3340,7 @@ function drawMap(canvas, ctx, t) {
     ctx.fill();
     ctx.strokeStyle='rgba(180,160,140,0.4)'; ctx.lineWidth=0.7;
     ctx.stroke();
+    ctx.restore();
     // Label
     ctx.save(); ctx.textAlign='center';
     ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=4;
@@ -3350,7 +3360,9 @@ function drawMap(canvas, ctx, t) {
     ctx.restore();
   }
 
-  // ══ LÉGENDE ═══════════════════════════════════════════════════════
+  ctx.restore(); // ── fin zoom/pan ──
+
+  // ══ LÉGENDE (hors zoom) ════════════════════════════════════════════
   const leg=[
     {sym:'×',  col:'rgba(89,208,255,0.92)', label:'Station'},
     {sym:'○',  col:'rgba(200,220,240,0.80)',label:'Lune'},
