@@ -5119,7 +5119,11 @@ function renderCommandes() {
 
       <div class="cmd-body">
         <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(players.find(p=>p.id===c.client)?.name || c.client || '—')}</div></div>
-        <div class="cmd-field"><div class="cmd-lbl">Assigné à</div><div class="cmd-val" style="color:var(--blue);">${esc(assignedName)}</div></div>
+        ${(()=>{
+          const craftLabels = { craft_vaisseau:'🚀 Craft Vaisseau', craft_fps:'🛡 Craft FPS', vente:'🔴 Vente', autre:'○ Autre' };
+          const ct = c.craftType || c.assigned || '';
+          return ct ? '<div class="cmd-field"><div class="cmd-lbl">Type craft</div><div class="cmd-val" style="color:var(--blue);">'+(craftLabels[ct]||ct)+'</div></div>' : '';
+        })()}
         ${(()=>{
           const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
           if (!res.length) return '';
@@ -5166,12 +5170,9 @@ function openAddCommande(editId) {
       + players.map(p=>`<option value="${p.id}"${c?.client===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
   }
 
-  // Populate assigné select
+  // Restaurer le type de craft si édition
   const sel = document.getElementById('cmd-assigned');
-  if (sel) {
-    sel.innerHTML = '<option value="">— Non assigné —</option>'
-      + players.map(p=>`<option value="${p.id}"${c?.assigned===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
-  }
+  if (sel && c?.assigned) sel.value = c.assigned;
 
   // Populate blueprint select
   const bpSel = document.getElementById('cmd-blueprint');
@@ -5326,7 +5327,7 @@ async function saveCommande() {
     type:      _cmdType,
     title:     autoTitle,
     client:    clientVal,
-    assigned:  document.getElementById('cmd-assigned')?.value||'',
+    craftType: document.getElementById('cmd-assigned')?.value||'',
     bpId,
     qtyMult,
     resources,
@@ -5361,22 +5362,53 @@ async function saveCommande() {
 
 // ══ CONTRÔLE STOCK/COMMANDES POUR LES OBJECTIFS ═════════════════════════════
 // Calcule pour chaque ingrédient : stock dispo - stock réservé par commandes actives
-async function getStockNetForObjectif() {
-  // Stock brut TELOS (tous joueurs)
-  const brut = {};
+// Retourne le bucket de stock utilisable selon le type d'objectif
+// craft fps      → uniquement stock 'fps' (800–1000)
+// craft vaisseau → uniquement stock 'vaisseau' (500–800)
+// collecte/autre → uniquement stock 'aucune' (sans qualité)
+// Les ressources 'vente' (<500) ne comptent JAMAIS
+function objStockBucket(obj) {
+  const cat       = obj.cat       || '';
+  const action    = obj.action    || '';
+  const craftType = obj.craftType || '';
+  const bpId      = obj.bpId     || '';
+
+  // Priorité 1 : craftType explicite de la commande source
+  if (craftType === 'craft_fps')      return ['fps'];
+  if (craftType === 'craft_vaisseau') return ['vaisseau'];
+
+  // Priorité 2 : blueprint associé
+  if (cat === 'craft' || action === 'craft') {
+    const bp = bpId ? (BLUEPRINTS||[]).find(x=>x.id===bpId) : null;
+    if (bp?.cat === 'fps')      return ['fps'];
+    if (bp?.cat === 'vaisseau') return ['vaisseau'];
+    // Craft sans précision : les deux buckets
+    return ['vaisseau', 'fps'];
+  }
+
+  // Par défaut : ressources sans qualité assignée
+  return ['aucune'];
+}
+
+async function getStockNetForObjectif(obj) {
+  // Stock brut TELOS — agrégé par bucket de qualité
+  const brut = {};      // key → { aucune, vente, vaisseau, fps }
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
     for (const s of stocks) {
       const key = (s.res || s.name || '').toLowerCase().trim();
-      if (key) brut[key] = (brut[key] || 0) + (parseFloat(s.qty) || 0);
+      if (!key) continue;
+      if (!brut[key]) brut[key] = { aucune:0, vente:0, vaisseau:0, fps:0, total:0 };
+      const b = qualityBucket(s);
+      brut[key][b] = (brut[key][b] || 0) + (parseFloat(s.qty) || 0);
+      brut[key].total += parseFloat(s.qty) || 0;
     }
   }
 
-  // Stock réservé par les commandes actives (attente + en_cours)
+  // Stock réservé par les commandes actives
   const reserved = {};
-  const activeStatuses = ['attente', 'en_cours'];
   for (const cmd of COMMANDES) {
-    if (!activeStatuses.includes(cmd.status)) continue;
+    if (!['attente','en_cours'].includes(cmd.status)) continue;
     const resources = cmd.resources?.length
       ? cmd.resources
       : (cmd.resource ? [{ name: cmd.resource, qty: cmd.qty || 0 }] : []);
@@ -5386,22 +5418,34 @@ async function getStockNetForObjectif() {
     }
   }
 
-  // Stock net = brut - réservé (min 0)
+  // Buckets utilisables selon l'objectif
+  const buckets = obj ? objStockBucket(obj) : ['aucune','vaisseau','fps'];
+
+  // Stock net utilisable = somme des buckets autorisés - réservé (jamais vente)
   const net = {};
   const allKeys = new Set([...Object.keys(brut), ...Object.keys(reserved)]);
   for (const key of allKeys) {
-    net[key] = Math.max(0, (brut[key] || 0) - (reserved[key] || 0));
+    const b = brut[key] || {};
+    const usable = buckets.reduce((sum, bk) => sum + (b[bk] || 0), 0);
+    net[key] = Math.max(0, usable - (reserved[key] || 0));
   }
 
-  return { brut, reserved, net };
+  // brut utilisable (pour l'affichage)
+  const brutUsable = {};
+  for (const key of Object.keys(brut)) {
+    const b = brut[key];
+    brutUsable[key] = buckets.reduce((sum, bk) => sum + (b[bk] || 0), 0);
+  }
+
+  return { brut: brutUsable, reserved, net };
 }
 
-// Calcule la disponibilité pour un objectif donné et met à jour son champ stockInfo
+// Calcule la disponibilité pour un objectif donné
 async function refreshObjStockInfo(objId) {
   const obj = OBJECTIFS.find(o => o.id === objId);
   if (!obj || obj.done || !obj.ingredients?.length) return;
 
-  const { brut, reserved, net } = await getStockNetForObjectif();
+  const { brut, reserved, net } = await getStockNetForObjectif(obj);
   const lines = [];
   let allOk = true;
 
@@ -5416,7 +5460,8 @@ async function refreshObjStockInfo(objId) {
     lines.push({ name: ing.name, needed, brutVal, resVal, netVal, ok });
   }
 
-  obj._stockInfo = { lines, allOk, updatedAt: Date.now() };
+  const buckets = objStockBucket(obj);
+  obj._stockInfo = { lines, allOk, updatedAt: Date.now(), buckets };
   return obj._stockInfo;
 }
 
@@ -5431,13 +5476,15 @@ async function refreshAllObjStockInfo() {
 async function checkStockForCommande(cmd) {
   if (!cmd.resources || !cmd.resources.length) return;
 
-  // ── 1. Agréger tout le stock TELOS (tous les joueurs) ──
-  const telosStock = {}; // { nomRessource_normalisé: qtéTotale }
+  // ── 1. Agréger stock TELOS utilisable (sans les ressources 'vente' <500) ──
+  const telosStock = {};
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
     for (const s of stocks) {
-      const key = (s.name || s.resource || '').toLowerCase().trim();
+      const key = (s.res || s.name || s.resource || '').toLowerCase().trim();
       if (!key) continue;
+      const b = qualityBucket(s);
+      if (b === 'vente') continue; // ressources <500 exclues des commandes
       telosStock[key] = (telosStock[key] || 0) + (parseFloat(s.qty) || 0);
     }
   }
@@ -5472,11 +5519,18 @@ async function checkStockForCommande(cmd) {
   );
   if (alreadyExists) return;
 
+  // Mapper craftType → cat + action de l'objectif
+  const craftCatMap = { craft_vaisseau:'craft', craft_fps:'craft', vente:'ressource', autre:'ressource' };
+  const craftActionMap = { craft_vaisseau:'craft', craft_fps:'craft' };
+  const objCat    = craftCatMap[cmd.craftType]    || 'ressource';
+  const objAction = craftActionMap[cmd.craftType] || 'collecter';
+
   const objEntry = {
     id:          'obj_auto_' + cmd.id + '_' + Date.now(),
     title:       objTitle,
-    cat:         'ressource',
-    priority:    cmd.priority === 'urgente' ? 'haute' : 'normale',
+    cat:         objCat,
+    action:      objAction,
+    craftType:   cmd.craftType || '',
     desc:        `Approvisionnement automatique pour la commande "${cmd.title}" (commanditaire : ${clientName}).
 
 Ressources manquantes :
@@ -5567,15 +5621,24 @@ async function syncObjectifsWithStock() {
   });
   if (!activeObjs.length) return;
 
-  // Agréger tout le stock TELOS (tous les joueurs)
-  const telosStock = {};
+  // Agréger tout le stock TELOS par bucket de qualité
+  const telosStockByBucket = {}; // key → { aucune, vente, vaisseau, fps }
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-' + p.id)) || [];
     for (const s of stocks) {
       const key = (s.res || s.name || '').toLowerCase().trim();
       if (!key) continue;
-      telosStock[key] = (telosStock[key] || 0) + (parseFloat(s.qty) || 0);
+      if (!telosStockByBucket[key]) telosStockByBucket[key] = { aucune:0, vente:0, vaisseau:0, fps:0 };
+      const b = qualityBucket(s);
+      telosStockByBucket[key][b] = (telosStockByBucket[key][b] || 0) + (parseFloat(s.qty) || 0);
     }
+  }
+
+  // Helper : stock utilisable pour un objectif (exclut toujours 'vente')
+  function getUsable(key, obj) {
+    const buckets = objStockBucket(obj);
+    const b = telosStockByBucket[key] || {};
+    return buckets.reduce((sum, bk) => sum + (b[bk] || 0), 0);
   }
 
   let changed = false;
@@ -5588,7 +5651,7 @@ async function syncObjectifsWithStock() {
     if (obj.ingredients && obj.ingredients.length > 0) {
       for (const ing of obj.ingredients) {
         const key = (ing.name || '').toLowerCase().trim();
-        const dispo = telosStock[key] || 0;
+        const dispo = getUsable(key, obj);
         const newCollected = Math.min(parseFloat(ing.qty) || 0, Math.round(dispo * 1000) / 1000);
         if (newCollected !== (ing.collected || 0)) {
           ing.collected = newCollected;
@@ -5596,31 +5659,26 @@ async function syncObjectifsWithStock() {
         }
       }
       if (objChanged) {
-        // Progression globale = ratio ingrédients collectés
         const totalCollected = obj.ingredients.reduce((s, i) => s + (i.collected || 0), 0);
         const totalRequired  = obj.ingredients.reduce((s, i) => s + (i.qty || 0), 0);
         if (totalRequired > 0 && obj.target > 0) {
           obj.current = Math.round((totalCollected / totalRequired) * obj.target * 100) / 100;
         }
-        // Complété si tous les ingrédients couverts
         const allDone = obj.ingredients.every(i => (i.collected || 0) >= (i.qty || 0));
         if (allDone) { obj.done = true; obj.doneAt = new Date().toISOString(); newlyCompleted.push(obj); }
       }
 
-    // ── Cas 2 : objectif manuel simple (resource + target, pas d'ingrédients) ──
+    // ── Cas 2 : objectif manuel simple (resource + target) ──
     } else if ((obj.resource || obj.cat === 'ressource') && obj.target > 0) {
       const key = (obj.resource || '').toLowerCase().trim();
-      const dispo = key ? (telosStock[key] || 0) : 0;
+      const dispo = key ? getUsable(key, obj) : 0;
       const target = parseFloat(obj.target) || 0;
       const newCurrent = Math.min(target, Math.round(dispo * 1000) / 1000);
       if (newCurrent !== (obj.current || 0)) {
         obj.current = newCurrent;
         objChanged = true;
-        // Complété si stock atteint la cible
         if (newCurrent >= target) {
-          obj.done = true;
-          obj.doneAt = new Date().toISOString();
-          newlyCompleted.push(obj);
+          obj.done = true; obj.doneAt = new Date().toISOString(); newlyCompleted.push(obj);
         }
       }
     }
@@ -6774,56 +6832,85 @@ function renderStockTable(stocks){
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
-  body.innerHTML = stocks.map(s => {
-    const buyVal  = s.price * s.qty;
-    const sellVal = (s.sellprice||0) * s.qty;
-    const margin  = s.price>0 && s.sellprice>0 ? ((s.sellprice-s.price)/s.price*100).toFixed(1) : null;
-    const profit  = s.sellprice>0 ? sellVal - buyVal : null;
-    const marginCls = margin>=0 ? 'td-green' : 'td-red';
-    const _bucket = qualityBucket(s);
-    const _qa = _bucket==='aucune'   ? s.qty : 0;
-    const _qv = _bucket==='vente'    ? s.qty : 0;
-    const _qc = _bucket==='vaisseau' ? s.qty : 0;
-    const _qf = _bucket==='fps'      ? s.qty : 0;
+  // ── Consolider par nom+catégorie : cumuler les quantités par bucket ──
+  const groups = {};
+  stocks.forEach(s => {
+    const key = (s.res||'').toLowerCase().trim() + '|' + (s.cat||'');
+    if (!groups[key]) {
+      groups[key] = {
+        res: s.res, cat: s.cat,
+        qa: 0, qv: 0, qc: 0, qf: 0,
+        buyVal: 0, sellVal: 0, qty: 0,
+        price: s.price||0, sellprice: s.sellprice||0,
+        loc: s.loc||'', note: s.note||'',
+        ids: [], // IDs des items originaux pour edit/delete
+        addedAt: s.addedAt,
+      };
+    }
+    const g = groups[key];
+    const b = qualityBucket(s);
+    if (b==='aucune')   g.qa += s.qty;
+    else if (b==='vente')    g.qv += s.qty;
+    else if (b==='vaisseau') g.qc += s.qty;
+    else                     g.qf += s.qty;
+    g.qty      += s.qty;
+    g.buyVal   += (s.price||0) * s.qty;
+    g.sellVal  += (s.sellprice||0) * s.qty;
+    // Prix moyen pondéré
+    g.price     = g.qty > 0 ? g.buyVal  / g.qty : 0;
+    g.sellprice = g.qty > 0 ? g.sellVal / g.qty : 0;
+    // Localisation : concaténer si différente
+    if (s.loc && !g.loc.includes(s.loc)) g.loc = g.loc ? g.loc+', '+s.loc : s.loc;
+    g.ids.push(s.id);
+    // Garder la date la plus récente
+    if (!g.addedAt || s.addedAt > g.addedAt) g.addedAt = s.addedAt;
+  });
+
+  const rows = Object.values(groups).sort((a,b) => a.res.localeCompare(b.res,'fr'));
+
+  body.innerHTML = rows.map(g => {
+    const margin  = g.price>0 && g.sellprice>0 ? ((g.sellprice-g.price)/g.price*100).toFixed(1) : null;
+    const profit  = g.sellprice>0 ? g.sellVal - g.buyVal : null;
+    const marginCls = margin!==null ? (parseFloat(margin)>=0?'td-green':'td-red') : '';
+    // Boutons : si 1 seul item → edit direct, sinon on peut quand même editer le premier
+    const firstId = g.ids[0];
     return `<tr>
-      <td class="td-name" style="max-width:130px;">
-        <div>◈ ${esc(s.res)}</div>
-        ${s.quality ? `<div style="font-size:9px;color:${QUALITY_META[s.quality]?.color||'var(--text-dim)'};">${QUALITY_META[s.quality]?.score||''}</div>` : ''}
-        ${s.note ? `<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;" title="${esc(s.note)}">${esc(s.note)}</div>` : ''}
+      <td class="td-name" style="max-width:140px;">
+        <div>◈ ${esc(g.res)}</div>
+        ${g.ids.length>1 ? `<div style="font-size:9px;color:var(--text-dim);">${g.ids.length} entrées</div>` : ''}
+        ${g.note ? `<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;" title="${esc(g.note)}">${esc(g.note)}</div>` : ''}
       </td>
-      <td><span class="cat-badge ${catCls(s.cat)}">${catLbl(s.cat)}</span></td>
-      ${qtyCell(_qa,'aucune')}
-      ${qtyCell(_qv,'vente')}
-      ${qtyCell(_qc,'vaisseau')}
-      ${qtyCell(_qf,'fps')}
-      <td class="td-dim">${s.price ? s.price.toFixed(2)+' aUEC' : '—'}</td>
-      <td style="color:var(--blue);">${s.sellprice ? s.sellprice.toFixed(2)+' aUEC' : '—'}</td>
-      <td class="${marginCls}">${margin !== null ? (margin>=0?'+':'')+margin+'%' : '—'}</td>
-      <td class="td-dim">${buyVal ? Math.round(buyVal).toLocaleString('fr-FR')+' aUEC' : '—'}</td>
-      <td class="td-green">${sellVal ? Math.round(sellVal).toLocaleString('fr-FR')+' aUEC' : '—'}</td>
+      <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
+      ${qtyCell(g.qa,'aucune')}
+      ${qtyCell(g.qv,'vente')}
+      ${qtyCell(g.qc,'vaisseau')}
+      ${qtyCell(g.qf,'fps')}
+      <td class="td-dim">${g.price ? g.price.toFixed(2)+' aUEC' : '—'}</td>
+      <td style="color:var(--blue);">${g.sellprice ? g.sellprice.toFixed(2)+' aUEC' : '—'}</td>
+      <td class="${marginCls}">${margin !== null ? (parseFloat(margin)>=0?'+':'')+margin+'%' : '—'}</td>
+      <td class="td-dim">${g.buyVal ? Math.round(g.buyVal).toLocaleString('fr-FR')+' aUEC' : '—'}</td>
+      <td class="td-green">${g.sellVal ? Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC' : '—'}</td>
       <td class="${profit!==null?(profit>=0?'td-green':'td-red'):''}">${profit!==null?(profit>=0?'+':'')+Math.round(profit).toLocaleString('fr-FR')+' aUEC':'—'}</td>
       <td class="td-dim" style="font-size:10px;">
         <div style="display:flex;align-items:center;gap:5px;">
           <span style="font-size:11px;">📍</span>
-          <span>${esc(s.loc||'—')}</span>
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="${esc(g.loc)}">${esc(g.loc||'—')}</span>
         </div>
       </td>
-      <td class="td-dim" style="font-size:10px;">${fmtDate(s.addedAt)}</td>
+      <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
       <td style="display:flex;gap:4px;">
-        <button class="btn sm" onclick="openEditStock('${s.id}')" style="border-color:var(--orange);color:var(--orange);" title="Modifier les prix">✏</button>
-        <button class="btn danger sm" onclick="confirmDelStock('${s.id}','${esc(s.res)}')">✕</button>
+        <button class="btn sm" onclick="openEditStock('${firstId}')" style="border-color:var(--orange);color:var(--orange);" title="Modifier la première entrée">✏</button>
+        <button class="btn danger sm" onclick="confirmDelStock('${firstId}','${esc(g.res)}')" title="${g.ids.length>1?'Supprimer la première entrée':'Supprimer'}">✕</button>
       </td>
     </tr>`;
   }).join('');
 
   // Footer totaux
-  const tv = stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
-  const ts = stocks.reduce((a,s)=>a+(s.sellprice||0)*s.qty,0);
   const tu = stocks.reduce((a,s)=>a+Number(s.qty),0);
-  document.getElementById('sf-distinct').textContent = stocks.length;
+  const tv = stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
+  document.getElementById('sf-distinct').textContent = rows.length;
   document.getElementById('sf-units').textContent    = tu.toLocaleString('fr-FR');
   document.getElementById('sf-total').textContent    = Math.round(tv).toLocaleString('fr-FR')+' aUEC';
-
 }
 
 /* Open player stock modal */
@@ -8262,11 +8349,15 @@ window.addEventListener('resize', () => {
           </select>
         </div>
 
-        <!-- Assigné à -->
+        <!-- Type de craft -->
         <div class="form-field">
-          <label class="form-lbl">Assigné à</label>
+          <label class="form-lbl">Type de craft</label>
           <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;">
-            <option value="">— Non assigné —</option>
+            <option value="">— Non défini —</option>
+            <option value="craft_vaisseau">🚀 Craft Vaisseau</option>
+            <option value="craft_fps">🛡 Craft FPS</option>
+            <option value="vente">🔴 Vente directe</option>
+            <option value="autre">○ Autre</option>
           </select>
         </div>
 
