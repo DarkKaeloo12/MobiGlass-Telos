@@ -1318,7 +1318,7 @@ function showLoginWall(){} // stub
       <div><div class="n-main">HUB</div><div class="n-sub">Tableau de bord</div></div>
     </div>
 	
-    <div class="nav-item" onclick="goPanel('inscription',this)">
+    <div class="nav-item" id="nav-inscription" onclick="goPanel('inscription',this)">
       <div class="n-icon">✦</div>
       <div><div class="n-main">INSCRIPTION</div><div class="n-sub">Rejoindre le réseau</div></div>
     </div>
@@ -2695,6 +2695,9 @@ function canManageRoles() {
 }
 
 function updateNavRessources() {
+  // Inscription : visible uniquement si non connecté
+  const elInsc = document.getElementById('nav-inscription');
+  if (elInsc) elInsc.style.display = SESSION ? 'none' : '';
   const el = document.getElementById('nav-ressources');
   if (el) el.style.display = canManageRoles() ? '' : 'none';
   // Armurie visible pour gestionnaires/admins uniquement
@@ -5749,7 +5752,14 @@ function renderCommandes() {
           const res = c.resources?.length ? c.resources : (c.resource ? [{name:c.resource,qty:c.qty}] : []);
           if (!res.length) return '';
           const bpName = c.bpId ? (BLUEPRINTS||[]).find(x=>x.id===c.bpId)?.name : null;
-          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}</div></div>`:'')
+          return (bpName?`<div class="cmd-field" style="grid-column:span 2;"><div class="cmd-lbl">📐 Blueprint</div><div class="cmd-val" style="color:#60a5fa;">${esc(bpName)}${(()=>{
+              const bp = (BLUEPRINTS||[]).find(x=>x.id===c.bpId);
+              if (!bp?.owners?.length) return '<span style="font-size:10px;color:var(--text-dim);margin-left:8px;">— aucun propriétaire enregistré</span>';
+              const names = bp.owners.map(id=>players.find(p=>p.id===id)?.name).filter(Boolean);
+              if (!names.length) return '<span style="font-size:10px;color:var(--text-dim);margin-left:8px;">— aucun propriétaire enregistré</span>';
+              return '<span style="font-size:10px;color:var(--text-dim);margin-left:6px;">— possédé par :</span> '
+                + names.map(n=>`<span style="font-size:10px;font-family:var(--mono);color:var(--green);background:rgba(0,255,163,0.08);padding:1px 6px;margin-left:3px;">◈ ${n}</span>`).join('');
+            })()}</div></div>`:'')
             + res.map(r=>`<div class="cmd-field"><div class="cmd-lbl">Ressource</div><div class="cmd-val" style="color:var(--orange);">◈ ${esc(r.name)}${r.qty?' · '+Number(r.qty).toLocaleString('fr-FR')+' SCU':''}</div></div>`).join('');
         })()}
         ${c.price>0 ? '<div class="cmd-field"><div class="cmd-lbl">Prix / SCU</div><div class="cmd-val">'+fmtPrice(c.price)+'</div></div>' : ''}
