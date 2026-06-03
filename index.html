@@ -2945,6 +2945,29 @@ async function doLogin() {
 var _autoSaveTimer = null;
 /* ════ DATABASE — Supabase ════ */
 var SUPABASE_URL='https://ykdamleudeatahrxicgk.supabase.co';const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZGFtbGV1ZGVhdGFocnhpY2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDA4OTAsImV4cCI6MjA5NTgxNjg5MH0.G4XABQpw95k9AsZoW7eQVrQcAuLDfeK8nUGaWN8dEc8';let _sb=null;
+
+// ── Supprime le faux warning DataCloneError généré par Supabase JS (postMessage + Headers) ──
+(function() {
+  const _origWarn = console.warn.bind(console);
+  console.warn = function(...args) {
+    const msg = args.join(' ');
+    if (msg.includes('DataCloneError') || msg.includes("Failed to execute 'postMessage'") || msg.includes('Headers object could not be cloned')) return;
+    _origWarn(...args);
+  };
+  const _origError = console.error.bind(console);
+  console.error = function(...args) {
+    const msg = args.join(' ');
+    if (msg.includes('DataCloneError') || msg.includes("Failed to execute 'postMessage'") || msg.includes('Headers object could not be cloned')) return;
+    _origError(...args);
+  };
+  // Intercepte aussi les erreurs non catchées liées à postMessage/Headers
+  window.addEventListener('error', function(e) {
+    if (e.message && (e.message.includes('DataCloneError') || e.message.includes('postMessage') || e.message.includes('Headers object could not be cloned'))) {
+      e.preventDefault(); e.stopImmediatePropagation(); return false;
+    }
+  }, true);
+})();
+
 function getSB(){if(_sb)return _sb;try{const{createClient}=window.supabase;_sb=createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){}return _sb;}
 // ══ SYSTÈME DE STOCKAGE — Supabase prioritaire, localStorage fallback ══════
 // Sérialise proprement pour éviter DataCloneError
@@ -8699,6 +8722,8 @@ function renderDroitsTable() {
 function setDroit(role, droit, val) {
   if (!ROLES_CONFIG[role]) ROLES_CONFIG[role] = {};
   ROLES_CONFIG[role][droit] = val ? 1 : 0;
+  // Sauvegarde immédiate à chaque changement de case
+  saveRolesConfig().catch(e => console.warn('setDroit save error:', e));
 }
 
 async function saveRolesAndDroits() {
