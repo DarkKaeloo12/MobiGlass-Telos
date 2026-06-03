@@ -7756,32 +7756,36 @@ var ROLES_CONFIG = null;
 
 // Définition des onglets/fonctions contrôlables
 var DROITS_DEFS = [
-  { id:'hub',         label:'🏠 Tableau de bord',   desc:'Accès au hub principal' },
-  { id:'map',         label:'🗺 Carte Stanton',      desc:'Carte interactive' },
-  { id:'partners',    label:'👥 Partenaires',         desc:'Voir la liste des partenaires' },
-  { id:'stocks',      label:'📦 Stocks TELOS',        desc:'Voir le stock global' },
-  { id:'blueprints',  label:'📐 Blueprints',          desc:'Voir les blueprints' },
-  { id:'commandes',   label:'📋 Commandes',           desc:'Voir les commandes' },
-  { id:'objectifs',   label:'🎯 Objectifs',           desc:'Voir les objectifs' },
-  { id:'missions',    label:'🛡 Missions',             desc:'Voir les missions' },
-  { id:'commerce',    label:'💹 Commerce',            desc:'Voir le panneau commerce' },
-  { id:'logs',        label:'📡 Logs',                desc:'Accès aux journaux' },
-  { id:'ressources',  label:'🔬 Ressources UEX',      desc:'Accès données UEX (admin/gest.)' },
-  { id:'edit_stock',  label:'✏ Modifier stock',       desc:'Ajouter/modifier son propre stock' },
-  { id:'add_commande',label:'+ Créer commande',       desc:'Créer une commande' },
-  { id:'add_objectif',label:'+ Créer objectif',       desc:'Créer un objectif' },
-  { id:'add_mission', label:'+ Créer mission',        desc:'Créer une mission (Gest.)' },
-  { id:'add_blueprint',label:'+ Ajouter blueprint',  desc:'Ajouter un blueprint' },
-  { id:'delete_data', label:'🗑 Supprimer données',   desc:'Supprimer commandes/objectifs/BP' },
-  { id:'manage_roles',label:'⬡ Gérer les rôles',     desc:'Attribuer les rôles aux joueurs' },
+  { id:'hub',           label:'🏠 Tableau de bord',      desc:'Accès au hub principal' },
+  { id:'map',           label:'🗺 Carte Stanton',         desc:'Carte interactive' },
+  { id:'partners',      label:'👥 Partenaires',            desc:'Voir la liste des partenaires' },
+  { id:'stocks',        label:'📦 Stocks TELOS',           desc:'Voir le stock global consolidé' },
+  { id:'ressource_par', label:'◈ Ressource par partenaire',desc:'Voir les stocks par partenaire' },
+  { id:'blueprints',    label:'📐 Blueprints',             desc:'Voir les blueprints' },
+  { id:'commandes',     label:'📋 Commandes',              desc:'Voir les commandes' },
+  { id:'objectifs',     label:'🎯 Objectifs',              desc:'Voir les objectifs' },
+  { id:'missions',      label:'🛡 Missions',               desc:'Voir les missions' },
+  { id:'commerce',      label:'💹 Commerce',               desc:'Voir le panneau commerce' },
+  { id:'banque',        label:'🏦 Banque',                 desc:'Accès à la banque TELOS' },
+  { id:'logs',          label:'📡 Logs',                   desc:'Accès aux journaux système' },
+  { id:'ressources',    label:'🔬 Data Ressource',         desc:'Catalogue ressources (admin/gest.)' },
+  { id:'armurie',       label:'⚔ Data Armurie',           desc:'Catalogue armement (admin/gest.)' },
+  { id:'edit_stock',    label:'✏ Modifier stock',          desc:'Ajouter/modifier son propre stock' },
+  { id:'add_commande',  label:'+ Créer commande',          desc:'Créer une commande' },
+  { id:'add_objectif',  label:'+ Créer objectif',          desc:'Créer un objectif' },
+  { id:'add_mission',   label:'+ Créer mission',           desc:'Créer une mission (Gest.)' },
+  { id:'add_blueprint', label:'+ Ajouter blueprint',       desc:'Ajouter un blueprint' },
+  { id:'add_transaction',label:'+ Créer transaction',      desc:'Ajouter une transaction banque' },
+  { id:'delete_data',   label:'🗑 Supprimer données',      desc:'Supprimer commandes/objectifs/BP' },
+  { id:'manage_roles',  label:'⬡ Gérer les rôles',        desc:'Attribuer les rôles aux joueurs' },
 ];
 
 var DEFAULT_DROITS = {
-  Trader:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
-  Mineur:        { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
-  Transporteur:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
-  Explorateur:   { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 },
-  Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:1,ressources:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,delete_data:1,manage_roles:1 },
+  Trader:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Mineur:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Transporteur:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Explorateur:   { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:1,manage_roles:1 },
 };
 
 // Couleurs personnalisées des rôles { roleName: '#rrggbb' }
@@ -8652,33 +8656,44 @@ function renderDroitsTable() {
   const tbody = document.getElementById('droits-tbody');
   if (!thead || !tbody) return;
 
-  // En-tête : Fonction | Rôle1 | Rôle2 ...
+  // Séparateurs visuels entre onglets et actions
+  const SEPARATORS = { ressource_par: 'ONGLETS', edit_stock: 'ACTIONS' };
+
+  // En-tête
   thead.innerHTML = '<tr>'
-    + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-dim);font-size:9px;letter-spacing:1px;min-width:160px;">FONCTION / ONGLET</th>'
-    + ROLES.map(r=>`<th style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;"><span style="display:inline-block;padding:1px 6px;border:1px solid ${ROLE_COLORS[r]||'var(--border)'};color:${ROLE_COLORS[r]||'var(--text)'};font-size:9px;letter-spacing:1px;">${r}</span></th>`).join('')
-    + '<th style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;"><span style="color:#fff;font-size:9px;letter-spacing:1px;">ADMIN</span></th>'
+    + '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid var(--border);color:var(--text-dim);font-size:11px;letter-spacing:1px;min-width:220px;position:sticky;left:0;background:var(--bg3);">FONCTION / ONGLET</th>'
+    + ROLES.map(r=>`<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap;min-width:90px;"><span style="display:inline-block;padding:3px 8px;border:1px solid ${ROLE_COLORS[r]||'var(--border)'};color:${ROLE_COLORS[r]||'var(--text)'};font-size:11px;letter-spacing:1px;font-weight:700;">${r}</span></th>`).join('')
+    + '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:center;min-width:70px;"><span style="color:#fff;font-size:11px;letter-spacing:1px;font-weight:700;">ADMIN</span></th>'
     + '</tr>';
 
-  // Corps : une ligne par droit
-  tbody.innerHTML = DROITS_DEFS.map(def => {
+  let rows = '';
+  DROITS_DEFS.forEach(def => {
+    // Séparateur de section
+    if (SEPARATORS[def.id]) {
+      const colSpan = ROLES.length + 2;
+      rows += `<tr><td colspan="${colSpan}" style="padding:10px 12px 4px;background:var(--bg2);border-top:2px solid var(--border);border-bottom:1px solid var(--border);">
+        <span style="font-size:9px;letter-spacing:2px;color:var(--orange);text-transform:uppercase;font-weight:700;">◈ ${SEPARATORS[def.id]}</span>
+      </td></tr>`;
+    }
     const cells = ROLES.map(r => {
       const cfg = ROLES_CONFIG[r] || {};
       const val = !!cfg[def.id];
-      return `<td style="text-align:center;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);">
+      return `<td style="text-align:center;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04);">
         <input type="checkbox" ${val?'checked':''} title="${def.desc}"
           onchange="setDroit('${r}','${def.id}',this.checked)"
-          style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange);">
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
       </td>`;
     }).join('');
-    return `<tr onmouseover="this.style.background='rgba(247,140,30,0.04)'" onmouseout="this.style.background=''">
-      <td style="padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);">
-        <div style="font-size:10px;color:var(--text-bright);">${def.label}</div>
-        <div style="font-size:9px;color:var(--text-dim);">${def.desc}</div>
+    rows += `<tr onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
+      <td style="padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);position:sticky;left:0;background:inherit;">
+        <div style="font-size:13px;color:var(--text-bright);font-weight:600;">${def.label}</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:1px;">${def.desc}</div>
       </td>
       ${cells}
-      <td style="text-align:center;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--green);font-size:12px;">✓</td>
+      <td style="text-align:center;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--green);font-size:15px;">✓</td>
     </tr>`;
-  }).join('');
+  });
+  tbody.innerHTML = rows;
 }
 
 function setDroit(role, droit, val) {
@@ -9445,21 +9460,47 @@ async function deleteBankTransaction(id) {
 }
 
 // ── Modal nouvelle transaction ──
+// ── Modal nouvelle transaction ──
+function setBtType(type) {
+  document.getElementById('bt-type').value = type;
+  const btnC = document.getElementById('bt-btn-credit');
+  const btnD = document.getElementById('bt-btn-debit');
+  const saveBtn = document.getElementById('bt-save-btn');
+  if (type === 'credit') {
+    btnC.style.background='rgba(0,255,163,0.18)'; btnC.style.color='var(--green)';
+    btnD.style.background='transparent'; btnD.style.color='var(--text-dim)';
+    if(saveBtn){saveBtn.style.borderColor='var(--green)';saveBtn.style.color='var(--green)';saveBtn.style.background='rgba(0,255,163,0.08)';}
+  } else {
+    btnD.style.background='rgba(255,68,68,0.18)'; btnD.style.color='var(--red)';
+    btnC.style.background='transparent'; btnC.style.color='var(--text-dim)';
+    if(saveBtn){saveBtn.style.borderColor='var(--red)';saveBtn.style.color='var(--red)';saveBtn.style.background='rgba(255,68,68,0.08)';}
+  }
+}
+
+function closeBankTransaction() {
+  document.getElementById('bt-overlay').classList.remove('open');
+  _bankEditId = null;
+}
+
 function openBankTransaction(editId) {
   _bankEditId = editId||null;
   const t = editId ? BANK_DATA.find(x=>x.id===editId) : null;
   // Peupler le select membres
   const mSel = document.getElementById('bt-member');
-  if (mSel) mSel.innerHTML = '<option value="">— Membre —</option>'
+  if (mSel) mSel.innerHTML = '<option value="">— Aucun / Système —</option>'
     + players.map(p=>`<option value="${p.id}"${t?.memberId===p.id?' selected':''}>${esc(p.name)}</option>`).join('');
   // Pré-remplir
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
-  set('bt-type',   t?.type   ||'credit');
   set('bt-amount', t?.amount ||'');
   set('bt-desc',   t?.desc   ||'');
   set('bt-note',   t?.note   ||'');
   set('bt-cat',    t?.cat    ||'don');
   set('bt-date',   t?.date?.slice(0,16)||new Date().toISOString().slice(0,16));
+  // Init boutons type
+  setBtType(t?.type||'credit');
+  // Titre
+  const title = document.getElementById('bt-modal-title');
+  if (title) title.textContent = editId ? '✏ MODIFIER LA TRANSACTION' : '💳 NOUVELLE TRANSACTION';
   document.getElementById('bt-overlay').classList.add('open');
 }
 
@@ -9499,7 +9540,84 @@ async function saveBankTransaction() {
 
 <datalist id="ps-datalist"></datalist>
 
-<!-- ══════════════ OBJECTIF MODAL ══════════════ -->
+<!-- ══════════════ BANK TRANSACTION MODAL ══════════════ -->
+<div class="overlay" id="bt-overlay" onclick="if(event.target===this)closeBankTransaction()">
+  <div class="modal" style="max-width:480px;width:96vw;">
+    <div class="modal-head">
+      <span class="modal-title" id="bt-modal-title">💳 NOUVELLE TRANSACTION</span>
+      <button class="modal-close" onclick="closeBankTransaction()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:14px;">
+
+      <!-- TYPE : AJOUT / RETRAIT -->
+      <div style="display:flex;gap:0;border:1px solid var(--border);overflow:hidden;">
+        <button id="bt-btn-credit" onclick="setBtType('credit')"
+          style="flex:1;padding:12px;border:none;background:rgba(0,255,163,0.12);color:var(--green);font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;border-right:1px solid var(--border);transition:all 0.15s;">
+          ＋ AJOUT
+        </button>
+        <button id="bt-btn-debit" onclick="setBtType('debit')"
+          style="flex:1;padding:12px;border:none;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.15s;">
+          － RETRAIT
+        </button>
+      </div>
+      <input type="hidden" id="bt-type" value="credit">
+
+      <div class="grid2">
+        <!-- MONTANT -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Montant (aUEC) <span class="req">*</span></label>
+          <input class="form-input" type="number" id="bt-amount" min="1" placeholder="Ex : 50000" style="font-size:18px;font-family:var(--mono);color:var(--orange);text-align:center;">
+        </div>
+
+        <!-- MEMBRE -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Membre concerné</label>
+          <select class="form-input" id="bt-member" style="height:auto;padding:9px 11px;">
+            <option value="">— Aucun / Système —</option>
+          </select>
+        </div>
+
+        <!-- CATÉGORIE -->
+        <div class="form-field">
+          <label class="form-lbl">Catégorie</label>
+          <select class="form-input" id="bt-cat" style="height:auto;padding:9px 11px;">
+            <option value="don">🎁 Don</option>
+            <option value="salaire">💼 Salaire</option>
+            <option value="commerce">💹 Commerce</option>
+            <option value="mission">🛡 Mission</option>
+            <option value="craft">🔧 Craft</option>
+            <option value="amende">⚠ Amende</option>
+            <option value="autre">○ Autre</option>
+          </select>
+        </div>
+
+        <!-- DATE -->
+        <div class="form-field">
+          <label class="form-lbl">Date</label>
+          <input class="form-input" type="datetime-local" id="bt-date">
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Description <span class="req">*</span></label>
+          <input class="form-input" type="text" id="bt-desc" placeholder="Motif de la transaction...">
+        </div>
+
+        <!-- NOTE -->
+        <div class="form-field" style="grid-column:span 2;">
+          <label class="form-lbl">Note interne</label>
+          <textarea class="form-input" id="bt-note" rows="2" placeholder="Note optionnelle..." style="resize:vertical;min-height:48px;"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeBankTransaction()">Annuler</button>
+      <button class="btn success" id="bt-save-btn" onclick="saveBankTransaction()" style="letter-spacing:1px;">💳 ENREGISTRER</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="overlay" id="obj-overlay" onclick="if(event.target===this)closeAddObjectif()">
   <div class="modal" style="max-width:520px;">
     <div class="modal-head">
@@ -9813,7 +9931,7 @@ async function saveBankTransaction() {
   </div>
 </div>
 <div class="overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
-<div class="modal" style="max-width:700px;width:96vw;">
+<div class="modal" style="max-width:950px;width:98vw;">
   <div class="modal-head">
     <span class="modal-title">⚙ PARAMÈTRES</span>
     <button class="modal-close" onclick="closeSettings()">✕</button>
@@ -9821,8 +9939,8 @@ async function saveBankTransaction() {
 
   <!-- Onglets settings -->
   <div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 18px;background:var(--bg2);">
-    <button id="stab-general" onclick="openSettingsTab('general')" style="padding:8px 16px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">⚙ GÉNÉRAL</button>
-    <button id="stab-roles" onclick="openSettingsTab('roles')" style="padding:8px 16px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">⬡ RÔLES &amp; DROITS</button>
+    <button id="stab-general" onclick="openSettingsTab('general')" style="padding:10px 18px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:12px;letter-spacing:1.5px;cursor:pointer;">⚙ GÉNÉRAL</button>
+    <button id="stab-roles" onclick="openSettingsTab('roles')" style="padding:10px 18px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:12px;letter-spacing:1.5px;cursor:pointer;">⬡ RÔLES &amp; DROITS</button>
   </div>
 
   <!-- Onglet GÉNÉRAL -->
@@ -9881,32 +9999,32 @@ async function saveBankTransaction() {
   </div>
 
   <!-- Onglet RÔLES & DROITS -->
-  <div id="stab-panel-roles" class="modal-body" style="display:none;gap:14px;max-height:70vh;overflow-y:auto;">
+  <div id="stab-panel-roles" class="modal-body" style="display:none;gap:14px;max-height:80vh;overflow-y:auto;">
 
     <!-- Section noms des rôles -->
     <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--orange);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;">⬡ Noms des rôles</div>
-        <button onclick="addRole()" style="padding:3px 10px;border:1px dashed var(--orange);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;cursor:pointer;letter-spacing:1px;">+ Ajouter</button>
+        <div style="font-size:11px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;">⬡ Noms des rôles</div>
+        <button onclick="addRole()" style="padding:4px 12px;border:1px dashed var(--orange);background:transparent;color:var(--orange);font-family:var(--ui);font-size:11px;cursor:pointer;letter-spacing:1px;">+ Ajouter</button>
       </div>
       <div id="roles-name-list" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
 
     <!-- Section droits par rôle -->
     <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
-      <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:10px;">🔐 Droits par rôle</div>
+      <div style="font-size:11px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:10px;">🔐 Droits par rôle</div>
       <div style="overflow-x:auto;">
-        <table id="droits-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:var(--ui);">
+        <table id="droits-table" style="width:100%;border-collapse:collapse;font-size:13px;font-family:var(--ui);">
           <thead id="droits-thead"></thead>
           <tbody id="droits-tbody"></tbody>
         </table>
       </div>
-      <div style="margin-top:8px;font-size:9px;color:var(--text-dim);">Admin = accès total par défaut · ✓ = autorisé · — = refusé</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">Admin = accès total par défaut &nbsp;·&nbsp; ✓ = autorisé &nbsp;·&nbsp; ☐ = refusé</div>
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="resetRolesConfig()" style="padding:5px 14px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;">↺ RÉINITIALISER</button>
-      <button onclick="saveRolesAndDroits()" style="padding:5px 16px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;font-weight:700;">💾 ENREGISTRER</button>
+      <button onclick="resetRolesConfig()" style="padding:6px 16px;border:1px solid var(--text-dim);color:var(--text-dim);background:transparent;cursor:pointer;font-family:var(--ui);font-size:12px;letter-spacing:1px;">↺ RÉINITIALISER</button>
+      <button onclick="saveRolesAndDroits()" style="padding:6px 18px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,163,0.07);cursor:pointer;font-family:var(--ui);font-size:12px;letter-spacing:1px;font-weight:700;">💾 ENREGISTRER</button>
     </div>
   </div>
 
