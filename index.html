@@ -1333,6 +1333,7 @@ function showLoginWall(){} // stub
       <div class="n-icon">📦</div>
       <div><div class="n-main">RESSOURCE</div><div class="n-sub">Par partenaire</div></div>
     </div>
+	
     <div class="nav-item" onclick="goToArmurerie(this)" id="nav-armurerie">
       <div class="n-icon">⚔</div>
       <div><div class="n-main">ARMURERIE</div><div class="n-sub">Équipements & Armes</div></div>
@@ -1372,6 +1373,11 @@ function showLoginWall(){} // stub
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
 	
+	<div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
+      <div class="n-icon">🏦</div>
+      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
+    </div>
+	
 	<div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
       <div class="n-icon">◈</div>
       <div><div class="n-main">DATA RESSOURCE</div><div class="n-sub">Catalogue Corp</div></div>
@@ -1382,11 +1388,6 @@ function showLoginWall(){} // stub
       <div><div class="n-main">DATA ARMURIE</div><div class="n-sub">Catalogue Armement</div></div>
     </div>
 	
-    <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
-      <div class="n-icon">🏦</div>
-      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
-    </div>
-
 	<div class="nav-divider"></div>
     <div class="nav-item" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
