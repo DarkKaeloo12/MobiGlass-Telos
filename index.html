@@ -1156,6 +1156,11 @@ body::before {
   50%      { border-color:var(--orange); box-shadow:0 0 10px rgba(247,140,30,0.4); }
 }
 
+/* ══ ARMURERIE ══════════════════════════════════════════════════ */
+#panel-armurerie { flex-direction: column; }
+#panel-armurerie.active { flex-direction: column; }
+.arm-cat-badge { display:inline-block;padding:1px 7px;font-size:9px;letter-spacing:1px;border:1px solid currentColor;font-family:var(--ui);text-transform:uppercase;border-radius:2px; }
+
 /* ══════════════════════════════════════════════════════════════════
    RESPONSIVE — Adaptation toutes résolutions
 ══════════════════════════════════════════════════════════════════ */
@@ -1327,6 +1332,11 @@ function showLoginWall(){} // stub
     <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
       <div class="n-icon">📦</div>
       <div><div class="n-main">STOCK</div><div class="n-sub">Par partenaire</div></div>
+    </div>
+    <div class="nav-item" onclick="goToArmurerie(this)" id="nav-armurerie">
+      <div class="n-icon">⚔</div>
+      <div><div class="n-main">ARMURERIE</div><div class="n-sub">Équipements & Armes</div></div>
+      <span class="nav-badge" id="badge-armurerie" style="display:none;">0</span>
     </div>
 	
 	<div class="nav-item" id="nav-blueprints" onclick="goToBlueprints(this)" style="display:none;">
@@ -1670,9 +1680,15 @@ function showLoginWall(){} // stub
               <div class="form-hint">Optionnel — votre profil UEXcorp si vous en avez un.</div>
             </div>
             <div class="form-field">
-              <label class="form-lbl">Code Corpo <span class="req">*</span></label>
-              <input class="form-input" type="password" id="reg-code" placeholder="Choisissez un code secret (min. 4 caractères)" maxlength="64" autocomplete="new-password">
-              <div class="form-hint" style="color:var(--orange);">⚠ Ce code est requis pour modifier vos stocks. Notez-le, il ne peut pas être récupéré.</div>
+              <label class="form-lbl">Code d'accès Corpo <span class="req">*</span></label>
+              <input class="form-input" type="password" id="reg-corpo-access" placeholder="Code fourni par l'Admin TELOS" maxlength="64" autocomplete="off">
+              <div class="form-hint" style="color:var(--orange);">🔒 Requis pour rejoindre le réseau TELOS. Obtenez ce code auprès de l'administrateur.</div>
+              <div class="form-error" id="err-corpo-access"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-lbl">Votre code personnel <span class="req">*</span></label>
+              <input class="form-input" type="password" id="reg-code" placeholder="Choisissez votre code secret personnel (min. 4 caractères)" maxlength="64" autocomplete="new-password">
+              <div class="form-hint" style="color:var(--text-dim);">Ce code est requis pour vous connecter. Notez-le, il ne peut pas être récupéré.</div>
               <div class="form-error" id="err-code"></div>
             </div>
             <div class="form-field">
@@ -1985,6 +2001,126 @@ function showLoginWall(){} // stub
         <div style="flex:1;overflow-y:auto;padding:14px 18px;" id="cmd-list"></div>
       </div>
 
+
+      <!-- ══ ARMURERIE ══ -->
+      <div class="panel" id="panel-armurerie">
+        <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;">
+
+          <!-- Sous-onglet partenaire -->
+          <div class="jtabs">
+            <div class="jtab active" id="arm-jtab" style="pointer-events:none;opacity:0.7;">
+              ⚔ Armurerie de <span id="arm-partner-name" style="color:var(--orange);margin-left:4px;">— sélectionnez un partenaire</span>
+            </div>
+          </div>
+
+          <!-- Liste partenaires + contenu -->
+          <div style="display:flex;flex:1;overflow:hidden;">
+
+            <!-- Sidebar partenaires -->
+            <div class="pl-sidebar" id="arm-sidebar">
+              <div class="pl-sidebar-head">
+                <div class="search-box" style="margin-bottom:8px;">
+                  <span class="search-ico">⌕</span>
+                  <input type="text" id="arm-search" placeholder="Rechercher..." oninput="filterArmPartners(this.value)">
+                </div>
+              </div>
+              <div id="arm-list" style="overflow-y:auto;flex:1;"></div>
+            </div>
+
+            <!-- Contenu principal -->
+            <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;" id="arm-content">
+
+              <!-- Placeholder avant sélection -->
+              <div id="arm-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-dim);">
+                <div style="font-size:48px;opacity:.12;">⚔</div>
+                <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;">Sélectionnez un partenaire</div>
+              </div>
+
+              <!-- Panel actif partenaire -->
+              <div id="arm-active" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+
+                <!-- En-tête profil compact -->
+                <div id="arm-profile-head" style="padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px;background:var(--bg2);"></div>
+
+                <!-- Toolbar -->
+                <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;border-bottom:1px solid var(--border);">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <!-- Filtre catégorie -->
+                    <select id="arm-cat-filter" class="form-input" style="width:170px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
+                      <option value="all">Toutes catégories</option>
+                      <option value="arme_fps">🔫 Armes FPS</option>
+                      <option value="armure">🛡 Armures</option>
+                      <option value="composant_vaisseau">🔧 Composants Vaisseau</option>
+                      <option value="arme_vaisseau">🚀 Armes Vaisseau</option>
+                    </select>
+                    <!-- Filtre qualité -->
+                    <select id="arm-quality-filter" class="form-input" style="width:150px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
+                      <option value="all">Toutes qualités</option>
+                      <option value="">Sans qualité</option>
+                      <option value="mediocre">Médiocre</option>
+                      <option value="basique">Basique</option>
+                      <option value="acceptable">Acceptable</option>
+                      <option value="honnete">Honnête</option>
+                      <option value="moyenne">Moyenne</option>
+                      <option value="haute">Haute</option>
+                    </select>
+                    <div class="search-box" style="max-width:180px;flex:1;">
+                      <span class="search-ico">⌕</span>
+                      <input type="text" id="arm-item-search" placeholder="Rechercher..." oninput="renderArmTable()">
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-left:auto;">
+                    <button class="btn success" onclick="openAddArmItem()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ AJOUTER</button>
+                    <button class="btn danger" id="arm-remove-btn" onclick="openRMArmModal()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;display:none;">— RETIRER</button>
+                  </div>
+                </div>
+
+                <!-- Tableau équipements -->
+                <div class="st-wrap" style="flex:1;overflow:auto;">
+                  <table class="data-table" style="width:100%;min-width:900px;">
+                    <thead><tr>
+                      <th>Désignation</th>
+                      <th>Catégorie</th>
+                      <th>Qualité</th>
+                      <th style="text-align:center;">Qté</th>
+                      <th>Prix achat</th>
+                      <th>Prix vente</th>
+                      <th>Marge</th>
+                      <th>Val. achat</th>
+                      <th>Val. vente</th>
+                      <th>📍 Localisation</th>
+                      <th>Date</th>
+                      <th>Action</th>
+                    </tr></thead>
+                    <tbody id="arm-tbody"></tbody>
+                  </table>
+                  <div id="arm-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
+                    <div style="font-size:32px;opacity:.2;">⚔</div>
+                    <div style="margin-top:10px;">Aucun équipement enregistré</div>
+                  </div>
+                </div>
+
+                <!-- Footer stats -->
+                <div style="display:flex;gap:0;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);">
+                  <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">ITEMS</div>
+                    <div id="arm-sf-distinct" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0</div>
+                  </div>
+                  <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">UNITÉS</div>
+                    <div id="arm-sf-units" style="font-size:14px;font-weight:700;color:var(--orange);font-family:var(--mono);">0</div>
+                  </div>
+                  <div style="padding:8px 16px;">
+                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">VALEUR ACHAT</div>
+                    <div id="arm-sf-total" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0 aUEC</div>
+                  </div>
+                  <button onclick="goArmStockFull()" style="margin-left:auto;padding:0 18px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;">VOIR TOUT →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ══ BLUEPRINTS ══ -->
       <div class="panel" id="panel-blueprints" style="flex-direction:column;gap:0;">
@@ -2458,6 +2594,9 @@ document.addEventListener('click', function(e) {
     case 'miss-validate': validateMission(id); break;
     case 'miss-reject':   rejectMission(id); break;
     case 'miss-delete':   deleteMission(id); break;
+    case 'arm-select':    selectArmPlayer(id); break;
+    case 'arm-edit':      openAddArmItem(id); break;
+    case 'arm-del':       deleteArmItem(id, event?.target?.closest('[data-name]')?.dataset?.name||id); break;
   }
 });
 
@@ -2465,6 +2604,26 @@ var PANELS_PUBLIC = ['hub', 'inscription'];
 // Code d'accès Gestionnaire — modifiable par l'Admin
 // SHA-256 de "TELOS-CORP-2956" (changeable via les paramètres admin)
 var GESTIONNAIRE_CODE_KEY = 'telos-gestionnaire-code-hash';
+var CORPO_ACCESS_CODE_KEY  = 'telos-corpo-access-code-hash';
+
+async function getCorpoAccessHash() {
+  const saved = await DB.get(CORPO_ACCESS_CODE_KEY);
+  return saved || null; // null = pas de code défini → inscription libre
+}
+
+async function setCorpoAccessCode(plainCode) {
+  const h = await sha256(plainCode);
+  await DB.set(CORPO_ACCESS_CODE_KEY, h);
+  return h;
+}
+
+async function verifyCorpoAccessCode(input) {
+  const stored = await getCorpoAccessHash();
+  if (!stored) return false; // Aucun code défini en DB → inscription bloquée
+  if (!input || !input.trim()) return false;
+  const inputHash = await sha256(input.trim());
+  return inputHash === stored;
+}
 var _gestionnaireCodeHash = null;
 
 async function getGestionnaireHash() {
@@ -2741,12 +2900,148 @@ var _autoSaveTimer = null;
 /* ════ DATABASE — Supabase ════ */
 var SUPABASE_URL='https://ykdamleudeatahrxicgk.supabase.co';const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZGFtbGV1ZGVhdGFocnhpY2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDA4OTAsImV4cCI6MjA5NTgxNjg5MH0.G4XABQpw95k9AsZoW7eQVrQcAuLDfeK8nUGaWN8dEc8';let _sb=null;
 function getSB(){if(_sb)return _sb;try{const{createClient}=window.supabase;_sb=createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){}return _sb;}
-var DB={
-  async get(k){try{const sb=getSB();if(!sb)throw 0;const{data,error}=await sb.from('telos_store').select('value').eq('key',k).maybeSingle();if(!error&&data){try{localStorage.setItem('telos_'+k,JSON.stringify(data.value));}catch(e){}return data.value;}}catch(e){console.warn('[DB.get]',e?.message||e);}try{const v=localStorage.getItem('telos_'+k);if(v)return JSON.parse(v);}catch(e){}return null;},
-  async set(k,v){try{const _v=JSON.parse(JSON.stringify(v));const sb=getSB();if(!sb)throw 0;const{error}=await sb.from('telos_store').upsert({key:k,value:_v,updated_at:new Date().toISOString()},{onConflict:'key'});if(error)console.warn('[DB.set]',error.message);try{localStorage.setItem('telos_'+k,JSON.stringify(_v));}catch(e){}}catch(e){console.warn('[DB.set]',typeof e==='object'?String(e?.message||e):'err');}},
-  async del(k){try{const sb=getSB();if(sb)await sb.from('telos_store').delete().eq('key',k);}catch(e){}try{localStorage.removeItem('telos_'+k);}catch(e){}},
-  async keys(){try{const sb=getSB();if(sb){const{data}=await sb.from('telos_store').select('key');if(data)return data.map(r=>r.key);}}catch(e){}const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith('telos_'))keys.push(k.slice(6));}return keys;}
+// ══ SYSTÈME DE STOCKAGE — Supabase prioritaire, localStorage fallback ══════
+// Sérialise proprement pour éviter DataCloneError
+function _dbSerialize(v) {
+  try { return JSON.parse(JSON.stringify(v)); }
+  catch(e) { console.warn('[DB] Sérialisation échouée:', e?.message); return null; }
+}
+
+// Clé de marquage des entrées localStorage à synchroniser
+var _DB_OFFLINE_KEY = 'telos_offline_pending';
+
+function _dbMarkPending(k) {
+  try {
+    const pending = JSON.parse(localStorage.getItem(_DB_OFFLINE_KEY)||'[]');
+    if (!pending.includes(k)) { pending.push(k); localStorage.setItem(_DB_OFFLINE_KEY, JSON.stringify(pending)); }
+  } catch(e) {}
+}
+function _dbUnmarkPending(k) {
+  try {
+    const pending = JSON.parse(localStorage.getItem(_DB_OFFLINE_KEY)||'[]');
+    const filtered = pending.filter(x=>x!==k);
+    localStorage.setItem(_DB_OFFLINE_KEY, JSON.stringify(filtered));
+  } catch(e) {}
+}
+
+// Sync automatique : vide le localStorage → Supabase quand la connexion est rétablie
+async function syncLocalStorageToSupabase() {
+  const sb = getSB();
+  if (!sb) return;
+  let pending = [];
+  try { pending = JSON.parse(localStorage.getItem(_DB_OFFLINE_KEY)||'[]'); } catch(e) {}
+  if (!pending.length) return;
+  console.log('[DB] Sync offline → Supabase:', pending.length, 'entrées');
+  const synced = [];
+  for (const k of pending) {
+    try {
+      const raw = localStorage.getItem('telos_'+k);
+      if (!raw) { synced.push(k); continue; }
+      const v = JSON.parse(raw);
+      const _v = _dbSerialize(v);
+      if (_v === null) { synced.push(k); continue; }
+      const { error } = await sb.from('telos_store').upsert(
+        { key: k, value: _v, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+      if (!error) {
+        synced.push(k);
+        // Effacer le localStorage une fois synchronisé
+        try { localStorage.removeItem('telos_'+k); } catch(e) {}
+      }
+    } catch(e) { /* on réessaiera au prochain cycle */ }
+  }
+  // Retirer les clés synchronisées de la liste pending
+  try {
+    const stillPending = pending.filter(k => !synced.includes(k));
+    localStorage.setItem(_DB_OFFLINE_KEY, JSON.stringify(stillPending));
+    if (synced.length) console.log('[DB] Sync terminée:', synced.length, 'entrées uploadées, ', stillPending.length, 'restantes');
+  } catch(e) {}
+}
+
+var DB = {
+  // ── GET : Supabase d'abord, localStorage en fallback ──
+  async get(k) {
+    const sb = getSB();
+    if (sb) {
+      try {
+        const { data, error } = await sb.from('telos_store').select('value').eq('key', k).maybeSingle();
+        if (!error && data !== null && data !== undefined) {
+          return data.value;
+        }
+      } catch(e) { /* fallback localStorage */ }
+    }
+    // Fallback localStorage
+    try {
+      const raw = localStorage.getItem('telos_'+k);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return null;
+  },
+
+  // ── SET : Supabase d'abord, localStorage en fallback offline ──
+  async set(k, v) {
+    // Sérialiser proprement — évite DataCloneError
+    const _v = _dbSerialize(v);
+    if (_v === null) { console.warn('[DB.set] Données non sérialisables pour:', k); return; }
+    const sb = getSB();
+    if (sb) {
+      try {
+        const { error } = await sb.from('telos_store').upsert(
+          { key: k, value: _v, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+        if (!error) {
+          // Succès Supabase — pas besoin de localStorage
+          _dbUnmarkPending(k);
+          return;
+        }
+        console.warn('[DB.set] Erreur Supabase:', error.message);
+      } catch(e) { /* fallback */ }
+    }
+    // Offline — écrire en localStorage et marquer pour sync future
+    try {
+      localStorage.setItem('telos_'+k, JSON.stringify(_v));
+      _dbMarkPending(k);
+    } catch(e) { console.warn('[DB.set] localStorage aussi indisponible:', e?.message); }
+  },
+
+  // ── DEL : Supabase + localStorage ──
+  async del(k) {
+    const sb = getSB();
+    if (sb) { try { await sb.from('telos_store').delete().eq('key', k); } catch(e) {} }
+    try { localStorage.removeItem('telos_'+k); _dbUnmarkPending(k); } catch(e) {}
+  },
+
+  // ── KEYS : Supabase d'abord ──
+  async keys() {
+    const sb = getSB();
+    if (sb) {
+      try {
+        const { data } = await sb.from('telos_store').select('key');
+        if (data) return data.map(r => r.key);
+      } catch(e) {}
+    }
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith('telos_') && k !== _DB_OFFLINE_KEY) keys.push(k.slice(6));
+    }
+    return keys;
+  }
 };
+
+// Lancer la sync localStorage → Supabase dès que possible
+setTimeout(async () => {
+  try { await syncLocalStorageToSupabase(); } catch(e) {}
+}, 3000);
+// Re-essayer toutes les 2 minutes si des entrées sont en attente
+setInterval(async () => {
+  try {
+    const pending = JSON.parse(localStorage.getItem(_DB_OFFLINE_KEY)||'[]');
+    if (pending.length) await syncLocalStorageToSupabase();
+  } catch(e) {}
+}, 120000);
 
 /* Migration automatique localStorage → IndexedDB au premier lancement */
 
@@ -4644,7 +4939,8 @@ async function loadRessourceCatalogue() {
   if (stored && stored.length) {
     RESSOURCE_CATALOGUE = stored;
   } else {
-    await syncCatalogueFromStocks();
+    // Pas de catalogue stocké — on utilise syncFromUEXLocal comme fallback
+    syncFromUEXLocal();
   }
 }
 
@@ -6741,6 +7037,14 @@ function goPanel(id, el) {
     }
   }
   if (id==='banque') { loadBankData().then(() => renderBanque()); }
+  if (id==='armurerie') {
+    renderArmPartnerList();
+    // Auto-sélectionner le joueur connecté
+    if (SESSION) {
+      const me = players.find(p=>p.id===SESSION.pid);
+      if (me) setTimeout(()=>selectArmPlayer(me.id), 50);
+    }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -6772,12 +7076,26 @@ async function registerPlayer(){
   const uex  = document.getElementById('reg-uex').value.trim();
   const role = document.getElementById('reg-role').value;
   let ok=true;
-  ['err-name','err-rsi','err-code'].forEach(id=>{ document.getElementById(id).textContent=''; document.getElementById(id).classList.remove('show'); });
+  ['err-name','err-rsi','err-corpo-access','err-code','err-gestionnaire-code'].forEach(id=>{ const e=document.getElementById(id); if(e){e.textContent='';e.classList.remove('show');} });
   if (!name||name.length<2){ showErr('err-name','Le pseudo doit faire au moins 2 caractères.'); ok=false; }
   else if (players.find(p=>p.name.toLowerCase()===name.toLowerCase())){ showErr('err-name','Ce pseudo est déjà enregistré.'); ok=false; }
   if (!rsi||!rsi.startsWith('http')){ showErr('err-rsi','URL RSI invalide (doit commencer par https://).'); ok=false; }
+  // Validation code d'accès corpo — TOUJOURS obligatoire
+  const corpoAccess = document.getElementById('reg-corpo-access').value.trim();
+  if (!corpoAccess) {
+    showErr('err-corpo-access', '⚠ Le code d\'accès corpo est obligatoire.');
+    ok = false;
+  } else if (!(await verifyCorpoAccessCode(corpoAccess))) {
+    const stored = await getCorpoAccessHash();
+    if (!stored) {
+      showErr('err-corpo-access', '⚠ Aucun code corpo configuré — contactez l\'Admin.');
+    } else {
+      showErr('err-corpo-access', '⚠ Code d\'accès corpo incorrect.');
+    }
+    ok = false;
+  }
   const regCode = document.getElementById('reg-code').value.trim();
-  if (!regCode || regCode.length < 4) { showErr('err-code', 'Le code corpo doit faire au moins 4 caractères.'); ok=false; }
+  if (!regCode || regCode.length < 4) { showErr('err-code', 'Le code personnel doit faire au moins 4 caractères.'); ok=false; }
   // Validation code gestionnaire
   if (role === 'Gestionnaire') {
     const gCode = document.getElementById('reg-gestionnaire-code').value.trim();
@@ -6791,9 +7109,13 @@ async function registerPlayer(){
   if (!ok) return;
   const codeHash = await sha256(regCode);
   const isFounder = players.length === 0;
-  const p={ id:'p_'+Date.now(), name, rsi, uex:uex||null, role, codeHash, isAdmin:isFounder, joinedAt:new Date().toISOString() };
+  const pid = 'p_'+Date.now();
+  const p={ id:pid, name, rsi, uex:uex||null, role, codeHash, isAdmin:isFounder, joinedAt:new Date().toISOString() };
   players.push(p);
   await DB.set('uex-players', players);
+  // Sauvegarder le code personnel en DB (accès admin uniquement — récupération possible)
+  // Stocké séparément pour ne pas exposer le code brut dans la liste des joueurs
+  await DB.set('telos-player-code-'+pid, { code: regCode, name, savedAt: new Date().toISOString() });
   ['reg-name','reg-rsi','reg-uex'].forEach(id=>document.getElementById(id).value='');
   renderPlayerList();
   updateBadges();
@@ -8107,6 +8429,14 @@ function openSettings() {
   });
   const s=document.getElementById('settings-admin-section');
   if(s) s.style.display=SESSION?.isAdmin?'':'none';
+  // Peupler le select récupération de code
+  const recoverSel = document.getElementById('admin-recover-player');
+  if (recoverSel && SESSION?.isAdmin) {
+    recoverSel.innerHTML = '<option value="">— Sélectionner un joueur —</option>'
+      + players.map(p=>'<option value="'+p.id+'">'+esc(p.name)+(p.isAdmin?' [ADMIN]':'')+'</option>').join('');
+  }
+  const recoverRes = document.getElementById('admin-recover-result');
+  if (recoverRes) recoverRes.style.display = 'none';
   // Onglet rôles visible seulement admin
   const stabRoles=document.getElementById('stab-roles');
   if(stabRoles) stabRoles.style.display=SESSION?.isAdmin?'':'none';
@@ -8271,6 +8601,314 @@ async function resetRolesConfig() {
   toast('Réinitialisé', 'Rôles et droits remis par défaut.', 'info');
 }
 function closeSettings(){document.getElementById('settings-overlay').classList.remove('open');}
+async function adminRecoverCode() {
+  const pid = document.getElementById('admin-recover-player')?.value;
+  const result = document.getElementById('admin-recover-result');
+  if (!result) return;
+  if (!pid) { result.style.display='block'; result.style.color='var(--red)'; result.textContent='Sélectionnez un joueur.'; return; }
+  try {
+    const data = await DB.get('telos-player-code-'+pid);
+    if (data?.code) {
+      result.style.display='block'; result.style.color='var(--green)';
+      const p = players.find(x=>x.id===pid);
+      result.innerHTML = '🔑 Code de <b>'+esc(p?.name||pid)+'</b> : <span style="color:var(--orange);font-weight:700;font-size:13px;">'+esc(data.code)+'</span><br><span style="font-size:9px;color:var(--text-dim);">Enregistré le '+new Date(data.savedAt).toLocaleString('fr-FR')+'</span>';
+    } else {
+      result.style.display='block'; result.style.color='var(--text-dim)';
+      result.textContent='Aucun code sauvegardé pour ce joueur.';
+    }
+  } catch(e) {
+    result.style.display='block'; result.style.color='var(--red)'; result.textContent='Erreur.';
+  }
+}
+
+async function saveCorpoAccessCode() {
+  const n  = document.getElementById('new-corpo-code')?.value.trim();
+  const n2 = document.getElementById('confirm-corpo-code')?.value.trim();
+  const msg = document.getElementById('corpo-code-msg');
+  if (!msg) return;
+  if (n !== n2) { msg.style.color='var(--red)'; msg.textContent='⚠ Les codes ne correspondent pas.'; return; }
+  if (n && n.length < 4) { msg.style.color='var(--red)'; msg.textContent='⚠ Code trop court (min. 4 caractères).'; return; }
+  if (n) {
+    await setCorpoAccessCode(n);
+    msg.style.color='var(--green)'; msg.textContent='✓ Code corpo enregistré.';
+  } else {
+    await DB.set(CORPO_ACCESS_CODE_KEY, null);
+    msg.style.color='var(--text-dim)'; msg.textContent='Code supprimé — inscription libre.';
+  }
+  document.getElementById('new-corpo-code').value='';
+  document.getElementById('confirm-corpo-code').value='';
+  setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   ARMURERIE TELOS — Équipements & Armes
+════════════════════════════════════════════════════════════════════ */
+var _armSelectedPid = null;
+var _armCatFilter   = 'all';
+
+var ARM_CAT_LABELS = {
+  arme_fps:           '🔫 Arme FPS',
+  armure:             '🛡 Armure',
+  composant_vaisseau: '🔧 Composant',
+  arme_vaisseau:      '🚀 Arme Vaisseau',
+};
+var ARM_CAT_COLORS = {
+  arme_fps:           '#f87171',
+  armure:             '#60a5fa',
+  composant_vaisseau: '#f79028',
+  arme_vaisseau:      '#a78bfa',
+};
+
+function goToArmurerie(el) {
+  if (!SESSION) { openLoginModal(null, () => goToArmurerie(el)); return; }
+  goPanel('armurerie', el);
+}
+
+// Rendre la liste des partenaires dans la sidebar armurerie
+async function renderArmPartnerList(filter='') {
+  const list = document.getElementById('arm-list');
+  if (!list) return;
+  const filtered = filter ? players.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())) : players;
+  if (!filtered.length) { list.innerHTML='<div class="pl-empty-msg">Aucun partenaire.</div>'; return; }
+  const items = await Promise.all(filtered.map(async p => {
+    const items = (await DB.get('uex-armory-'+p.id)) || [];
+    const active = _armSelectedPid === p.id ? 'sel' : '';
+    return `<div class="pl-item ${active}" data-action="arm-select" data-id="${p.id}">
+      <div class="pl-avatar" style="overflow:hidden;">${avHtml(p,32)}</div>
+      <div class="pl-info">
+        <div class="pl-name">${esc(p.name)}</div>
+        <div class="pl-meta">${p.role}</div>
+      </div>
+      <span class="pl-badge ${items.length?'pb-stock':'pb-empty'}">${items.length||'vide'}</span>
+    </div>`;
+  }));
+  list.innerHTML = items.join('');
+}
+
+function filterArmPartners(v) { renderArmPartnerList(v); }
+
+async function selectArmPlayer(pid) {
+  _armSelectedPid = pid;
+  const p = players.find(x=>x.id===pid);
+  if (!p) return;
+  // Mettre à jour l'en-tête
+  const nameEl = document.getElementById('arm-partner-name');
+  if (nameEl) nameEl.textContent = p.name;
+  // Profil compact
+  const head = document.getElementById('arm-profile-head');
+  if (head) head.innerHTML = `${avHtml(p,36)}<div><div style="font-size:13px;font-weight:700;color:var(--text-bright);">${esc(p.name)}</div><div style="font-size:10px;color:var(--text-dim);">${p.role}</div></div>`;
+  // Afficher le panel actif
+  document.getElementById('arm-placeholder').style.display = 'none';
+  const active = document.getElementById('arm-active');
+  active.style.display = 'flex';
+  // Bouton retirer visible si c'est soi ou admin
+  const rmBtn = document.getElementById('arm-remove-btn');
+  if (rmBtn) rmBtn.style.display = (SESSION?.pid===pid||SESSION?.isAdmin) ? '' : 'none';
+  await renderArmTable();
+  renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+}
+
+async function renderArmTable() {
+  const tbody = document.getElementById('arm-tbody');
+  const empty = document.getElementById('arm-empty');
+  if (!tbody || !_armSelectedPid) return;
+  let items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  // Filtres
+  const catF  = document.getElementById('arm-cat-filter')?.value||'all';
+  const qualF = document.getElementById('arm-quality-filter')?.value;
+  const search= (document.getElementById('arm-item-search')?.value||'').toLowerCase();
+  if (catF  !== 'all') items = items.filter(i=>i.cat===catF);
+  if (qualF !== undefined && document.getElementById('arm-quality-filter')?.value !== 'all') {
+    items = items.filter(i=>(i.quality||'')===(qualF||''));
+  }
+  if (search) items = items.filter(i=>(i.name||'').toLowerCase().includes(search)||(i.note||'').toLowerCase().includes(search));
+  // Consolider par nom+cat
+  const groups = {};
+  items.forEach(s => {
+    const key = (s.name||'').toLowerCase()+'|'+(s.cat||'');
+    if (!groups[key]) groups[key] = { name:s.name, cat:s.cat, quality:s.quality||'', qty:0,
+      buyVal:0, sellVal:0, price:0, sellprice:0, loc:s.loc||'', ids:[], addedAt:s.addedAt };
+    const g = groups[key];
+    g.qty     += s.qty||0;
+    g.buyVal  += (s.price||0)*(s.qty||0);
+    g.sellVal += (s.sellprice||0)*(s.qty||0);
+    if (g.qty>0) { g.price=g.buyVal/g.qty; g.sellprice=g.sellVal/g.qty; }
+    if (s.loc && !g.loc.includes(s.loc)) g.loc = g.loc?g.loc+', '+s.loc:s.loc;
+    g.ids.push(s.id);
+    if (!g.addedAt||s.addedAt>g.addedAt) g.addedAt=s.addedAt;
+  });
+  const rows = Object.values(groups).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+  if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; updateArmFooter([]); return; }
+  empty.style.display='none';
+  const qMeta = (q)=>QUALITY_META[q]||{label:q,color:'var(--text-dim)'};
+  tbody.innerHTML = rows.map(g => {
+    const margin = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
+    const profit = g.sellprice>0?g.sellVal-g.buyVal:null;
+    const col = ARM_CAT_COLORS[g.cat]||'var(--text-dim)';
+    const qm = qMeta(g.quality);
+    return `<tr>
+      <td class="td-name">◈ ${esc(g.name)}${g.ids.length>1?'<div style="font-size:9px;color:var(--text-dim);">'+g.ids.length+' entrées</div>':''}</td>
+      <td><span class="arm-cat-badge" style="color:${col};border-color:${col};">${ARM_CAT_LABELS[g.cat]||g.cat}</span></td>
+      <td>${g.quality?'<span style="color:'+qm.color+';font-size:10px;">'+qm.label+'</span>':'<span style="color:var(--text-dim);font-size:10px;">—</span>'}</td>
+      <td style="text-align:center;font-weight:700;color:var(--text-bright);">${g.qty}</td>
+      <td class="td-dim">${g.price?g.price.toFixed(0)+' aUEC':'—'}</td>
+      <td style="color:var(--blue);">${g.sellprice?g.sellprice.toFixed(0)+' aUEC':'—'}</td>
+      <td class="${margin!==null?(parseFloat(margin)>=0?'td-green':'td-red'):''}">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</td>
+      <td class="td-dim">${g.buyVal?Math.round(g.buyVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-green">${g.sellVal?Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-dim" style="font-size:10px;"><span title="${esc(g.loc)}">📍 ${esc((g.loc||'—').slice(0,20))}</span></td>
+      <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn sm" data-action="arm-edit" data-id="${g.ids[0]}" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
+        <button class="btn danger sm" data-action="arm-del" data-id="${g.ids[0]}" data-name="${esc(g.name)}" title="Supprimer">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+  updateArmFooter(rows);
+  // Badge nav
+  const badge = document.getElementById('badge-armurerie');
+  const allItems = (await DB.get('uex-armory-'+_armSelectedPid))||[];
+  if (badge) { badge.textContent=allItems.length; badge.style.display=allItems.length?'':'none'; }
+}
+
+function updateArmFooter(rows) {
+  document.getElementById('arm-sf-distinct').textContent = rows.length;
+  document.getElementById('arm-sf-units').textContent    = rows.reduce((s,r)=>s+r.qty,0).toLocaleString('fr-FR');
+  document.getElementById('arm-sf-total').textContent    = Math.round(rows.reduce((s,r)=>s+r.buyVal,0)).toLocaleString('fr-FR')+' aUEC';
+}
+
+function goArmStockFull() {
+  document.getElementById('arm-cat-filter').value='all';
+  document.getElementById('arm-quality-filter').value='all';
+  document.getElementById('arm-item-search').value='';
+  renderArmTable();
+}
+
+// ── Modal ajout item armurerie ──
+var _armEditId = null;
+var _armPsModalOpen = false;
+
+function openAddArmItem(editId) {
+  _armEditId = editId || null;
+  const item = editId ? (async()=>{ const items=(await DB.get('uex-armory-'+_armSelectedPid))||[]; return items.find(x=>x.id===editId); })() : Promise.resolve(null);
+  // Ouvrir le modal PS mais adapté armurerie
+  openArmModal(editId);
+}
+
+async function openArmModal(editId) {
+  _armEditId = editId || null;
+  const items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  const item = editId ? items.find(x=>x.id===editId) : null;
+  let overlay = document.getElementById('arm-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'arm-modal-overlay';
+    overlay.className = 'overlay';
+    overlay.innerHTML = `<div class="modal" style="max-width:480px;" onclick="event.stopPropagation()">
+      <div class="modal-head"><span class="modal-title" id="arm-modal-title">⚔ AJOUTER UN ITEM</span><button class="modal-close" onclick="closeArmModal()">✕</button></div>
+      <div class="modal-body" style="gap:12px;">
+        <div class="form-field"><label class="form-lbl">Désignation <span class="req">*</span></label>
+          <input class="form-input" type="text" id="arm-name" placeholder="ex: Custaniah Light Helmet" maxlength="100"></div>
+        <div class="grid2">
+          <div class="form-field"><label class="form-lbl">Catégorie <span class="req">*</span></label>
+            <select class="form-input" id="arm-cat" style="height:auto;padding:9px 11px;">
+              <option value="arme_fps">🔫 Arme FPS</option>
+              <option value="armure">🛡 Armure</option>
+              <option value="composant_vaisseau">🔧 Composant Vaisseau</option>
+              <option value="arme_vaisseau">🚀 Arme Vaisseau</option>
+            </select></div>
+          <div class="form-field"><label class="form-lbl">Qualité</label>
+            <select class="form-input" id="arm-quality" style="height:auto;padding:9px 11px;">
+              <option value="">— Sans qualité —</option>
+              <option value="mediocre">Médiocre (&lt;500)</option>
+              <option value="basique">Basique (500-600)</option>
+              <option value="acceptable">Acceptable (600-700)</option>
+              <option value="honnete">Honnête (700-800)</option>
+              <option value="moyenne">Moyenne (800-900)</option>
+              <option value="haute">Haute (900-1000)</option>
+            </select></div>
+          <div class="form-field"><label class="form-lbl">Quantité <span class="req">*</span></label>
+            <input class="form-input" type="number" id="arm-qty" min="1" step="1" value="1"></div>
+          <div class="form-field"><label class="form-lbl">Prix achat (aUEC)</label>
+            <input class="form-input" type="number" id="arm-price" min="0" placeholder="0"></div>
+          <div class="form-field"><label class="form-lbl">Prix vente (aUEC)</label>
+            <input class="form-input" type="number" id="arm-sellprice" min="0" placeholder="0"></div>
+          <div class="form-field"><label class="form-lbl">Localisation</label>
+            <input class="form-input" type="text" id="arm-loc" placeholder="ex: Area18" maxlength="60"></div>
+        </div>
+        <div class="form-field"><label class="form-lbl">Notes</label>
+          <input class="form-input" type="text" id="arm-note" placeholder="Grade, état, variante..." maxlength="120"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeArmModal()">Annuler</button>
+        <button class="btn success" onclick="saveArmItem()" style="letter-spacing:1px;">⚔ ENREGISTRER</button>
+      </div>
+    </div>`;
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) closeArmModal(); });
+    document.body.appendChild(overlay);
+  }
+  document.getElementById('arm-modal-title').textContent = editId ? "✏ MODIFIER L'ITEM" : '⚔ AJOUTER UN ITEM';
+  // Remplir si édition
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+  set('arm-name',      item?.name||'');
+  set('arm-cat',       item?.cat||'arme_fps');
+  set('arm-quality',   item?.quality||'');
+  set('arm-qty',       item?.qty||1);
+  set('arm-price',     item?.price||'');
+  set('arm-sellprice', item?.sellprice||'');
+  set('arm-loc',       item?.loc||'');
+  set('arm-note',      item?.note||'');
+  overlay.classList.add('open');
+  setTimeout(()=>document.getElementById('arm-name')?.focus(), 80);
+}
+
+function closeArmModal() {
+  const o = document.getElementById('arm-modal-overlay');
+  if (o) o.classList.remove('open');
+  _armEditId = null;
+}
+
+async function saveArmItem() {
+  if (!SESSION || !_armSelectedPid) return;
+  const name = document.getElementById('arm-name')?.value.trim();
+  if (!name) { toast('Nom requis','','error'); return; }
+  const items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  const entry = {
+    id:        _armEditId || ('arm_'+Date.now()),
+    name,
+    cat:       document.getElementById('arm-cat')?.value       || 'arme_fps',
+    quality:   document.getElementById('arm-quality')?.value   || '',
+    qty:       parseFloat(document.getElementById('arm-qty')?.value)||1,
+    price:     parseFloat(document.getElementById('arm-price')?.value)||0,
+    sellprice: parseFloat(document.getElementById('arm-sellprice')?.value)||0,
+    loc:       document.getElementById('arm-loc')?.value.trim()||'',
+    note:      document.getElementById('arm-note')?.value.trim()||'',
+    addedAt:   _armEditId ? (items.find(x=>x.id===_armEditId)?.addedAt||new Date().toISOString()) : new Date().toISOString(),
+  };
+  if (_armEditId) {
+    const idx = items.findIndex(x=>x.id===_armEditId);
+    if (idx>=0) items[idx]=entry; else items.push(entry);
+  } else {
+    items.push(entry);
+  }
+  await DB.set('uex-armory-'+_armSelectedPid, items);
+  closeArmModal();
+  await renderArmTable();
+  renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+  toast(_armEditId?'Item modifié':'Item ajouté', name, 'success');
+}
+
+async function deleteArmItem(id, name) {
+  if (!_armSelectedPid || !confirm('Supprimer "'+name+'" de l\'armurerie ?')) return;
+  let items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  items = items.filter(x=>x.id!==id);
+  await DB.set('uex-armory-'+_armSelectedPid, items);
+  await renderArmTable();
+  renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+  toast('Item supprimé', name, 'info');
+}
+
 async function saveGestCode(){if(!SESSION?.isAdmin)return;const c1=document.getElementById('new-gest-code')?.value.trim(),c2=document.getElementById('confirm-gest-code')?.value.trim(),msg=document.getElementById('gest-code-msg');if(!c1){if(msg){msg.textContent='Requis';msg.style.color='var(--red)';}return;}if(c1!==c2){if(msg){msg.textContent='Différents';msg.style.color='var(--red)';}return;}await DB.set('telos-gestionnaire-code-hash',await sha256(c1));if(msg){msg.textContent='✓';msg.style.color='var(--green)';}toast('Code','Mis à jour','success');}
 async function toggleBpOwner(bpId, checked) {
   if (!SESSION) { toast('Connexion requise','','error'); return; }
@@ -9096,12 +9734,42 @@ async function saveBankTransaction() {
         <span id="migrate-status" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);"></span>
       </div>
     </div>
-    <div id="settings-admin-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--red);">
-      <div style="font-size:9px;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;margin-bottom:8px;">⬡ ADMIN</div>
-      <div class="form-field"><label class="form-lbl">Nouveau code</label><input class="form-input" type="password" id="new-gest-code" maxlength="40"></div>
-      <div class="form-field"><label class="form-lbl">Confirmer</label><input class="form-input" type="password" id="confirm-gest-code" maxlength="40"></div>
-      <button onclick="saveGestCode()" style="margin-top:6px;padding:5px 14px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;">⬡ ENREGISTRER</button>
-      <span id="gest-code-msg" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span>
+    <div id="settings-admin-section" style="display:none;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--red);">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;margin-bottom:12px;">⬡ CODES D'ACCÈS ADMIN</div>
+
+      <!-- Code d'accès Corpo (inscription) -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="font-size:10px;color:var(--orange);letter-spacing:1px;margin-bottom:8px;">🔒 Code d'accès Corpo <span style="color:var(--text-dim);font-size:9px;">— requis pour s'inscrire</span></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input class="form-input" type="password" id="new-corpo-code" placeholder="Nouveau code corpo" maxlength="64" style="flex:1;min-width:140px;">
+          <input class="form-input" type="password" id="confirm-corpo-code" placeholder="Confirmer" maxlength="64" style="flex:1;min-width:140px;">
+          <button onclick="saveCorpoAccessCode()" style="padding:5px 14px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;">ENREGISTRER</button>
+        </div>
+        <div id="corpo-code-msg" style="font-size:10px;margin-top:5px;font-family:var(--mono);"></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Code obligatoire pour toute inscription. Modifier le code ne bloque pas les comptes existants.</div>
+      </div>
+
+      <!-- Code Gestionnaire -->
+      <div>
+        <div style="font-size:10px;color:var(--red);letter-spacing:1px;margin-bottom:8px;">⬡ Code Gestionnaire <span style="color:var(--text-dim);font-size:9px;">— requis pour s'inscrire en tant que Gestionnaire</span></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input class="form-input" type="password" id="new-gest-code" placeholder="Nouveau code gestionnaire" maxlength="40" style="flex:1;min-width:140px;">
+          <input class="form-input" type="password" id="confirm-gest-code" placeholder="Confirmer" maxlength="40" style="flex:1;min-width:140px;">
+          <button onclick="saveGestCode()" style="padding:5px 14px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;">ENREGISTRER</button>
+        </div>
+        <span id="gest-code-msg" style="font-size:10px;margin-top:5px;font-family:var(--mono);display:block;"></span>
+      </div>
+      <!-- Récupération de code joueur -->
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:10px;color:#60a5fa;letter-spacing:1px;margin-bottom:8px;">🔑 Récupérer le code d'un joueur</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select class="form-input" id="admin-recover-player" style="flex:1;height:auto;padding:7px 10px;font-size:11px;">
+            <option value="">— Sélectionner un joueur —</option>
+          </select>
+          <button onclick="adminRecoverCode()" style="padding:5px 14px;border:1px solid #60a5fa;color:#60a5fa;background:transparent;cursor:pointer;font-family:var(--ui);font-size:10px;letter-spacing:1px;">RÉCUPÉRER</button>
+        </div>
+        <div id="admin-recover-result" style="margin-top:8px;font-size:11px;font-family:var(--mono);padding:6px 10px;background:var(--bg);border:1px solid var(--border);display:none;word-break:break-all;"></div>
+      </div>
     </div>
   </div>
 
