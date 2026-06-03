@@ -1331,7 +1331,7 @@ function showLoginWall(){} // stub
 	
     <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
       <div class="n-icon">📦</div>
-      <div><div class="n-main">STOCK</div><div class="n-sub">Par partenaire</div></div>
+      <div><div class="n-main">RESSOURCE</div><div class="n-sub">Par partenaire</div></div>
     </div>
     <div class="nav-item" onclick="goToArmurerie(this)" id="nav-armurerie">
       <div class="n-icon">⚔</div>
@@ -1374,7 +1374,12 @@ function showLoginWall(){} // stub
 	
 	<div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
       <div class="n-icon">◈</div>
-      <div><div class="n-main">RESSOURCES</div><div class="n-sub">Catalogue Corp</div></div>
+      <div><div class="n-main">DATA RESSOURCE</div><div class="n-sub">Catalogue Corp</div></div>
+    </div>
+
+    <div class="nav-item" id="nav-armurie" onclick="goPanel('armurie',this)" style="display:none;">
+      <div class="n-icon">⚔</div>
+      <div><div class="n-main">DATA ARMURIE</div><div class="n-sub">Catalogue Armement</div></div>
     </div>
 	
     <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
@@ -1936,6 +1941,44 @@ function showLoginWall(){} // stub
         </div>
       </div>
 
+
+      <!-- ══ ARMURIE ══ -->
+      <div class="panel" id="panel-armurie" style="flex-direction:column;gap:0;">
+        <!-- Header -->
+        <div class="sec-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;">
+          <span class="sec-title"><span class="acc">⚔</span> Catalogue Armement — Réseau TELOS</span>
+        </div>
+        <!-- Filtres -->
+        <div class="toolbar" style="flex-shrink:0;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);">
+          <div class="search-box" style="max-width:260px;flex:1;">
+            <span class="search-ico">⌕</span>
+            <input type="text" id="arm-search" placeholder="Rechercher une arme..." oninput="renderArmurie()">
+          </div>
+          <button class="filter-btn active" onclick="setArmFilter('all',this)">Toutes</button>
+          <button class="filter-btn" onclick="setArmFilter('fps',this)">🔫 FPS</button>
+          <button class="filter-btn" onclick="setArmFilter('vaisseau',this)">🚀 Vaisseau</button>
+          <button class="filter-btn" onclick="setArmFilter('melee',this)">🗡 Mêlée</button>
+          <button class="filter-btn" onclick="setArmFilter('accessoire',this)">🛡 Accessoire</button>
+          <span id="arm-count" style="margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--mono);"></span>
+          <button onclick="addArmurieItem()" style="padding:3px 12px;border:1px solid rgba(247,140,30,0.5);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;white-space:nowrap;">+ AJOUTER</button>
+        </div>
+        <!-- Table -->
+        <div style="flex:1;overflow-y:auto;padding:0 16px 16px;">
+          <table class="data-table" style="width:100%;margin-top:18px;">
+            <thead><tr>
+              <th>Arme / Équipement</th>
+              <th>Catégorie</th>
+              <th>Type</th>
+              <th>Achat min</th>
+              <th>Vente max</th>
+              <th>Notes</th>
+            </tr></thead>
+            <tbody id="arm-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune entrée — cliquez sur + AJOUTER</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- ══ OBJECTIFS ══ -->
       <div class="panel" id="panel-objectifs" style="flex-direction:column;gap:0;">
@@ -2654,6 +2697,9 @@ function canManageRoles() {
 function updateNavRessources() {
   const el = document.getElementById('nav-ressources');
   if (el) el.style.display = canManageRoles() ? '' : 'none';
+  // Armurie visible pour gestionnaires/admins uniquement
+  const elArm = document.getElementById('nav-armurie');
+  if (elArm) elArm.style.display = canManageRoles() ? '' : 'none';
   // Banque visible pour gestionnaires/admins uniquement
   const elB = document.getElementById('nav-banque');
   if (elB) elB.style.display = canManageRoles() ? '' : 'none';
@@ -5016,12 +5062,66 @@ function goToRessources(el) {
   goPanel('ressources', el);
 }
 
-
-
-
 /* ════════════════════════════════════════════════════════════
-   OBJECTIFS — Système de suivi par onglet
+   DATA ARMURIE — Catalogue Armement
 ════════════════════════════════════════════════════════════ */
+var ARMURIE_CATALOGUE = [];
+var _armFilter = 'all';
+
+async function loadArmurieCatalogue() {
+  const stored = await DB.get('telos-armurie-catalogue');
+  if (stored) ARMURIE_CATALOGUE = stored;
+}
+
+function setArmFilter(cat, btn) {
+  _armFilter = cat;
+  document.querySelectorAll('#panel-armurie .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderArmurie();
+}
+
+function renderArmurie() {
+  const tbody = document.getElementById('arm-tbody');
+  if (!tbody) return;
+  const q = (document.getElementById('arm-search')?.value || '').toLowerCase();
+  let data = [...ARMURIE_CATALOGUE];
+  if (_armFilter !== 'all') data = data.filter(i => i.cat === _armFilter);
+  if (q) data = data.filter(i => i.name.toLowerCase().includes(q));
+  const countEl = document.getElementById('arm-count');
+  if (countEl) countEl.textContent = data.length + ' entrée' + (data.length > 1 ? 's' : '');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);">Aucune entrée — cliquez sur + AJOUTER</td></tr>';
+    return;
+  }
+  const catLabel = { fps:'🔫 FPS', vaisseau:'🚀 Vaisseau', melee:'🗡 Mêlée', accessoire:'🛡 Accessoire', autre:'○ Autre' };
+  tbody.innerHTML = data.map((item, idx) => `
+    <tr>
+      <td style="font-weight:600;color:var(--text-bright);">${esc(item.name)}</td>
+      <td>${catLabel[item.cat] || item.cat}</td>
+      <td style="color:var(--text-dim);font-size:11px;">${esc(item.type||'—')}</td>
+      <td style="font-family:var(--mono);color:var(--green);">${item.buyRef ? Number(item.buyRef).toLocaleString('fr-FR') + ' aUEC' : '—'}</td>
+      <td style="font-family:var(--mono);color:var(--orange);">${item.sellRef ? Number(item.sellRef).toLocaleString('fr-FR') + ' aUEC' : '—'}</td>
+      <td style="font-size:11px;color:var(--text-dim);">${esc(item.notes||'—')}</td>
+    </tr>`).join('');
+}
+
+function addArmurieItem() {
+  if (!canManageRoles()) { toast('Accès refusé', 'Réservé aux Admins et Gestionnaires.', 'error'); return; }
+  const name = prompt('Nom de l\'arme / équipement :');
+  if (!name || !name.trim()) return;
+  const cats = ['fps','vaisseau','melee','accessoire','autre'];
+  const catChoice = prompt('Catégorie :\n0 = FPS\n1 = Vaisseau\n2 = Mêlée\n3 = Accessoire\n4 = Autre\n\nEntrez le numéro :', '0');
+  const cat = cats[parseInt(catChoice)] || 'autre';
+  const buyRef = parseInt(prompt('Prix d\'achat min (aUEC, 0 si inconnu) :', '0')) || 0;
+  const sellRef = parseInt(prompt('Prix de vente max (aUEC, 0 si inconnu) :', '0')) || 0;
+  const notes = prompt('Notes (optionnel) :', '') || '';
+  ARMURIE_CATALOGUE.push({ name: name.trim(), cat, type: '', buyRef, sellRef, notes });
+  DB.set('telos-armurie-catalogue', ARMURIE_CATALOGUE);
+  renderArmurie();
+  toast('Entrée ajoutée', name.trim() + ' enregistré dans le catalogue armurie.', 'success');
+}
+
+
 var OBJECTIFS = [];
 var _objTab = 'tous';
 var _editObjId = null;
@@ -7027,6 +7127,7 @@ function goPanel(id, el) {
   if (id==='partners') { renderPartners(); }
   if (id==='missions') { renderMissions(); }
   if (id==='ressources') { renderRessources().catch(e=>console.warn(e)); if(canManageRoles()) autoSyncUEX(); }
+  if (id==='armurie') { renderArmurie(); }
   if (id==='objectifs') { renderObjectifs(); }
   if (id==='commandes') { renderCommandes(); }
   if (id==='blueprints') {
@@ -8429,6 +8530,11 @@ function openSettings() {
   });
   const s=document.getElementById('settings-admin-section');
   if(s) s.style.display=SESSION?.isAdmin?'':'none';
+  // Sections Supabase et Migration visibles uniquement pour l'admin
+  const sSupa=document.getElementById('settings-supabase-section');
+  if(sSupa) sSupa.style.display=SESSION?.isAdmin?'':'none';
+  const sMig=document.getElementById('settings-migration-section');
+  if(sMig) sMig.style.display=SESSION?.isAdmin?'':'none';
   // Peupler le select récupération de code
   const recoverSel = document.getElementById('admin-recover-player');
   if (recoverSel && SESSION?.isAdmin) {
@@ -8987,6 +9093,7 @@ async function init(){
   renderCommerce();
   await loadMissions();
   await loadRessourceCatalogue();
+  await loadArmurieCatalogue();
   await loadObjectifs();
   await loadCommandes();
   await loadBlueprints();
@@ -9720,14 +9827,14 @@ async function saveBankTransaction() {
 
   <!-- Onglet GÉNÉRAL -->
   <div id="stab-panel-general" class="modal-body" style="gap:14px;max-height:70vh;overflow-y:auto;">
-    <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
+    <div id="settings-supabase-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid #60a5fa;">
       <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:5px;">◈ Supabase</div>
       <div style="font-size:11px;color:var(--text-dim);">ykdamleudeatahrxicgk.supabase.co</div>
       <div id="supa-status" style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">Vérification...</div>
       <button onclick="testSupabaseWrite()" style="margin-top:6px;padding:4px 12px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;font-family:var(--ui);font-size:10px;cursor:pointer;">🔬 TESTER</button>
       <span id="supa-write-status" style="font-size:10px;margin-left:8px;font-family:var(--mono);"></span>
     </div>
-    <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);">
+    <div id="settings-migration-section" style="display:none;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);">
       <div style="font-size:9px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;margin-bottom:6px;">📤 Migration → Supabase</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <button id="btn-migrate" onclick="migrateLocalStorageToSupabase()" style="padding:6px 16px;border:1px solid var(--orange);background:rgba(247,140,30,0.08);color:var(--orange);font-family:var(--ui);font-size:11px;cursor:pointer;">📤 MIGRER</button>
