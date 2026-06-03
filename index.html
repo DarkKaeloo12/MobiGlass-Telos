@@ -2236,12 +2236,27 @@ function showLoginWall(){} // stub
     </div>
     <div class="modal-body">
 
+      <!-- Filtres catégorie EN HAUT — filtrent le dropdown -->
+      <div class="form-field" style="margin-bottom:6px;">
+        <label class="form-lbl" style="margin-bottom:6px;">Catégorie <span class="req">*</span></label>
+        <div id="ps-cat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+          <button type="button" class="cat-sel-btn active" data-cat="mineral"     onclick="selectCat(this)">⛏ Minéraux</button>
+          <button type="button" class="cat-sel-btn"        data-cat="salvage"     onclick="selectCat(this)">🔧 Salvage</button>
+          <button type="button" class="cat-sel-btn"        data-cat="resources"   onclick="selectCat(this)">📦 Ressources</button>
+          <button type="button" class="cat-sel-btn"        data-cat="equipment"   onclick="selectCat(this)">🛡 Équipements</button>
+          <button type="button" class="cat-sel-btn"        data-cat="weapons"     onclick="selectCat(this)">🔫 Armement</button>
+          <button type="button" class="cat-sel-btn"        data-cat="accessories" onclick="selectCat(this)">🔩 Accessoires</button>
+          <button type="button" class="cat-sel-btn"        data-cat="other"       onclick="selectCat(this)" style="grid-column:span 2;">○ Autre</button>
+        </div>
+        <input type="hidden" id="ps-cat" value="mineral">
+      </div>
+
       <!-- Nom ressource -->
       <div class="form-field">
         <label class="form-lbl">Ressource <span class="req">*</span></label>
-        <!-- Sélecteur depuis le catalogue Corp -->
+        <!-- Sélecteur depuis le catalogue Corp (filtré par catégorie) -->
         <select class="form-input" id="ps-res-select" style="height:auto;padding:9px 11px;margin-bottom:6px;" onchange="onResSelectChange(this)">
-          <option value="">— Sélectionner dans le catalogue Corp —</option>
+          <option value="">— Catalogue Corp TELOS —</option>
         </select>
         <!-- Ou saisie manuelle -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -2252,21 +2267,6 @@ function showLoginWall(){} // stub
         <input class="form-input" type="text" id="ps-res" placeholder="ex: Quantanium, Pisces, Rifle..." list="ps-datalist" autocomplete="off"
           oninput="onResInputChange(this.value)">
         <div id="ps-uex-hint" style="display:none;margin-top:4px;padding:4px 8px;font-size:10px;font-family:var(--mono);border-left:2px solid;"></div>
-      </div>
-
-      <!-- Catégorie -->
-      <div class="form-field">
-        <label class="form-lbl">Catégorie <span class="req">*</span></label>
-        <div id="ps-cat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:2px;">
-          <button type="button" class="cat-sel-btn active" data-cat="mineral" onclick="selectCat(this)">⛏ Minéraux</button>
-          <button type="button" class="cat-sel-btn" data-cat="salvage" onclick="selectCat(this)">🔧 Salvage</button>
-          <button type="button" class="cat-sel-btn" data-cat="resources" onclick="selectCat(this)">📦 Ressources</button>
-          <button type="button" class="cat-sel-btn" data-cat="equipment" onclick="selectCat(this)">🛡 Équipements</button>
-          <button type="button" class="cat-sel-btn" data-cat="weapons" onclick="selectCat(this)">🔫 Armement</button>
-          <button type="button" class="cat-sel-btn" data-cat="accessories" onclick="selectCat(this)">🔩 Accessoires</button>
-          <button type="button" class="cat-sel-btn" data-cat="other" onclick="selectCat(this)" style="grid-column:span 2;">○ Autre</button>
-        </div>
-        <input type="hidden" id="ps-cat" value="mineral">
       </div>
 
       <!-- Quantité -->
@@ -7927,6 +7927,34 @@ function populateResSelect() {
   sel.innerHTML = html;
 }
 
+// Filtre le dropdown par catégorie
+function populateResSelectFiltered(cat) {
+  const sel = document.getElementById('ps-res-select');
+  if (!sel) return;
+
+  // Correspondance entre les cats du modal et celles du catalogue
+  const CAT_MAP = {
+    mineral:'mineral', salvage:'salvage', resources:'ressources',
+    equipment:'equipements', weapons:'armement', accessories:'accessoires', other:'autre'
+  };
+  const catKey = CAT_MAP[cat] || cat;
+
+  let filtered = RESSOURCE_CATALOGUE.filter(r => (r.cat || 'autre') === catKey);
+  // Si pas de résultats pour cette catégorie, afficher tous
+  if (!filtered.length) filtered = RESSOURCE_CATALOGUE;
+
+  let html = '<option value="">— Catalogue Corp TELOS —</option>';
+  filtered.sort((a,b)=>a.name.localeCompare(b.name,'fr')).forEach(r => {
+    const qInfo = r.quality && QUALITY_META[r.quality] ? ' · ' + QUALITY_META[r.quality].label : '';
+    html += '<option value="' + esc(r.name) + '" data-cat="' + (r.cat||'') + '" data-quality="' + (r.quality||'') + '">'
+      + esc(r.name) + qInfo + '</option>';
+  });
+  if (!RESSOURCE_CATALOGUE.length) {
+    html += '<option value="" disabled>Aucune ressource — Ajoutez-en dans l&#39;onglet Ressources</option>';
+  }
+  sel.innerHTML = html;
+}
+
 function autofillPrices(resName) {
   if (!resName) return;
   // Chercher dans le catalogue TELOS
@@ -8052,15 +8080,16 @@ async function openPlayerStock(){
   if (!requireAuth(selectedPid, openPlayerStock)) return;
   // Rafraîchir la liste des ressources connues (await pour s'assurer que c'est prêt)
   await refreshDatalist();
-  // Peupler le select depuis le catalogue
-  populateResSelect();
+  // Peupler le select depuis le catalogue (filtré Minéraux par défaut)
+  populateResSelectFiltered('mineral');
   // Reset champs
   ['ps-res','ps-qty','ps-price','ps-sellprice','ps-note'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const qSel=document.getElementById('ps-quality'); if(qSel){qSel.value=''; updateQualityBadge(qSel);}
   const resSel=document.getElementById('ps-res-select'); if(resSel) resSel.value='';
   // Reset catégorie → mineral par défaut
   document.getElementById('ps-cat').value = 'mineral';
-  document.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.toggle('active', b.dataset.cat==='mineral'));
+  const grid = document.getElementById('ps-cat-grid');
+  if (grid) grid.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.toggle('active', b.dataset.cat==='mineral'));
   // Reset aperçu marge
   document.getElementById('margin-preview').style.display = 'none';
   document.getElementById('ps-total-preview').textContent = '';
@@ -8300,9 +8329,14 @@ async function confirmRemoveStock(){
 
 /* Sélection catégorie via boutons */
 function selectCat(btn){
-  document.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.remove('active'));
+  // Ne retirer active que sur les boutons du modal ps-overlay (pas les autres)
+  const grid = document.getElementById('ps-cat-grid');
+  if (grid) grid.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('ps-cat').value = btn.dataset.cat;
+  const cat = btn.dataset.cat;
+  document.getElementById('ps-cat').value = cat;
+  // Filtrer le dropdown selon la catégorie sélectionnée
+  populateResSelectFiltered(cat);
 }
 
 /* Aperçu marge en temps réel */
