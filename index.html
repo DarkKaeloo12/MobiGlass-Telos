@@ -30,7 +30,7 @@
   --text-bright:   #eef2f8;
   --mono: 'Share Tech Mono', 'Courier New', monospace;
   --ui:   'Rajdhani', 'Segoe UI', sans-serif;
-  --sidebar-w: 210px;
+  --sidebar-w: 190px;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -136,9 +136,9 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-item.active .n-icon { color: var(--orange); }
 .nav-item.active .n-main { color: var(--text-bright); }
-.n-icon { width: 18px; text-align: center; color: var(--text-dim); font-size: 16px; transition: color 0.15s; }
-.n-main { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: var(--text); }
-.n-sub  { font-size: 11px;  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+.n-icon { width: 16px; text-align: center; color: var(--text-dim); font-size: 14px; transition: color 0.15s; }
+.n-main { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; color: var(--text); }
+.n-sub  { font-size: 9px;  letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); }
 .nav-divider { height: 1px; background: var(--border); margin: 5px 12px; }
 .nav-badge {
   margin-left: auto; font-size: 11px; padding: 1px 6px;
@@ -848,14 +848,11 @@ body::before {
 }
 
 #topbar {
-  height: 72px !important;
-  background:
-    linear-gradient(180deg, rgba(7,12,24,.96), rgba(5,10,20,.92)) !important;
-  border-bottom: 1px solid rgba(89,208,255,.15) !important;
+  height: var(--topbar-h, 64px);
+  background: linear-gradient(180deg, rgba(7,12,24,.96), rgba(5,10,20,.92));
+  border-bottom: 1px solid rgba(89,208,255,.15);
   backdrop-filter: blur(12px);
-  box-shadow:
-    inset 0 -1px 0 rgba(255,255,255,.04),
-    0 0 30px rgba(0,0,0,.45);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.04), 0 0 30px rgba(0,0,0,.45);
 }
 
 .tb-name,
@@ -866,46 +863,39 @@ body::before {
 }
 
 #sidebar {
-  width: 240px !important;
-  background:
-    linear-gradient(180deg,
-      rgba(4,10,20,.96),
-      rgba(5,14,30,.92)
-    ) !important;
-  border-right: 1px solid rgba(89,208,255,.12) !important;
+  width: var(--sidebar-w);
+  background: linear-gradient(180deg, rgba(4,10,20,.96), rgba(5,14,30,.92));
+  border-right: 1px solid rgba(89,208,255,.12);
   backdrop-filter: blur(18px);
   padding-top: 12px;
+  transition: width 0.25s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-item {
-  margin: 8px 12px !important;
-  border-radius: 16px !important;
-  border: 1px solid transparent !important;
-  min-height: 64px;
-  transition: .25s ease !important;
-  background:
-    linear-gradient(90deg,
-      rgba(255,140,0,.03),
-      transparent
-    ) !important;
+  display: flex; align-items: center; gap: 10px;
+  margin: var(--nav-margin, 4px 9px);
+  padding: var(--nav-padding, 6px 12px);
+  border-radius: var(--nav-radius, 12px);
+  border: 1px solid transparent;
+  min-height: var(--nav-h, 46px);
+  cursor: pointer;
+  transition: .2s ease;
+  background: linear-gradient(90deg, rgba(255,140,0,.03), transparent);
+  position: relative;
 }
 
 .nav-item:hover {
-  border-color: rgba(255,153,0,.4) !important;
+  border-color: rgba(255,153,0,.4);
   transform: translateX(3px);
   box-shadow: var(--glow-orange);
 }
 
 .nav-item.active {
-  border-color: rgba(255,153,0,.65) !important;
-  background:
-    linear-gradient(90deg,
-      rgba(255,153,0,.24),
-      rgba(255,153,0,.06)
-    ) !important;
-  box-shadow:
-    inset 0 0 20px rgba(255,153,0,.08),
-    0 0 18px rgba(255,153,0,.18);
+  border-color: rgba(255,153,0,.65);
+  background: linear-gradient(90deg, rgba(255,153,0,.24), rgba(255,153,0,.06));
+  box-shadow: inset 0 0 20px rgba(255,153,0,.08), 0 0 18px rgba(255,153,0,.18);
 }
 
 #main {
@@ -920,19 +910,13 @@ body::before {
 }
 
 .kpi {
-  border-radius: 22px !important;
-  padding: 20px !important;
+  border-radius: 22px;
+  padding: var(--kpi-pad, 14px);
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(89,208,255,.14) !important;
-  background:
-    linear-gradient(180deg,
-      rgba(10,20,35,.92),
-      rgba(7,14,28,.86)
-    ) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.04),
-    0 10px 30px rgba(0,0,0,.35);
+  border: 1px solid rgba(89,208,255,.14);
+  background: linear-gradient(180deg, rgba(10,20,35,.92), rgba(7,14,28,.86));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 30px rgba(0,0,0,.35);
 }
 
 .kpi::before {
@@ -956,8 +940,13 @@ body::before {
 }
 
 .panel {
-  padding: 18px !important;
-  gap: 18px !important;
+  padding: 0;
+  gap: 0;
+  background: var(--bg) !important;
+}
+
+/* Le HUB est transparent pour laisser passer le fond étoilé */
+#panel-hub {
   background: transparent !important;
 }
 
@@ -1174,66 +1163,189 @@ body::before {
   max-height: none !important;
 }
 
-/* < 1400px : sidebar réduite */
-@media (max-width: 1400px) {
-  #sidebar { width: 200px !important; }
-  .n-main { font-size: 11px !important; }
-  .n-sub  { font-size: 9px !important; }
-  .nav-item { min-height: 54px; margin: 6px 8px !important; }
-  .kpi { padding: 14px !important; }
-  .kpi-val { font-size: 20px !important; }
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — Variables par breakpoint (zéro !important)
+══════════════════════════════════════════════════════════ */
+
+/* ── Défaut : 1280–1600px ─────────────────────────────── */
+:root {
+  --sidebar-w:   190px;
+  --nav-h:       44px;
+  --nav-margin:  4px 9px;
+  --nav-padding: 6px 12px;
+  --nav-radius:  12px;
+  --nav-icon-sz: 14px;
+  --n-main-sz:   11px;
+  --n-sub-sz:    9px;
+  --kpi-pad:     14px;
+  --kpi-val-sz:  20px;
+  --topbar-h:    64px;
+}
+#topbar { height: var(--topbar-h); }
+#sidebar { width: var(--sidebar-w); }
+.nav-item   { min-height: var(--nav-h); margin: var(--nav-margin); padding: var(--nav-padding); border-radius: var(--nav-radius); }
+.n-icon     { font-size: var(--nav-icon-sz); width: 16px; }
+.n-main     { font-size: var(--n-main-sz); }
+.n-sub      { font-size: var(--n-sub-sz); }
+.kpi        { padding: var(--kpi-pad); }
+.kpi-val    { font-size: var(--kpi-val-sz); }
+
+/* ── > 1600px : grand écran ──────────────────────────── */
+@media (min-width: 1600px) {
+  :root {
+    --sidebar-w:   210px;
+    --nav-h:       50px;
+    --nav-margin:  5px 10px;
+    --nav-padding: 7px 14px;
+    --nav-icon-sz: 15px;
+    --n-main-sz:   12px;
+    --n-sub-sz:    10px;
+    --kpi-pad:     18px;
+    --kpi-val-sz:  23px;
+    --topbar-h:    72px;
+  }
 }
 
-/* < 1100px : sidebar icônes uniquement */
+/* ── > 2000px : très grand écran ─────────────────────── */
+@media (min-width: 2000px) {
+  :root {
+    --sidebar-w:   230px;
+    --nav-h:       54px;
+    --nav-margin:  5px 12px;
+    --nav-padding: 8px 16px;
+    --nav-icon-sz: 16px;
+    --n-main-sz:   13px;
+    --n-sub-sz:    10px;
+    --kpi-pad:     22px;
+    --kpi-val-sz:  26px;
+  }
+  .data-table th, .data-table td { padding: 10px 14px; font-size: 13px; }
+}
+
+/* ── < 1280px : compact ──────────────────────────────── */
+@media (max-width: 1280px) {
+  :root {
+    --sidebar-w:   172px;
+    --nav-h:       40px;
+    --nav-margin:  3px 8px;
+    --nav-padding: 5px 10px;
+    --nav-icon-sz: 13px;
+    --n-main-sz:   10.5px;
+    --n-sub-sz:    8.5px;
+    --kpi-pad:     11px;
+    --kpi-val-sz:  17px;
+    --topbar-h:    60px;
+  }
+  #kpi-strip { gap: 10px; padding: 10px; }
+  .hub-left  { flex: 1 1 55%; min-width: 0; }
+  .hub-right { flex: 0 0 210px; min-width: 0; }
+  .data-table th, .data-table td { padding: 6px 9px; font-size: 11px; }
+}
+
+/* ── < 1100px : sidebar icônes uniquement ───────────── */
 @media (max-width: 1100px) {
-  #sidebar { width: 64px !important; overflow: visible; padding-top: 8px; }
-  .n-sub, .n-main { display: none !important; }
-  .nav-item { min-height: 48px; margin: 4px 6px !important; justify-content: center; border-radius: 12px !important; }
-  .n-icon { font-size: 20px !important; margin: 0 !important; }
-  .nav-badge { position: absolute; top: 2px; right: 2px; font-size: 8px; min-width: 14px; height: 14px; }
-  #sb-auth-btn { font-size: 9px !important; padding: 2px 6px !important; }
-  .sb-version { display: none !important; }
-  .tbl-wrap, .st-wrap { overflow-x: auto !important; }
-  .data-table { min-width: 700px; }
-  #kpi-strip { flex-wrap: wrap !important; gap: 8px !important; padding: 10px !important; }
-  .kpi { min-width: 120px; flex: 1 1 120px; }
+  :root {
+    --sidebar-w:   56px;
+    --nav-h:       44px;
+    --nav-margin:  3px 5px;
+    --nav-padding: 0;
+    --nav-radius:  10px;
+    --nav-icon-sz: 18px;
+    --kpi-pad:     10px;
+    --kpi-val-sz:  16px;
+    --topbar-h:    56px;
+  }
+  /* Cacher texte nav */
+  .n-main, .n-sub, .sb-version { display: none; }
+  .nav-item { justify-content: center; }
+  .n-icon { width: auto; margin: 0; }
+  /* Badge repositionné */
+  .nav-badge {
+    position: absolute; top: 2px; right: 2px;
+    font-size: 7px; min-width: 13px; height: 13px; padding: 0 3px;
+  }
+  /* Profile réduit */
+  .sb-profile { padding: 8px 5px; }
+  .sbp-head { flex-direction: column; align-items: center; gap: 4px; }
+  .sbp-avatar { width: 26px; height: 26px; font-size: 10px; }
+  .sbp-meta, .sbp-actions { display: none; }
+  #sb-auth-btn { font-size: 8px; padding: 2px 4px; }
+  /* Layout */
+  .tbl-wrap, .st-wrap { overflow-x: auto; }
+  .data-table { min-width: 600px; }
+  #kpi-strip { flex-wrap: wrap; gap: 8px; padding: 8px; }
+  .kpi { min-width: 110px; flex: 1 1 110px; }
+  .hub-left, .hub-right { flex: 1 1 100%; min-width: 0; }
+  #panel-hub { flex-direction: column; }
 }
 
-/* < 800px : tablet */
-@media (max-width: 800px) {
-  #topbar { height: 56px !important; }
-  .tb-name { font-size: 13px !important; }
-  .modal { max-width: 98vw !important; width: 98vw !important; }
-  .modal-body { padding: 12px !important; }
-  .grid2 { grid-template-columns: 1fr !important; }
-  .grid2 > * { grid-column: span 1 !important; }
-  .data-table th, .data-table td { padding: 5px 6px !important; font-size: 10px !important; }
-  .obj-card, .cmd-card, .mission-card { padding: 10px 12px !important; }
-  .sec-bar { flex-wrap: wrap !important; gap: 6px !important; }
+/* ── < 880px : tablette ──────────────────────────────── */
+@media (max-width: 880px) {
+  :root { --topbar-h: 50px; --kpi-val-sz: 15px; }
+  .tb-name { font-size: 12px; letter-spacing: 1px; }
+  .modal { max-width: 96vw; width: 96vw; }
+  .modal-body { padding: 14px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .grid2 > * { grid-column: span 1; }
+  .data-table th, .data-table td { padding: 5px 7px; font-size: 10px; }
+  .obj-card, .cmd-card, .mission-card { padding: 9px 11px; }
+  .sec-bar { flex-wrap: wrap; gap: 5px; }
+  .kpi { flex: 1 1 calc(50% - 8px); min-width: 120px; }
+  #kpi-strip { flex-wrap: wrap; }
 }
 
-/* < 600px : mobile */
-@media (max-width: 600px) {
-  #sidebar { width: 48px !important; }
-  .n-icon { font-size: 16px !important; }
-  #topbar { height: 48px !important; padding: 0 8px !important; }
-  .tb-name { font-size: 11px !important; }
-  .tb-clock { display: none !important; }
-  .kpi { min-width: calc(50% - 8px); padding: 10px !important; }
-  .kpi-val { font-size: 16px !important; }
-  .modal { border-radius: 8px !important; }
-  .overlay { padding: 8px !important; }
-  .sec-bar { flex-direction: column !important; align-items: flex-start !important; }
-  .cmd-footer, .obj-meta { flex-wrap: wrap !important; gap: 4px !important; }
+/* ── < 680px : mobile large ──────────────────────────── */
+@media (max-width: 680px) {
+  :root {
+    --sidebar-w:   46px;
+    --nav-h:       40px;
+    --nav-margin:  2px 4px;
+    --nav-icon-sz: 15px;
+    --topbar-h:    46px;
+  }
+  .tb-clock { display: none; }
+  .overlay { padding: 6px; }
+  .sec-bar { flex-direction: column; align-items: flex-start; }
+  .cmd-footer, .obj-meta { flex-wrap: wrap; gap: 4px; }
+  .btn { font-size: 10px; padding: 5px 10px; }
 }
 
-/* > 1920px : très grand écran */
-@media (min-width: 1920px) {
-  #sidebar { width: 280px !important; }
-  .n-main { font-size: 14px !important; }
-  .kpi-val { font-size: 26px !important; }
-  .data-table th, .data-table td { padding: 10px 14px !important; font-size: 13px !important; }
+/* ── < 480px : mobile ────────────────────────────────── */
+@media (max-width: 480px) {
+  :root { --sidebar-w: 42px; --nav-h: 38px; --topbar-h: 42px; }
+  .tb-name { display: none; }
+  .kpi { flex: 1 1 100%; }
+  .modal { max-width: 100vw; border-radius: 4px; }
+  .modal-body { padding: 10px; }
+  .toolbar { flex-wrap: wrap; gap: 5px; }
+  #kpi-strip { padding: 6px; gap: 6px; }
+  .data-table { min-width: 420px; }
 }
+
+/* ── Hauteur réduite (laptop 900px h) ───────────────── */
+@media (max-height: 820px) {
+  :root {
+    --nav-h:      38px;
+    --nav-margin: 2px 8px;
+    --kpi-pad:    10px;
+    --kpi-val-sz: 16px;
+    --topbar-h:   58px;
+  }
+  #kpi-strip { padding: 8px; gap: 8px; }
+}
+
+@media (max-height: 680px) {
+  :root { --nav-h: 33px; --nav-margin: 1px 7px; }
+  .n-sub { display: none; }
+  .nav-divider { margin: 2px 9px; }
+}
+
+/* ── Scrollbar sidebar fine ─────────────────────────── */
+#sidebar::-webkit-scrollbar       { width: 3px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: rgba(247,140,30,.2); border-radius: 2px; }
+
+
 
 /* ══ BANQUE ══════════════════════════════════════════════ */
 .bank-tab.active { color: var(--text-bright) !important; border-bottom-color: var(--orange) !important; }
@@ -1333,7 +1445,6 @@ function showLoginWall(){} // stub
       <div class="n-icon">📦</div>
       <div><div class="n-main">RESSOURCE</div><div class="n-sub">Par partenaire</div></div>
     </div>
-	
     <div class="nav-item" onclick="goToArmurerie(this)" id="nav-armurerie">
       <div class="n-icon">⚔</div>
       <div><div class="n-main">ARMURERIE</div><div class="n-sub">Équipements & Armes</div></div>
@@ -1373,11 +1484,6 @@ function showLoginWall(){} // stub
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
 	
-	<div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
-      <div class="n-icon">🏦</div>
-      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
-    </div>
-	
 	<div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
       <div class="n-icon">◈</div>
       <div><div class="n-main">DATA RESSOURCE</div><div class="n-sub">Catalogue Corp</div></div>
@@ -1388,6 +1494,11 @@ function showLoginWall(){} // stub
       <div><div class="n-main">DATA ARMURIE</div><div class="n-sub">Catalogue Armement</div></div>
     </div>
 	
+    <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
+      <div class="n-icon">🏦</div>
+      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
+    </div>
+
 	<div class="nav-divider"></div>
     <div class="nav-item" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
@@ -2035,7 +2146,7 @@ function showLoginWall(){} // stub
 
       <!-- ══ ARMURERIE ══ -->
       <div class="panel" id="panel-armurerie">
-        <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;">
+        <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:var(--bg);">
 
           <!-- Sous-onglet partenaire -->
           <div class="jtabs">
@@ -2047,36 +2158,37 @@ function showLoginWall(){} // stub
           <!-- Liste partenaires + contenu -->
           <div style="display:flex;flex:1;overflow:hidden;">
 
-            <!-- Sidebar partenaires -->
-            <div class="pl-sidebar" id="arm-sidebar">
+            <!-- Sidebar partenaires (calqué sur .pl-sidebar) -->
+            <div class="pl-sidebar" id="arm-sidebar" style="border-radius:0 !important;border-top:none !important;">
               <div class="pl-sidebar-head">
                 <div class="search-box" style="margin-bottom:8px;">
                   <span class="search-ico">⌕</span>
                   <input type="text" id="arm-search" placeholder="Rechercher..." oninput="filterArmPartners(this.value)">
                 </div>
               </div>
-              <div id="arm-list" style="overflow-y:auto;flex:1;"></div>
+              <div id="arm-list" class="pl-list"></div>
             </div>
 
-            <!-- Contenu principal -->
-            <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;" id="arm-content">
+            <!-- Contenu principal (calqué sur .pl-view) -->
+            <div class="pl-view" id="arm-content" style="border-radius:0 !important;border-top:none !important;">
 
               <!-- Placeholder avant sélection -->
-              <div id="arm-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-dim);">
-                <div style="font-size:48px;opacity:.12;">⚔</div>
-                <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;">Sélectionnez un partenaire</div>
+              <div id="arm-placeholder" class="pl-placeholder">
+                <span class="big">⚔</span>
+                <p>Sélectionnez un partenaire</p>
+                <p style="font-size:12px;opacity:0.6;">Cliquez sur un nom dans la liste de gauche</p>
               </div>
 
               <!-- Panel actif partenaire -->
               <div id="arm-active" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
 
                 <!-- En-tête profil compact -->
-                <div id="arm-profile-head" style="padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px;background:var(--bg2);"></div>
+                <div class="prof-hero" id="arm-profile-head" style="flex-shrink:0;"></div>
 
                 <!-- Toolbar -->
-                <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;border-bottom:1px solid var(--border);">
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <!-- Filtre catégorie -->
+                <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;">
+                  <span class="sec-title"><span class="acc">⚔</span> Équipements apportés</span>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
                     <select id="arm-cat-filter" class="form-input" style="width:170px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
                       <option value="all">Toutes catégories</option>
                       <option value="arme_fps">🔫 Armes FPS</option>
@@ -2084,7 +2196,6 @@ function showLoginWall(){} // stub
                       <option value="composant_vaisseau">🔧 Composants Vaisseau</option>
                       <option value="arme_vaisseau">🚀 Armes Vaisseau</option>
                     </select>
-                    <!-- Filtre qualité -->
                     <select id="arm-quality-filter" class="form-input" style="width:150px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
                       <option value="all">Toutes qualités</option>
                       <option value="">Sans qualité</option>
@@ -2095,19 +2206,17 @@ function showLoginWall(){} // stub
                       <option value="moyenne">Moyenne</option>
                       <option value="haute">Haute</option>
                     </select>
-                    <div class="search-box" style="max-width:180px;flex:1;">
+                    <div class="search-box" style="max-width:180px;">
                       <span class="search-ico">⌕</span>
                       <input type="text" id="arm-item-search" placeholder="Rechercher..." oninput="renderArmTable()">
                     </div>
-                  </div>
-                  <div style="display:flex;gap:8px;margin-left:auto;">
-                    <button class="btn success" onclick="openAddArmItem()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ AJOUTER</button>
-                    <button class="btn danger" id="arm-remove-btn" onclick="openRMArmModal()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;display:none;">— RETIRER</button>
+                    <button class="btn primary" onclick="openAddArmItem()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ Ajouter</button>
+                    <button class="btn danger" id="arm-remove-btn" onclick="openRMArmModal()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;display:none;border-color:rgba(255,68,68,0.5);">— Retirer</button>
                   </div>
                 </div>
 
                 <!-- Tableau équipements -->
-                <div class="st-wrap" style="flex:1;overflow:auto;">
+                <div class="st-wrap">
                   <table class="data-table" style="width:100%;min-width:900px;">
                     <thead><tr>
                       <th>Désignation</th>
@@ -9307,9 +9416,23 @@ async function selectArmPlayer(pid) {
   // Mettre à jour l'en-tête
   const nameEl = document.getElementById('arm-partner-name');
   if (nameEl) nameEl.textContent = p.name;
-  // Profil compact
+  // Profil compact — style identique à prof-hero du panel joueurs
   const head = document.getElementById('arm-profile-head');
-  if (head) head.innerHTML = `${avHtml(p,36)}<div><div style="font-size:13px;font-weight:700;color:var(--text-bright);">${esc(p.name)}</div><div style="font-size:10px;color:var(--text-dim);">${p.role}</div></div>`;
+  if (head) {
+    const tv = ((await DB.get('uex-armory-'+pid))||[]).length;
+    head.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;">
+        ${avHtml(p,44)}
+        <div style="flex:1;">
+          <div style="font-size:16px;font-weight:700;color:var(--text-bright);">${esc(p.name)}</div>
+          <div style="font-size:11px;color:var(--text-dim);letter-spacing:1px;">${p.role||'—'}</div>
+        </div>
+        <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text-dim);">
+          <div style="color:var(--orange);font-size:18px;font-weight:700;">${tv}</div>
+          <div style="font-size:10px;letter-spacing:1px;">équipements</div>
+        </div>
+      </div>`;
+  }
   // Afficher le panel actif
   document.getElementById('arm-placeholder').style.display = 'none';
   const active = document.getElementById('arm-active');
