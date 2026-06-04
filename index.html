@@ -1824,34 +1824,37 @@ function showLoginWall(){} // stub
       <div class="panel" id="panel-joueurs">
         <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;">
 
-          <!-- sous-onglet unique : stock du partenaire sélectionné -->
-          <div class="jtabs">
-            <div class="jtab active" id="jtab-global" onclick="switchJTab('global')" style="pointer-events:none;opacity:0.7;">
-              ◈ Stock de <span id="jtab-partner-name" style="color:var(--orange);margin-left:4px;">— sélectionnez un partenaire</span>
+          <!-- Header : liste OU vue partenaire -->
+          <div class="jtabs" style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;">
+            <!-- Mode liste -->
+            <div id="jsp-header-list" style="display:flex;align-items:center;gap:12px;width:100%;">
+              <span style="font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">◈ RESSOURCE — Réseau Partenaires</span>
+              <div class="search-box" style="max-width:260px;margin-left:auto;">
+                <span class="search-ico">⌕</span>
+                <input type="text" id="pl-search" placeholder="Rechercher..." oninput="filterPlayers(this.value)">
+              </div>
+            </div>
+            <!-- Mode vue partenaire -->
+            <div id="jsp-header-view" style="display:none;align-items:center;gap:10px;width:100%;">
+              <button onclick="backToPartnerList()" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">← LISTE</button>
+              <span style="font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">◈ Stock de</span>
+              <span id="jtab-partner-name" style="color:var(--orange);font-size:13px;font-weight:700;letter-spacing:1px;">—</span>
             </div>
           </div>
 
-          <!-- ─ liste + profil ─ -->
-          <div id="jsp-list" style="display:flex;flex:1;overflow:hidden;">
-            <div class="pl-sidebar">
-              <div class="pl-sidebar-head">
-                <div class="search-box" style="margin-bottom:8px;">
-                  <span class="search-ico">⌕</span>
-                  <input type="text" id="pl-search" placeholder="Rechercher un partenaire..." oninput="filterPlayers(this.value)">
-                </div>
-                <button class="btn success" style="width:100%;padding:8px;font-size: 13px;display:none;" onclick="goPanel('inscription',document.querySelector('[onclick*=inscription]'))">+ Enregistrer un joueur</button>
-              </div>
-              <div class="pl-list" id="pl-list"></div>
-            </div>
+          <!-- ─ liste partenaires (plein écran) ─ -->
+          <div id="jsp-list-view" style="display:flex;flex:1;overflow:hidden;flex-direction:column;">
+            <div class="pl-list" id="pl-list" style="flex:1;overflow-y:auto;padding:6px 0;"></div>
+          </div>
 
-            <div class="pl-view" id="pl-view">
-              <div class="pl-placeholder" id="pl-placeholder">
-                <span class="big">📦</span>
-                <p>Sélectionnez un partenaire</p>
-                <p style="font-size: 12px;opacity:0.6;">Cliquez sur un nom dans la liste de gauche pour voir son stock</p>
-              </div>
-              <div id="pl-content" style="display:none;flex-direction:column;height:100%;">
-                <div class="prof-hero" id="prof-hero"></div>
+          <!-- ─ vue partenaire (plein écran, masquée par défaut) ─ -->
+          <div id="jsp-partner-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="pl-placeholder" id="pl-placeholder" style="display:none;">
+              <span class="big">📦</span>
+              <p>Sélectionnez un partenaire</p>
+            </div>
+            <div id="pl-content" style="display:none;flex-direction:column;height:100%;">
+              <div class="prof-hero" id="prof-hero"></div>
                 <div class="sec-bar">
                   <span class="sec-title"><span class="acc">◈</span> Stocks apportés</span>
                   <div style="display:flex;gap:8px;">
@@ -1884,12 +1887,11 @@ function showLoginWall(){} // stub
                   <div class="sf-cell"><div class="sf-lbl">Unités totales (SCU)</div><div class="sf-val" id="sf-units">0</div></div>
                   <div class="sf-cell"><div class="sf-lbl">Valeur totale</div><div class="sf-val green" id="sf-total">0 aUEC</div></div>
                 </div>
-              </div>
-            </div>
-          </div>
-
+              </div><!-- /pl-content -->
+            </div><!-- /jsp-partner-view -->
+          </div><!-- /panel inner -->
         </div>
-      </div>
+      </div><!-- /panel-joueurs -->
 
 
       <!-- ══ LOGS ══ -->
@@ -2135,35 +2137,39 @@ function showLoginWall(){} // stub
       <div class="panel" id="panel-armurerie">
         <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:var(--bg);">
 
-          <!-- Sous-onglet partenaire -->
-          <div class="jtabs">
-            <div class="jtab active" id="arm-jtab" style="pointer-events:none;opacity:0.7;">
-              ⚔ Armurerie de <span id="arm-partner-name" style="color:var(--orange);margin-left:4px;">— sélectionnez un partenaire</span>
+          <!-- Header : liste OU vue partenaire -->
+          <div class="jtabs" style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;">
+            <div id="arm-header-list" style="display:flex;align-items:center;gap:12px;width:100%;">
+              <span style="font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">⚔ ARMURERIE — Équipements partenaires</span>
+              <div class="search-box" style="max-width:260px;margin-left:auto;">
+                <span class="search-ico">⌕</span>
+                <input type="text" id="arm-search" placeholder="Rechercher..." oninput="filterArmPartners(this.value)">
+              </div>
+            </div>
+            <div id="arm-header-view" style="display:none;align-items:center;gap:10px;width:100%;">
+              <button onclick="backToArmList()" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">← LISTE</button>
+              <span style="font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">⚔ Armurerie de</span>
+              <span id="arm-partner-name" style="color:var(--orange);font-size:13px;font-weight:700;letter-spacing:1px;">—</span>
             </div>
           </div>
 
-          <!-- Liste partenaires + contenu -->
-          <div style="display:flex;flex:1;overflow:hidden;">
+          <!-- Liste partenaires (plein écran) -->
+          <div id="arm-list-view" style="display:flex;flex:1;overflow:hidden;flex-direction:column;">
+            <div id="arm-list" class="pl-list" style="flex:1;overflow-y:auto;padding:6px 0;"></div>
+          </div>
 
-            <!-- Sidebar partenaires (calqué sur .pl-sidebar) -->
-            <div class="pl-sidebar" id="arm-sidebar" style="border-radius:0 !important;border-top:none !important;">
-              <div class="pl-sidebar-head">
-                <div class="search-box" style="margin-bottom:8px;">
-                  <span class="search-ico">⌕</span>
-                  <input type="text" id="arm-search" placeholder="Rechercher..." oninput="filterArmPartners(this.value)">
-                </div>
-              </div>
-              <div id="arm-list" class="pl-list"></div>
-            </div>
+          <!-- Sidebar masquée (pour compatibilité JS) -->
+          <div id="arm-sidebar" style="display:none;">
+            <div id="arm-sidebar-placeholder"></div>
+          </div>
 
-            <!-- Contenu principal (calqué sur .pl-view) -->
-            <div class="pl-view" id="arm-content" style="border-radius:0 !important;border-top:none !important;">
+          <!-- Contenu principal (masqué par défaut) -->
+          <div class="pl-view" id="arm-content" style="display:none;border-radius:0 !important;border-top:none !important;">
 
               <!-- Placeholder avant sélection -->
-              <div id="arm-placeholder" class="pl-placeholder">
+              <div id="arm-placeholder" class="pl-placeholder" style="display:none;">
                 <span class="big">⚔</span>
                 <p>Sélectionnez un partenaire</p>
-                <p style="font-size:12px;opacity:0.6;">Cliquez sur un nom dans la liste de gauche</p>
               </div>
 
               <!-- Panel actif partenaire -->
@@ -2782,14 +2788,15 @@ function updateNavRessources() {
   // Inscription : visible uniquement si non connecté
   const elInsc = document.getElementById('nav-inscription');
   if (elInsc) elInsc.style.display = SESSION ? 'none' : '';
+  // Ressources data : via droit 'ressources'
   const el = document.getElementById('nav-ressources');
-  if (el) el.style.display = canManageRoles() ? '' : 'none';
-  // Armurie visible pour gestionnaires/admins uniquement
+  if (el) el.style.display = (SESSION && hasDroit('ressources')) ? '' : 'none';
+  // Armurie : via droit 'armurie'
   const elArm = document.getElementById('nav-armurie');
-  if (elArm) elArm.style.display = canManageRoles() ? '' : 'none';
-  // Banque visible pour gestionnaires/admins uniquement
+  if (elArm) elArm.style.display = (SESSION && hasDroit('armurie')) ? '' : 'none';
+  // Banque : via droit 'banque'
   const elB = document.getElementById('nav-banque');
-  if (elB) elB.style.display = canManageRoles() ? '' : 'none';
+  if (elB) elB.style.display = (SESSION && hasDroit('banque')) ? '' : 'none';
   // Blueprints visible pour tous les membres connectés
   const el2 = document.getElementById('nav-blueprints');
   if (el2) el2.style.display = SESSION ? '' : 'none';
@@ -2803,6 +2810,7 @@ function setSession(player) {
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
   updateNavRessources();
+  updateNavBanque && updateNavBanque();
   const plSbOut = document.getElementById('pl-sidebar');
   if (plSbOut) plSbOut.style.display = 'none';
   renderObjectifs();
@@ -2826,6 +2834,7 @@ function logout() {
   pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
   renderMissions();
   updateNavRessources && updateNavRessources();
+  updateNavBanque && updateNavBanque();
   const _sb = document.querySelector('.pl-sidebar');
   if (_sb) _sb.style.display = '';
   toast('Déconnexion', 'Session TELOS fermée.', 'info');
@@ -2837,6 +2846,7 @@ function logout() {
   if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
   renderMissions();
   updateNavRessources();
+  updateNavBanque && updateNavBanque();
   renderObjectifs();
   const _sb = document.querySelector('.pl-sidebar');
   if (_sb) _sb.style.display = '';
@@ -3499,6 +3509,8 @@ async function renderAuthBar() {
       elBtn.style.color = 'var(--orange)';
     }
   }
+  updateNavRessources && updateNavRessources();
+  updateNavBanque && updateNavBanque();
 }
 
 function requireAuth(pid, action) {
@@ -7810,14 +7822,33 @@ async function renderPlayerList(filter=''){
 function filterPlayers(v){ renderPlayerList(v); }
 
 /* Select and display a player */
+function backToPartnerList() {
+  document.getElementById('jsp-list-view').style.display = 'flex';
+  const pv = document.getElementById('jsp-partner-view');
+  if (pv) pv.style.display = 'none';
+  document.getElementById('jsp-header-list').style.display = 'flex';
+  document.getElementById('jsp-header-view').style.display = 'none';
+  // Désélectionner dans la liste
+  document.querySelectorAll('#pl-list .pl-item').forEach(el => el.classList.remove('sel'));
+  selectedPid = null;
+}
+
 async function selectPlayer(id){
   selectedPid=id;
   const p=players.find(x=>x.id===id);
   if (!p) return;
-  // Mettre à jour le titre du sous-onglet dynamiquement
+
+  // Basculer vers la vue partenaire (masquer la liste)
+  document.getElementById('jsp-list-view').style.display = 'none';
+  const pv = document.getElementById('jsp-partner-view');
+  if (pv) { pv.style.display = 'flex'; pv.style.flexDirection = 'column'; }
+  document.getElementById('jsp-header-list').style.display = 'none';
+  document.getElementById('jsp-header-view').style.display = 'flex';
+
+  // Mettre à jour le titre
   const jtabName = document.getElementById('jtab-partner-name');
   if (jtabName) jtabName.textContent = p.name;
-  renderPlayerList(document.getElementById('pl-search').value);
+  renderPlayerList(document.getElementById('pl-search')?.value || '');
   // Badge blueprints
   if (!window._playerBpCache) window._playerBpCache = {};
   // Toujours recharger depuis DB pour être à jour
@@ -9337,8 +9368,10 @@ function renderDroitsTable() {
 function setDroit(role, droit, val) {
   if (!ROLES_CONFIG[role]) ROLES_CONFIG[role] = {};
   ROLES_CONFIG[role][droit] = val ? 1 : 0;
-  // Sauvegarde immédiate à chaque changement de case
-  saveRolesConfig().catch(e => console.warn('setDroit save error:', e));
+  // Sauvegarde immédiate + mise à jour de la nav
+  saveRolesConfig()
+    .then(() => { updateNavRessources(); updateNavBanque && updateNavBanque(); })
+    .catch(e => console.warn('setDroit save error:', e));
 }
 
 async function saveRolesAndDroits() {
@@ -9449,10 +9482,28 @@ async function renderArmPartnerList(filter='') {
 
 function filterArmPartners(v) { renderArmPartnerList(v); }
 
+function backToArmList() {
+  document.getElementById('arm-list-view').style.display = 'flex';
+  const ac = document.getElementById('arm-content');
+  if (ac) ac.style.display = 'none';
+  document.getElementById('arm-header-list').style.display = 'flex';
+  document.getElementById('arm-header-view').style.display = 'none';
+  document.querySelectorAll('#arm-list .pl-item').forEach(el => el.classList.remove('sel'));
+  _armSelectedPid = null;
+}
+
 async function selectArmPlayer(pid) {
   _armSelectedPid = pid;
   const p = players.find(x=>x.id===pid);
   if (!p) return;
+
+  // Basculer : masquer la liste, afficher la vue plein écran
+  document.getElementById('arm-list-view').style.display = 'none';
+  const armContent = document.getElementById('arm-content');
+  if (armContent) { armContent.style.flex = '1'; armContent.style.display = 'flex'; armContent.style.flexDirection = 'column'; }
+  document.getElementById('arm-header-list').style.display = 'none';
+  document.getElementById('arm-header-view').style.display = 'flex';
+
   // Mettre à jour l'en-tête
   const nameEl = document.getElementById('arm-partner-name');
   if (nameEl) nameEl.textContent = p.name;
@@ -9774,6 +9825,7 @@ async function init(){
   // Load players from persistent storage
   players=(await DB.get('uex-players'))||[];
   await loadRolesConfig();
+  updateNavBanque && updateNavBanque();
   await loadBankData();
   renderPlayerList();
   updateBadges();
@@ -9864,7 +9916,7 @@ async function saveBankData() {
 // ── Visiblité nav banque ──
 function updateNavBanque() {
   const el = document.getElementById('nav-banque');
-  if (el) el.style.display = canManageRoles() ? '' : 'none';
+  if (el) el.style.display = (SESSION && hasDroit('banque')) ? '' : 'none';
 }
 
 // ── Onglets ──
