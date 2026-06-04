@@ -349,7 +349,12 @@ a { color: inherit; text-decoration: none; }
 
 .map-btn:last-child  { border-radius: 0 2px 2px 0; }
 
-#stanton-canvas { flex: 1; display: block; background: radial-gradient(ellipse at center,#0d1220 0%,#04060b 60%,#020308 100%); max-width:1920px; max-height:1080px; }
+#stanton-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center,#0d1220 0%,#04060b 60%,#020308 100%);
+}
 
 .map-legend {
   display: flex; gap: 14px; padding: 5px 13px;
@@ -982,14 +987,16 @@ body::before {
 
 #stanton-canvas,
 #map-canvas-full {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
   border-radius: 24px;
   background:
     radial-gradient(circle at center,
       rgba(255,140,0,.18),
       rgba(7,14,28,1) 30%,
       #02050c 100%
-    ) !important;
-
+    );
   box-shadow:
     inset 0 0 60px rgba(0,0,0,.8),
     0 0 40px rgba(0,0,0,.45);
@@ -1852,7 +1859,7 @@ function showLoginWall(){} // stub
                   <span class="search-ico">⌕</span>
                   <input type="text" id="pl-search" placeholder="Rechercher un partenaire..." oninput="filterPlayers(this.value)">
                 </div>
-                <button class="btn success" style="width:100%;padding:8px;font-size: 13px;" onclick="goPanel('inscription',document.querySelector('[onclick*=inscription]'))">+ Enregistrer un joueur</button>
+                <button class="btn success" style="width:100%;padding:8px;font-size: 13px;display:none;" onclick="goPanel('inscription',document.querySelector('[onclick*=inscription]'))">+ Enregistrer un joueur</button>
               </div>
               <div class="pl-list" id="pl-list"></div>
             </div>
@@ -4107,16 +4114,8 @@ function setMapView(v) {
 var mapScale=1, mapOffX=0, mapOffY=0;
 function centerMap() { mapScale=1; mapOffX=0; mapOffY=0; }
 
-function resizeCanvas(canvas) {
-  if (!canvas) return;
-  const w = Math.min(canvas.offsetWidth,  1920);
-  const h = Math.min(canvas.offsetHeight, 1080);
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; canvas.height = h;
-  }
-}
 
-function resizeCanvas(c){ if(!c) return; if(c.width!==c.offsetWidth||c.height!==c.offsetHeight){ c.width=c.offsetWidth; c.height=c.offsetHeight; } }
+
 
 /* ════════════════════════════════════════════════════════════
    PROFIT CHART
@@ -7670,7 +7669,7 @@ function goPanel(id, el) {
   // Retirer le login wall overlay si présent
   clearLoginWall(p);
 
-  if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); resizeCanvas(c); }, 60); }
+  if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); if(c){const w=c.offsetWidth,h=c.offsetHeight;if(w>10&&h>10&&(c.width!==w||c.height!==h)){c.width=w;c.height=h;c._inited=false;}} }, 60); }
   if (id==='joueurs')  { (async()=>renderGlobal())(); updateGlobalFilter(); }
   if (id==='stocks')   {
     renderStocksFromPlayers();
@@ -7699,7 +7698,19 @@ function goPanel(id, el) {
     }
   }
   if (id==='banque') { loadBankData().then(() => renderBanque()); }
-  if (id==='hub') { setTimeout(()=>drawChart(chartDays), 60); }
+  if (id==='hub') {
+    setTimeout(()=>{
+      drawChart(chartDays);
+      // Forcer re-sync du canvas map si la taille a changé
+      const c = document.getElementById('stanton-canvas');
+      if (c) {
+        const w = c.offsetWidth, h = c.offsetHeight;
+        if (w > 10 && h > 10 && (c.width !== w || c.height !== h)) {
+          c.width = w; c.height = h; c._inited = false;
+        }
+      }
+    }, 60);
+  }
   if (id==='armurerie') {
     renderArmPartnerList();
     // Auto-sélectionner le joueur connecté
@@ -9088,21 +9099,70 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ════════════════════════════════════════════════════════════
-   ANIMATION LOOP
+   ANIMATION LOOP — avec resize automatique
 ════════════════════════════════════════════════════════════ */
+
+// ResizeObserver global pour les canvas de carte
+(function setupMapResizeObserver() {
+  if (typeof ResizeObserver === 'undefined') return;
+  const ro = new ResizeObserver(entries => {
+    entries.forEach(entry => {
+      const canvas = entry.target;
+      const rect = entry.contentRect;
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      if (w < 10 || h < 10) return;
+      // Redimensionner seulement si taille change vraiment
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width  = w;
+        canvas.height = h;
+        // Forcer ré-init du hover
+        canvas._inited = false;
+      }
+    });
+  });
+  // Observer dès que les canvas existent
+  document.addEventListener('DOMContentLoaded', () => {
+    ['stanton-canvas','map-canvas-full'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) ro.observe(el);
+    });
+  });
+})();
+
 function loop(t) {
   mapAnim = t;
   // Hub mini map
   const hubCanvas = document.getElementById('stanton-canvas');
-  if (hubCanvas && hubCanvas.width > 10) {
-    if (!hubCanvas._inited) { initMap(hubCanvas); hubCanvas._inited = true; }
-    drawMap(hubCanvas, hubCanvas.getContext('2d'), t);
+  if (hubCanvas) {
+    // Sync taille si pas encore fait ou si canvas pas initialisé
+    if (!hubCanvas._inited) {
+      const w = hubCanvas.offsetWidth;
+      const h = hubCanvas.offsetHeight;
+      if (w > 10 && h > 10) {
+        hubCanvas.width  = w;
+        hubCanvas.height = h;
+        initMap(hubCanvas);
+        hubCanvas._inited = true;
+      }
+    }
+    if (hubCanvas._inited) drawMap(hubCanvas, hubCanvas.getContext('2d'), t);
   }
   // Full map panel
   const fullCanvas = document.getElementById('map-canvas-full');
-  if (fullCanvas && fullCanvas.width > 10) {
-    if (!fullCanvas._inited) { initMap(fullCanvas); fullCanvas._inited = true; }
-    drawMap(fullCanvas, fullCanvas.getContext('2d'), t);
+  if (fullCanvas) {
+    if (!fullCanvas._inited) {
+      const w = fullCanvas.offsetWidth;
+      const h = fullCanvas.offsetHeight;
+      if (w > 10 && h > 10) {
+        fullCanvas.width  = w;
+        fullCanvas.height = h;
+        initMap(fullCanvas);
+        fullCanvas._inited = true;
+      }
+    }
+    if (fullCanvas._inited) drawMap(fullCanvas, fullCanvas.getContext('2d'), t);
   }
   requestAnimationFrame(loop);
 }
@@ -9741,69 +9801,58 @@ async function init(){
   // Panels alimentés par les joueurs
   renderStocksFromPlayers();
   renderPartners();
-  // Start animation
 
-  // Init hub canvas after layout (TELOS method)
+  // Init hub canvas after layout
   setTimeout(() => {
     const c = document.getElementById('stanton-canvas');
-    resizeCanvas(c); initMap(c);
+    if (c) { c.width = c.offsetWidth; c.height = c.offsetHeight; initMap(c); c._inited = true; }
   }, 80);
-  setInterval(()=>{ resizeCanvas(document.getElementById('stanton-canvas')); }, 2000);
+
   // Rafraîchir les "il y a X min" du feed d'activité
   setInterval(renderActivity, 60000);
   requestAnimationFrame(loop);
   renderAuthBar();
-  // Boot toasts
   startAutoSave();
-    setTimeout(()=>toast('UEE NETWORK ONLINE','Synchronisation sécurisée établie.','success'),600);
+  setTimeout(()=>toast('UEE NETWORK ONLINE','Synchronisation sécurisée établie.','success'),600);
   setTimeout(()=>toast('⚠ 3 alertes actives','Consultez le panneau Alertes.','warn'),1800);
 }
 
-
 window.addEventListener('DOMContentLoaded',()=>{init().catch(e=>console.error('[TELOS]',e));});
 
-
-window.addEventListener('resize', () => {
-  resizeCanvas(document.getElementById('stanton-canvas'));
-  resizeCanvas(document.getElementById('map-canvas-full'));
-  drawChart(chartDays);
-});
-
-// ResizeObserver + window resize — adaptation canvas à toute résolution
+// ── Resize handler unique ─────────────────────────────────
 (function() {
-  function resizeAllCanvas() {
-    const hc = document.getElementById('stanton-canvas');
-    const fc = document.getElementById('map-canvas-full');
-    if (hc) { resizeCanvas(hc); }
-    if (fc) { resizeCanvas(fc); }
+  function syncCanvas(c) {
+    if (!c) return;
+    const w = c.offsetWidth, h = c.offsetHeight;
+    if (w < 10 || h < 10) return;
+    if (c.width !== w || c.height !== h) {
+      c.width = w; c.height = h;
+      c._inited = false; // force re-init dans loop()
+    }
+  }
+  function syncAll() {
+    syncCanvas(document.getElementById('stanton-canvas'));
+    syncCanvas(document.getElementById('map-canvas-full'));
+    drawChart(chartDays);
   }
 
-  // ResizeObserver sur les conteneurs directs des canvas
+  // ResizeObserver (moderne)
   if (window.ResizeObserver) {
-    const obs = new ResizeObserver(resizeAllCanvas);
-    // Observer tous les panels et conteneurs possibles
-    ['stanton-canvas','map-canvas-full','panel-hub','panel-map',
-     '.hub-left','#hub-map-body','#map-body'].forEach(sel => {
-      const el = sel.startsWith('#') || sel.startsWith('.')
-        ? document.querySelector(sel)
-        : document.getElementById(sel);
-      if (el) obs.observe(el);
+    const obs = new ResizeObserver(() => syncAll());
+    document.addEventListener('DOMContentLoaded', () => {
+      ['stanton-canvas','map-canvas-full'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) obs.observe(el);
+      });
+      const hubLeft = document.querySelector('.hub-left');
+      if (hubLeft) obs.observe(hubLeft);
     });
-    // Observer le body pour tout changement global
-    obs.observe(document.body);
   }
 
-  // Fallback : window resize
-  let _resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(_resizeTimer);
-    _resizeTimer = setTimeout(resizeAllCanvas, 80);
-  });
-
-  // Orientation change (mobile/tablette)
-  window.addEventListener('orientationchange', function() {
-    setTimeout(resizeAllCanvas, 200);
-  });
+  // Fallback window resize
+  let _rt;
+  window.addEventListener('resize', () => { clearTimeout(_rt); _rt = setTimeout(syncAll, 80); });
+  window.addEventListener('orientationchange', () => setTimeout(syncAll, 200));
 })();
 
 /* ════════════════════════════════════════════════════════════
