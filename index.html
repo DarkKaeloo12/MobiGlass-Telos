@@ -1461,15 +1461,20 @@ function showLoginWall(){} // stub
       <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
     </div>
 	
-    <div class="nav-item" id="nav-commerce" onclick="goPanel('commerce',this)">
-      <div class="n-icon">◈</div>
-      <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
-    </div>
-	
     <div class="nav-item" id="nav-stocks" onclick="goPanel('stocks',this)">
       <div class="n-icon">▤</div>
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
+	
+	<div class="nav-item" id="nav-commerce" onclick="goPanel('commerce',this)">
+      <div class="n-icon">◈</div>
+      <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
+    </div>
+	
+	 <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
+      <div class="n-icon">🏦</div>
+      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
+    </div>	
 	
 	<div class="nav-item" id="nav-ressources" onclick="goToRessources(this)" style="display:none;">
       <div class="n-icon">◈</div>
@@ -1479,11 +1484,6 @@ function showLoginWall(){} // stub
     <div class="nav-item" id="nav-armurie" onclick="goPanel('armurie',this)" style="display:none;">
       <div class="n-icon">⚔</div>
       <div><div class="n-main">DATA ARMURIE</div><div class="n-sub">Catalogue Armement</div></div>
-    </div>
-	
-    <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
-      <div class="n-icon">🏦</div>
-      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
     </div>
 
 	<div class="nav-divider"></div>
@@ -1852,11 +1852,26 @@ function showLoginWall(){} // stub
             </div>
             <div id="pl-content" style="display:none;flex-direction:column;height:100%;">
               <div class="prof-hero" id="prof-hero"></div>
+
+              <!-- ── Sous-onglets Stock TELOS / Stock Personnel ── -->
+              <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 16px;background:var(--bg2);">
+                <button id="pltab-telos" onclick="switchPlTab('telos',this)"
+                  style="padding:7px 16px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">
+                  📦 STOCK TELOS
+                </button>
+                <button id="pltab-perso" onclick="switchPlTab('perso',this)"
+                  style="padding:7px 16px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">
+                  🎒 STOCK PERSONNEL
+                </button>
+              </div>
+
+              <!-- ── Contenu onglet TELOS ── -->
+              <div id="pltab-content-telos" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
                 <div class="sec-bar">
-                  <span class="sec-title"><span class="acc">◈</span> Stocks apportés</span>
+                  <span class="sec-title"><span class="acc">◈</span> Stocks apportés au réseau</span>
                   <div style="display:flex;gap:8px;">
-                    <button class="btn primary" onclick="openPlayerStock()">+ Ajouter une ressource</button>
-                    <button class="btn danger" style="border-color:rgba(255,68,68,0.5);" onclick="openRemoveStock()">— Retirer une ressource</button>
+                    <button class="btn primary" onclick="openPlayerStock('telos')">+ Ajouter une ressource</button>
+                    <button class="btn danger" style="border-color:rgba(255,68,68,0.5);" onclick="openRemoveStock('telos')">— Retirer une ressource</button>
                   </div>
                 </div>
                 <div class="st-wrap">
@@ -1876,7 +1891,7 @@ function showLoginWall(){} // stub
                   <div id="pl-no-stock" class="no-stock" style="display:none;">
                     <span class="ns-icon">📦</span>
                     Aucune ressource enregistrée.<br>
-                    <span style="color:var(--orange);cursor:pointer;" onclick="openPlayerStock()">Ajouter la première ressource →</span>
+                    <span style="color:var(--orange);cursor:pointer;" onclick="openPlayerStock('telos')">Ajouter la première ressource →</span>
                   </div>
                 </div>
                 <div class="stock-footer">
@@ -1884,8 +1899,46 @@ function showLoginWall(){} // stub
                   <div class="sf-cell"><div class="sf-lbl">Unités totales (SCU)</div><div class="sf-val" id="sf-units">0</div></div>
                   <div class="sf-cell"><div class="sf-lbl">Valeur totale</div><div class="sf-val green" id="sf-total">0 aUEC</div></div>
                 </div>
-              </div><!-- /pl-content -->
-            </div><!-- /jsp-partner-view -->
+              </div>
+
+              <!-- ── Contenu onglet PERSONNEL ── -->
+              <div id="pltab-content-perso" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+                <div class="sec-bar">
+                  <span class="sec-title"><span class="acc">🎒</span> Stock personnel <span style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:6px;">Non lié au réseau TELOS</span></span>
+                  <div style="display:flex;gap:8px;">
+                    <button class="btn primary" onclick="openPlayerStock('perso')">+ Ajouter une ressource</button>
+                    <button class="btn danger" style="border-color:rgba(255,68,68,0.5);" onclick="openRemoveStock('perso')">— Retirer une ressource</button>
+                  </div>
+                </div>
+                <div class="st-wrap">
+                  <table class="data-table" style="width:100%">
+                    <thead><tr>
+                      <th>Ressource</th><th>Catégorie</th>
+                      <th title="Pas de qualité assignée" style="color:var(--text-dim);white-space:nowrap;">⚪ Qté<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
+                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 Vente<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
+                      <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;white-space:nowrap;">🔵 Craft V.<div style="font-size:8px;opacity:.7;">500–800</div></th>
+                      <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);white-space:nowrap;">🟢 Craft FPS<div style="font-size:8px;opacity:.7;">800–1000</div></th>
+                      <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
+                      <th>Val. achat</th><th>Val. vente</th><th>Profit</th>
+                      <th>📍 Localisation</th><th>Date</th><th>Action</th>
+                    </tr></thead>
+                    <tbody id="pl-perso-body"></tbody>
+                  </table>
+                  <div id="pl-perso-no-stock" class="no-stock" style="display:none;">
+                    <span class="ns-icon">🎒</span>
+                    Aucune ressource personnelle.<br>
+                    <span style="color:var(--orange);cursor:pointer;" onclick="openPlayerStock('perso')">Ajouter la première ressource →</span>
+                  </div>
+                </div>
+                <div class="stock-footer">
+                  <div class="sf-cell"><div class="sf-lbl">Ressources distinctes</div><div class="sf-val" id="sf-perso-distinct">0</div></div>
+                  <div class="sf-cell"><div class="sf-lbl">Unités totales (SCU)</div><div class="sf-val" id="sf-perso-units">0</div></div>
+                  <div class="sf-cell"><div class="sf-lbl">Valeur totale</div><div class="sf-val green" id="sf-perso-total">0 aUEC</div></div>
+                </div>
+              </div>
+
+            </div><!-- /pl-content -->
+          </div><!-- /jsp-partner-view -->
           </div><!-- /panel inner -->
         </div>
       </div><!-- /panel-joueurs -->
@@ -7743,17 +7796,26 @@ function switchJTab(tab){
 
 /* Register a new player */
 // Rôles exclus de la fiche d'inscription (non sélectionnables à l'inscription)
+// Désormais géré dynamiquement via ROLES_INSCRIPTION_CONFIG
 const ROLES_EXCLUS_INSCRIPTION = ['Gestionnaire', 'Lead'];
+
+// Config dynamique : true = visible à l'inscription, false = exclu
+// Initialisé dans loadRolesConfig / par défaut selon ROLES_EXCLUS_INSCRIPTION
+var ROLES_INSCRIPTION_CONFIG = {};
 
 function populateRegRoles() {
   const sel = document.getElementById('reg-role');
   if (!sel) return;
   const current = sel.value;
-  const visibles = ROLES.filter(r => !ROLES_EXCLUS_INSCRIPTION.includes(r));
-  sel.innerHTML = visibles.map(r => `<option value="${r}">${r}</option>`).join('');
-  // Rétablir la sélection si toujours valide
+  // Utilise ROLES_INSCRIPTION_CONFIG si dispo, sinon ROLES_EXCLUS_INSCRIPTION par défaut
+  const visibles = ROLES.filter(r => {
+    if (r in ROLES_INSCRIPTION_CONFIG) return ROLES_INSCRIPTION_CONFIG[r];
+    return !ROLES_EXCLUS_INSCRIPTION.includes(r);
+  });
+  sel.innerHTML = visibles.length
+    ? visibles.map(r => `<option value="${r}">${r}</option>`).join('')
+    : '<option value="" disabled>Aucun rôle disponible</option>';
   if (visibles.includes(current)) sel.value = current;
-  // Mettre à jour l'affichage du champ gestionnaire
   toggleGestionnaireCode(sel.value);
 }
 
@@ -7855,6 +7917,36 @@ async function renderPlayerList(filter=''){
 function filterPlayers(v){ renderPlayerList(v); }
 
 /* Select and display a player */
+// Onglet actif dans la vue partenaire : 'telos' ou 'perso'
+var _currentPlTab = 'telos';
+
+function switchPlTab(tab, btn) {
+  _currentPlTab = tab;
+  // Onglets boutons
+  ['telos','perso'].forEach(t => {
+    const b = document.getElementById('pltab-' + t);
+    const c = document.getElementById('pltab-content-' + t);
+    if (!b || !c) return;
+    if (t === tab) {
+      b.style.borderBottomColor = 'var(--orange)';
+      b.style.color = 'var(--text-bright)';
+      c.style.display = 'flex';
+    } else {
+      b.style.borderBottomColor = 'transparent';
+      b.style.color = 'var(--text-dim)';
+      c.style.display = 'none';
+    }
+  });
+  // Recharger le stock de l'onglet si un partenaire est sélectionné
+  if (selectedPid) {
+    if (tab === 'telos') {
+      DB.get('uex-stocks-' + selectedPid).then(s => renderStockTable(s || []));
+    } else {
+      DB.get('uex-perso-' + selectedPid).then(s => renderPersoTable(s || []));
+    }
+  }
+}
+
 function backToPartnerList() {
   document.getElementById('jsp-list-view').style.display = 'flex';
   const pv = document.getElementById('jsp-partner-view');
@@ -7972,7 +8064,17 @@ async function selectPlayer(id){
       </div>
 
     </div>`;
+  // Réinitialiser sur l'onglet TELOS à chaque changement de partenaire
+  _currentPlTab = 'telos';
+  ['telos','perso'].forEach(t => {
+    const b = document.getElementById('pltab-' + t);
+    const c = document.getElementById('pltab-content-' + t);
+    if (b) { b.style.borderBottomColor = t==='telos'?'var(--orange)':'transparent'; b.style.color = t==='telos'?'var(--text-bright)':'var(--text-dim)'; }
+    if (c) c.style.display = t==='telos' ? 'flex' : 'none';
+  });
   renderStockTable(stocks);
+  // Charger le stock perso en arrière-plan
+  DB.get('uex-perso-'+id).then(ps => renderPersoTable(ps || []));
 }
 
 /* Render stock table for selected player */
@@ -8165,6 +8267,68 @@ function renderStockTable(stocks){
   document.getElementById('sf-total').textContent    = Math.round(tv).toLocaleString('fr-FR')+' aUEC';
 }
 
+function renderPersoTable(stocks) {
+  const body  = document.getElementById('pl-perso-body');
+  const noMsg = document.getElementById('pl-perso-no-stock');
+  if (!body) return;
+
+  if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
+  noMsg.style.display = 'none';
+
+  const groups = {};
+  stocks.forEach(s => {
+    const key = (s.res||'').toLowerCase().trim() + '|' + (s.cat||'');
+    if (!groups[key]) {
+      groups[key] = { res:s.res, cat:s.cat, qa:0, qv:0, qc:0, qf:0, buyVal:0, sellVal:0, qty:0,
+        price:s.price||0, sellprice:s.sellprice||0, loc:s.loc||'', note:s.note||'', ids:[], addedAt:s.addedAt };
+    }
+    const g = groups[key];
+    const b = qualityBucket(s);
+    if (b==='aucune') g.qa+=s.qty; else if (b==='vente') g.qv+=s.qty; else if (b==='vaisseau') g.qc+=s.qty; else g.qf+=s.qty;
+    g.qty+=s.qty; g.buyVal+=(s.price||0)*s.qty; g.sellVal+=(s.sellprice||0)*s.qty;
+    g.price=g.qty>0?g.buyVal/g.qty:0; g.sellprice=g.qty>0?g.sellVal/g.qty:0;
+    if (s.loc && !g.loc.includes(s.loc)) g.loc=g.loc?g.loc+', '+s.loc:s.loc;
+    g.ids.push(s.id);
+    if (!g.addedAt||s.addedAt>g.addedAt) g.addedAt=s.addedAt;
+  });
+
+  const rows = Object.values(groups).sort((a,b)=>a.res.localeCompare(b.res,'fr'));
+
+  body.innerHTML = rows.map(g => {
+    const margin  = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
+    const profit  = g.sellprice>0?g.sellVal-g.buyVal:null;
+    const marginCls = margin!==null?(parseFloat(margin)>=0?'td-green':'td-red'):'';
+    const firstId = g.ids[0];
+    return `<tr>
+      <td class="td-name" style="max-width:140px;">
+        <div>🎒 ${esc(g.res)}</div>
+        ${g.ids.length>1?`<div style="font-size:9px;color:var(--text-dim);">${g.ids.length} entrées</div>`:''}
+        ${g.note?`<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;" title="${esc(g.note)}">${esc(g.note)}</div>`:''}
+      </td>
+      <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
+      ${qtyCell(g.qa,'aucune')}${qtyCell(g.qv,'vente')}${qtyCell(g.qc,'vaisseau')}${qtyCell(g.qf,'fps')}
+      <td class="td-dim">${g.price?g.price.toFixed(2)+' aUEC':'—'}</td>
+      <td style="color:var(--blue);">${g.sellprice?g.sellprice.toFixed(2)+' aUEC':'—'}</td>
+      <td class="${marginCls}">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</td>
+      <td class="td-dim">${g.buyVal?Math.round(g.buyVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-green">${g.sellVal?Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="${profit!==null?(profit>=0?'td-green':'td-red'):''}">${profit!==null?(profit>=0?'+':'')+Math.round(profit).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-dim" style="font-size:10px;"><div style="display:flex;align-items:center;gap:5px;"><span>📍</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="${esc(g.loc)}">${esc(g.loc||'—')}</span></div></td>
+      <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn sm" onclick="openEditPerso('${firstId}')" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
+        <button class="btn danger sm" onclick="confirmDelPerso('${firstId}','${esc(g.res)}')" title="Supprimer">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const tu = stocks.reduce((a,s)=>a+Number(s.qty),0);
+  const tv = stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
+  document.getElementById('sf-perso-distinct').textContent = rows.length;
+  document.getElementById('sf-perso-units').textContent    = tu.toLocaleString('fr-FR');
+  document.getElementById('sf-perso-total').textContent    = Math.round(tv).toLocaleString('fr-FR')+' aUEC';
+}
+
 /* Open player stock modal */
 /* ════════════════════════════════════════════════════════════
    DATALIST — Auto-alimenté par les ressources existantes
@@ -8239,7 +8403,9 @@ async function saveEditStock() {
   if (!_editStockId || !selectedPid) return;
   if (newQty <= 0) { toast('Quantité invalide', 'La quantité doit être > 0.', 'error'); return; }
 
-  let stocks = (await DB.get('uex-stocks-' + selectedPid)) || [];
+  const isPerso = _stockModalType === 'perso';
+  const dbKey = isPerso ? 'uex-perso-'+selectedPid : 'uex-stocks-'+selectedPid;
+  let stocks = (await DB.get(dbKey)) || [];
   const s = stocks.find(x => x.id === _editStockId);
   if (!s) return;
 
@@ -8249,17 +8415,20 @@ async function saveEditStock() {
   s.qty       = newQty;
   s.loc       = newLoc;
 
-  await DB.set('uex-stocks-' + selectedPid, stocks);
+  await DB.set(dbKey, stocks);
   closeEditStock();
-  renderStockTable(stocks);
-  renderStocksFromPlayers();
-  renderPartners();
-  renderAuthBar();
-  updateKPIs();
-  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
-
-  const p = players.find(x => x.id === selectedPid);
-  pushActivity('✏', `Prix mis à jour : ${s.res} — ${newPrice.toFixed(2)} / ${newSellprice.toFixed(2)} aUEC (${p?.name||''})`, '', true);
+  if (isPerso) {
+    renderPersoTable(stocks);
+  } else {
+    renderStockTable(stocks);
+    renderStocksFromPlayers();
+    renderPartners();
+    renderAuthBar();
+    updateKPIs();
+    syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
+    const p = players.find(x => x.id === selectedPid);
+    pushActivity('✏', `Prix mis à jour : ${s.res} — ${newPrice.toFixed(2)} / ${newSellprice.toFixed(2)} aUEC (${p?.name||''})`, '', true);
+  }
   toast('Prix mis à jour', `${s.res} — achat ${newPrice.toFixed(2)} / vente ${newSellprice.toFixed(2)} aUEC`, 'success');
 }
 
@@ -8416,13 +8585,20 @@ async function loadRolesConfig() {
       ROLES = saved.roles || ROLES;
       ROLES_CONFIG = saved.droits || null;
       ROLES_COLORS_CUSTOM = saved.colors || {};
+      ROLES_INSCRIPTION_CONFIG = saved.inscription || {};
     }
     if (!ROLES_CONFIG) ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
+    // Initialiser la config inscription pour les rôles qui n'ont pas encore de valeur
+    ROLES.forEach(r => {
+      if (!(r in ROLES_INSCRIPTION_CONFIG)) {
+        ROLES_INSCRIPTION_CONFIG[r] = !ROLES_EXCLUS_INSCRIPTION.includes(r);
+      }
+    });
   } catch(e) { ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS)); }
 }
 
 async function saveRolesConfig() {
-  await DB.set('telos-roles-config', { roles: ROLES, droits: ROLES_CONFIG, colors: ROLES_COLORS_CUSTOM });
+  await DB.set('telos-roles-config', { roles: ROLES, droits: ROLES_CONFIG, colors: ROLES_COLORS_CUSTOM, inscription: ROLES_INSCRIPTION_CONFIG });
 }
 
 function hasDroit(droit) {
@@ -8657,24 +8833,27 @@ function updateQualityBadge(sel) {
   badge.textContent = q.label + '  ·  SCU ' + q.score;
 }
 
-async function openPlayerStock(){
+// Type de stock actif dans les modals : 'telos' ou 'perso'
+var _stockModalType = 'telos';
+
+async function openPlayerStock(type){
+  type = type || _currentPlTab || 'telos';
+  _stockModalType = type;
   if (!selectedPid){ toast('Aucun joueur sélectionné','Cliquez d\'abord sur un joueur.','error'); return; }
-  if (!requireAuth(selectedPid, openPlayerStock)) return;
-  // Rafraîchir la liste des ressources connues (await pour s'assurer que c'est prêt)
+  if (!requireAuth(selectedPid, ()=>openPlayerStock(type))) return;
   await refreshDatalist();
-  // Peupler le select depuis le catalogue (filtré Minéraux par défaut)
   populateResSelectFiltered('mineral');
-  // Reset champs
   ['ps-res','ps-qty','ps-price','ps-sellprice','ps-note'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const qSel=document.getElementById('ps-quality'); if(qSel){qSel.value=''; updateQualityBadge(qSel);}
   const resSel=document.getElementById('ps-res-select'); if(resSel) resSel.value='';
-  // Reset catégorie → mineral par défaut
   document.getElementById('ps-cat').value = 'mineral';
   const grid = document.getElementById('ps-cat-grid');
   if (grid) grid.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.toggle('active', b.dataset.cat==='mineral'));
-  // Reset aperçu marge
   document.getElementById('margin-preview').style.display = 'none';
   document.getElementById('ps-total-preview').textContent = '';
+  // Mettre à jour le titre du modal selon le type
+  const modalTitle = document.getElementById('ps-modal-title');
+  if (modalTitle) modalTitle.textContent = type === 'perso' ? '🎒 Ajouter — Stock Personnel' : '📦 Ajouter — Stock TELOS';
   document.getElementById('ps-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('ps-res').focus(),80);
 }
@@ -8685,12 +8864,15 @@ var _rmStocks     = [];
 var _rmSelectedId = null;
 var _rmCatFilter  = 'all';
 
-async function openRemoveStock(){
+async function openRemoveStock(type){
+  type = type || _currentPlTab || 'telos';
+  _stockModalType = type;
   if (!selectedPid){ toast('Aucun partenaire sélectionné','','error'); return; }
-  if (!requireAuth(selectedPid, openRemoveStock)) return;
+  if (!requireAuth(selectedPid, ()=>openRemoveStock(type))) return;
   const p = players.find(x=>x.id===selectedPid);
-  _rmStocks = (await DB.get('uex-stocks-'+selectedPid))||[];
-  if (!_rmStocks.length){ toast('Aucune ressource','Ce partenaire n\'a aucun stock à retirer.','warn'); return; }
+  const dbKey = type === 'perso' ? 'uex-perso-'+selectedPid : 'uex-stocks-'+selectedPid;
+  _rmStocks = (await DB.get(dbKey))||[];
+  if (!_rmStocks.length){ toast('Aucune ressource', type==='perso'?'Aucun stock personnel à retirer.':'Ce partenaire n\'a aucun stock à retirer.', 'warn'); return; }
 
   const rmAv = document.getElementById('rm-avatar');
   if (rmAv) { rmAv.innerHTML = avHtml(p, 34); rmAv.style.overflow='hidden'; }
@@ -8872,39 +9054,41 @@ async function confirmRemoveStock(){
   if (!target) return;
 
   const pname = players.find(p=>p.id===selectedPid)?.name||'';
+  const isPerso = _stockModalType === 'perso';
+  const dbKey = isPerso ? 'uex-perso-'+selectedPid : 'uex-stocks-'+selectedPid;
   let msg = '';
 
   if (qtyToRemove >= target.qty) {
-    // Retrait total — supprimer la ligne
     stocks = stocks.filter(s=>s.id!==_rmSelectedId);
     msg = `"${target.res}" entièrement retiré du stock.`;
-    const retVal1 = Math.round((target.price||0)*qtyToRemove);
-    pushActivity('📤', `Retrait total : ${qtyToRemove}× ${target.res} (${pname})`, retVal1 ? '-'+retVal1.toLocaleString('fr-FR')+' aUEC' : '', false);
+    if (!isPerso) { const retVal1=Math.round((target.price||0)*qtyToRemove); pushActivity('📤',`Retrait total : ${qtyToRemove}× ${target.res} (${pname})`,retVal1?'-'+retVal1.toLocaleString('fr-FR')+' aUEC':'',false); }
   } else {
-    // Retrait partiel — diminuer la quantité
     target.qty = target.qty - qtyToRemove;
     msg = `${qtyToRemove} SCU de "${target.res}" retirés. Restant : ${target.qty} SCU.`;
-    const retVal2 = Math.round((target.price||0)*qtyToRemove);
-    pushActivity('📤', `Retrait partiel : ${qtyToRemove}× ${target.res} (${pname})`, retVal2 ? '-'+retVal2.toLocaleString('fr-FR')+' aUEC' : '', false);
+    if (!isPerso) { const retVal2=Math.round((target.price||0)*qtyToRemove); pushActivity('📤',`Retrait partiel : ${qtyToRemove}× ${target.res} (${pname})`,retVal2?'-'+retVal2.toLocaleString('fr-FR')+' aUEC':'',false); }
   }
 
-  await DB.set('uex-stocks-'+selectedPid, stocks);
+  await DB.set(dbKey, stocks);
   _rmStocks = stocks;
   _rmSelectedId = null;
   closeRMModal();
-  renderStockTable(stocks);
-  renderPlayerList(document.getElementById('pl-search').value);
-  renderGlobal();
-  renderStocksFromPlayers();
-  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
-  renderPartners();
-  const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
-  const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
-  document.getElementById('sf-distinct').textContent=stocks.length;
-  document.getElementById('sf-units').textContent=tu.toLocaleString('fr-FR');
-  document.getElementById('sf-total').textContent=Math.round(tv).toLocaleString('fr-FR')+' aUEC';
-  renderAuthBar();
-  updateKPIs();
+  if (isPerso) {
+    renderPersoTable(stocks);
+  } else {
+    renderStockTable(stocks);
+    renderPlayerList(document.getElementById('pl-search').value);
+    renderGlobal();
+    renderStocksFromPlayers();
+    syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
+    renderPartners();
+    const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
+    const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
+    document.getElementById('sf-distinct').textContent=stocks.length;
+    document.getElementById('sf-units').textContent=tu.toLocaleString('fr-FR');
+    document.getElementById('sf-total').textContent=Math.round(tv).toLocaleString('fr-FR')+' aUEC';
+    renderAuthBar();
+    updateKPIs();
+  }
   toast('Stock mis à jour', msg, 'success');
 }
 
@@ -8959,23 +9143,22 @@ async function addPlayerStock(){
   if (!res)         { toast('Ressource manquante','Entrez un nom de ressource.','error'); return; }
   if (!qty||qty<=0) { toast('Quantité invalide','Entrez une quantité > 0.','error'); return; }
 
-  const stocks=(await DB.get('uex-stocks-'+selectedPid))||[];
-  stocks.push({
-    id:        's_'+Date.now(),
-    res, cat, qty,
-    price,      // prix achat /u
-    sellprice,  // prix vente /u
-    loc, note, quality,
-    addedAt: new Date().toISOString()
-  });
-  await DB.set('uex-stocks-'+selectedPid, stocks);
+  const isPerso = _stockModalType === 'perso';
+  const dbKey = isPerso ? 'uex-perso-'+selectedPid : 'uex-stocks-'+selectedPid;
+  const stocks=(await DB.get(dbKey))||[];
+  stocks.push({ id:'s_'+Date.now(), res, cat, qty, price, sellprice, loc, note, quality, addedAt:new Date().toISOString() });
+  await DB.set(dbKey, stocks);
   closePSModal();
-  renderStockTable(stocks);
-  renderPlayerList(document.getElementById('pl-search').value);
-  renderGlobal();
-  renderStocksFromPlayers(); // Met à jour le panel Stocks
-  renderPartners();          // Met à jour le panel Partenaires
-  syncObjectifsWithStock().then(() => refreshAllObjStockInfo());  // Recalcul objectifs
+  if (isPerso) {
+    renderPersoTable(stocks);
+  } else {
+    renderStockTable(stocks);
+    renderPlayerList(document.getElementById('pl-search').value);
+    renderGlobal();
+    renderStocksFromPlayers();
+    renderPartners();
+    syncObjectifsWithStock().then(() => refreshAllObjStockInfo());
+  }
   const p=players.find(x=>x.id===selectedPid);
   // Refresh hero stats
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
@@ -9018,7 +9201,37 @@ function confirmDelStock(sid,res){
       renderAuthBar();
       updateKPIs();
       toast('Ressource supprimée','','success');
-      snapshotProfit(); // Snapshot après suppression
+      snapshotProfit();
+    }
+  );
+}
+
+// ── Stock Personnel — Edit & Delete ─────────────────────────
+async function openEditPerso(sid) {
+  if (!requireAuth(selectedPid, ()=>openEditPerso(sid))) return;
+  const stocks = (await DB.get('uex-perso-'+selectedPid)) || [];
+  const s = stocks.find(x=>x.id===sid);
+  if (!s) return;
+  _editStockId = sid;
+  // Réutiliser le modal d'édition existant mais avec la clé perso
+  _stockModalType = 'perso';
+  document.getElementById('edit-price').value     = s.price     || '';
+  document.getElementById('edit-sellprice').value = s.sellprice || '';
+  document.getElementById('edit-qty').value       = s.qty       || '';
+  document.getElementById('edit-loc').value       = s.loc       || '';
+  document.getElementById('edit-res-name').textContent = s.res;
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function confirmDelPerso(sid, res) {
+  showConfirm('⚠ Supprimer cette ressource',
+    `Retirer <strong style="color:var(--orange)">${res}</strong> du stock personnel ?<br><small>Action irréversible.</small>`,
+    async()=>{
+      let stocks = (await DB.get('uex-perso-'+selectedPid)) || [];
+      stocks = stocks.filter(s=>s.id!==sid);
+      await DB.set('uex-perso-'+selectedPid, stocks);
+      renderPersoTable(stocks);
+      toast('Ressource supprimée','','success');
     }
   );
 }
@@ -9285,8 +9498,14 @@ function renderRolesNameList() {
   if (!el) return;
   el.innerHTML = ROLES.map((r, i) => {
     const col = _roleColorHex(r);
+    const inscrit = (r in ROLES_INSCRIPTION_CONFIG) ? ROLES_INSCRIPTION_CONFIG[r] : !ROLES_EXCLUS_INSCRIPTION.includes(r);
+    const toggleTitle = inscrit ? 'Visible à l\'inscription — cliquer pour masquer' : 'Masqué à l\'inscription — cliquer pour rendre visible';
+    const toggleStyle = inscrit
+      ? 'border:1px solid var(--orange);color:var(--orange);background:rgba(247,140,30,0.1);'
+      : 'border:1px solid var(--border);color:var(--text-dim);background:transparent;';
+    const toggleIcon = inscrit ? '📋' : '🚫';
     return `
-    <div style="display:grid;grid-template-columns:1fr 38px auto;gap:6px;align-items:center;">
+    <div style="display:grid;grid-template-columns:1fr 38px auto auto;gap:6px;align-items:center;">
       <input class="form-input" type="text" value="${r}" data-role-idx="${i}"
         style="padding:6px 9px;font-size:12px;border-left:3px solid ${col};"
         oninput="ROLES[${i}]=this.value; syncDroitsRoleKey(${i}, this.value);">
@@ -9297,6 +9516,10 @@ function renderRolesNameList() {
           oninput="setRoleColor(${i}, this.value)"
           onchange="setRoleColor(${i}, this.value)">
       </label>
+      <button onclick="toggleRoleInscription('${r}')" title="${toggleTitle}"
+        style="padding:2px 8px;cursor:pointer;font-family:var(--ui);font-size:11px;${toggleStyle}" >
+        ${toggleIcon}
+      </button>
       <button onclick="removeRole(${i})" style="padding:2px 8px;border:1px solid rgba(255,68,68,0.4);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);font-size:11px;" title="Supprimer ce rôle">✕</button>
     </div>`;
   }).join('');
@@ -9318,8 +9541,17 @@ function setRoleColor(idx, hex) {
   renderDroitsTable();
 }
 
+function toggleRoleInscription(roleName) {
+  const current = (roleName in ROLES_INSCRIPTION_CONFIG)
+    ? ROLES_INSCRIPTION_CONFIG[roleName]
+    : !ROLES_EXCLUS_INSCRIPTION.includes(roleName);
+  ROLES_INSCRIPTION_CONFIG[roleName] = !current;
+  saveRolesConfig();
+  renderRolesNameList();
+  populateRegRoles && populateRegRoles();
+}
+
 function syncDroitsRoleKey(idx, newName) {
-  const oldName = Object.keys(ROLES_CONFIG)[idx];
   if (oldName && oldName !== newName) {
     // Migrer droits
     ROLES_CONFIG[newName] = ROLES_CONFIG[oldName];
@@ -9337,10 +9569,11 @@ function addRole() {
   const name = 'Nouveau rôle';
   ROLES.push(name);
   ROLES_CONFIG[name] = { hub:1,map:1,partners:1,stocks:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,logs:0,ressources:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,delete_data:0,manage_roles:0 };
-  // Couleur auto depuis le pool
   ROLES_COLORS_CUSTOM[name] = ROLE_COLORS_POOL[(ROLES.length - 1) % ROLE_COLORS_POOL.length];
+  ROLES_INSCRIPTION_CONFIG[name] = true; // visible par défaut à l'inscription
   renderRolesNameList();
   renderDroitsTable();
+  populateRegRoles && populateRegRoles();
 }
 
 function removeRole(idx) {
@@ -9350,8 +9583,10 @@ function removeRole(idx) {
   ROLES.splice(idx, 1);
   delete ROLES_CONFIG[name];
   delete ROLES_COLORS_CUSTOM[name];
+  delete ROLES_INSCRIPTION_CONFIG[name];
   renderRolesNameList();
   renderDroitsTable();
+  populateRegRoles && populateRegRoles();
 }
 
 function renderDroitsTable() {
