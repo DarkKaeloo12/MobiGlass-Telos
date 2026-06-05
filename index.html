@@ -6306,6 +6306,8 @@ function renderCommandes() {
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:flex-start;">
           <span class="cmd-status cmd-status-${c.status}">${CMD_STATUS_LABELS[c.status]||c.status}</span>
+          ${c.branche ? '<span style="font-size:9px;letter-spacing:1px;padding:2px 7px;border:1px solid var(--orange);color:var(--orange);background:rgba(247,140,30,0.08);">🔗 BRANCHÉE</span>' : ''}
+          ${(()=>{ const labels={haute:'🟠 HAUTE',urgente:'🔴 URGENTE'}; return labels[c.priority]?`<span style="font-size:9px;letter-spacing:1px;padding:2px 7px;border:1px solid ${c.priority==='urgente'?'var(--red)':'#f97316'};color:${c.priority==='urgente'?'var(--red)':'#f97316'};background:${c.priority==='urgente'?'rgba(255,68,68,0.08)':'rgba(249,115,22,0.08)'};">${labels[c.priority]}</span>`:''; })()}
         </div>
       </div>
 
@@ -6410,9 +6412,44 @@ function openAddCommande(editId) {
   set('cmd-dl',       c?.dl       ||'');
   set('cmd-notes',    c?.notes    ||'');
 
+  // Commande branchée
+  const branche = c?.branche || 0;
+  const brInput = document.getElementById('cmd-branche');
+  if (brInput) brInput.value = branche;
+  _updateBrancheToggle(branche);
+
+  // Afficher/masquer les champs selon les droits
+  const pfEl = document.getElementById('cmd-priority-field');
+  const bfEl = document.getElementById('cmd-branche-field');
+  if (pfEl) pfEl.style.display = hasDroit('use_priority') ? '' : 'none';
+  if (bfEl) bfEl.style.display = hasDroit('use_branche')  ? '' : 'none';
+
   const title = document.getElementById('cmd-modal-title');
   if (title) title.textContent = editId ? '✏ MODIFIER LA COMMANDE' : '📋 CRÉER UNE COMMANDE';
   document.getElementById('cmd-overlay').classList.add('open');
+}
+
+function _updateBrancheToggle(val) {
+  const track = document.getElementById('cmd-branche-track');
+  const thumb = document.getElementById('cmd-branche-thumb');
+  if (!track || !thumb) return;
+  const on = !!parseInt(val);
+  track.style.background = on ? 'var(--orange)' : 'var(--border)';
+  thumb.style.background = on ? '#fff' : 'var(--text-dim)';
+  thumb.style.left = on ? '20px' : '2px';
+}
+
+function toggleCmdBranche() {
+  const inp = document.getElementById('cmd-branche');
+  if (!inp) return;
+  const newVal = inp.value === '1' ? 0 : 1;
+  inp.value = newVal;
+  _updateBrancheToggle(newVal);
+  const prioSel = document.getElementById('cmd-priority');
+  if (prioSel) {
+    if (newVal === 1 && prioSel.value === 'normale') prioSel.value = 'haute';
+    if (newVal === 0) prioSel.value = 'normale';
+  }
 }
 
 // Vider et repeupler les lignes de ressources
@@ -6542,7 +6579,8 @@ async function saveCommande() {
     resource:  resources[0]?.name||'',
     qty:       resources[0]?.qty||0,
     price:     parseFloat(document.getElementById('cmd-price')?.value)||0,
-    priority:  document.getElementById('cmd-priority')?.value||'normale',
+    priority:  hasDroit('use_priority') ? (document.getElementById('cmd-priority')?.value||'normale') : 'normale',
+    branche:   hasDroit('use_branche')  ? (parseInt(document.getElementById('cmd-branche')?.value)||0) : 0,
     dl:        document.getElementById('cmd-dl')?.value||'',
     notes:     document.getElementById('cmd-notes')?.value.trim()||'',
     status:    _editCmdId?(COMMANDES.find(x=>x.id===_editCmdId)?.status||'attente'):'attente',
@@ -8558,6 +8596,8 @@ var DROITS_DEFS = [
   { id:'armurie',       label:'⚔ Data Armurie',           desc:'Catalogue armement (admin/gest.)' },
   { id:'edit_stock',    label:'✏ Modifier stock',          desc:'Ajouter/modifier son propre stock' },
   { id:'add_commande',  label:'+ Créer commande',          desc:'Créer une commande' },
+  { id:'use_priority',  label:'🔴 Priorité commande',      desc:'Choisir la priorité d\'une commande' },
+  { id:'use_branche',   label:'🔗 Commande branchée',      desc:'Marquer une commande comme branchée' },
   { id:'add_objectif',  label:'+ Créer objectif',          desc:'Créer un objectif' },
   { id:'add_mission',   label:'+ Créer mission',           desc:'Créer une mission (Gest.)' },
   { id:'add_blueprint', label:'+ Ajouter blueprint',       desc:'Ajouter un blueprint' },
@@ -8567,12 +8607,12 @@ var DROITS_DEFS = [
 ];
 
 var DEFAULT_DROITS = {
-  Trader:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
-  Mineur:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
-  Transporteur:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
-  Explorateur:   { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
-  Lead:          { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:0,manage_roles:0 },
-  Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:1,manage_roles:1 },
+  Trader:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,use_priority:0,use_branche:0,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Mineur:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,use_priority:0,use_branche:0,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Transporteur:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,use_priority:0,use_branche:0,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Explorateur:   { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,use_priority:0,use_branche:0,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Lead:          { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,use_priority:1,use_branche:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:0,manage_roles:0 },
+  Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,use_priority:1,use_branche:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:1,manage_roles:1 },
 };
 
 // Couleurs personnalisées des rôles { roleName: '#rrggbb' }
@@ -10839,14 +10879,29 @@ async function saveBankTransaction() {
           <input class="form-input" type="number" id="cmd-price" min="0" step="1000" placeholder="0">
         </div>
 
-        <!-- Priorité -->
-        <div class="form-field">
+        <!-- Priorité — visible selon droit use_priority -->
+        <div class="form-field" id="cmd-priority-field">
           <label class="form-lbl">Priorité</label>
           <select class="form-input" id="cmd-priority" style="height:auto;padding:9px 11px;">
             <option value="normale">⚪ Normale</option>
             <option value="haute">🟠 Haute</option>
             <option value="urgente">🔴 Urgente</option>
           </select>
+        </div>
+
+        <!-- Commande branchée — visible selon droit use_branche -->
+        <div class="form-field" id="cmd-branche-field" style="grid-column:span 2;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;">
+            <div style="position:relative;width:38px;height:20px;flex-shrink:0;" onclick="toggleCmdBranche()">
+              <div id="cmd-branche-track" style="width:38px;height:20px;border-radius:10px;background:var(--border);transition:background 0.2s;border:1px solid rgba(255,255,255,0.1);"></div>
+              <div id="cmd-branche-thumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-dim);transition:all 0.2s;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;letter-spacing:1.5px;color:var(--text-bright);text-transform:uppercase;font-weight:700;">🔗 Commande branchée</div>
+              <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">Commande liée à un accord ou partenariat spécifique</div>
+            </div>
+          </label>
+          <input type="hidden" id="cmd-branche" value="0">
         </div>
 
         <!-- Date limite -->
