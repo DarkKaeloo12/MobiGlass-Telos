@@ -2421,10 +2421,16 @@ function showLoginWall(){} // stub
         <div id="ps-uex-hint" style="display:none;margin-top:4px;padding:4px 8px;font-size:10px;font-family:var(--mono);border-left:2px solid;"></div>
       </div>
 
-      <!-- Quantité -->
+      <!-- Quantité + Unité -->
       <div class="form-field">
-        <label class="form-lbl">Quantité (SCU / unités) <span class="req">*</span></label>
-        <input class="form-input" type="number" id="ps-qty" placeholder="0" min="1" step="1">
+        <label class="form-lbl">Quantité <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="form-input" type="number" id="ps-qty" placeholder="0" min="1" step="1" style="flex:1;">
+          <select class="form-input" id="ps-unit" style="width:100px;flex-shrink:0;height:auto;padding:9px 11px;">
+            <option value="scu">SCU</option>
+            <option value="unite">Unité</option>
+          </select>
+        </div>
       </div>
 
       <!-- Prix achat + vente côte à côte -->
@@ -2471,18 +2477,26 @@ function showLoginWall(){} // stub
         </select>
       </div>
 
-      <!-- Notes optionnelles -->
+      <!-- Qualité : plage + valeur exacte -->
       <div class="form-field">
         <label class="form-lbl">Qualité <span style="color:var(--text-dim);font-size:10px;">optionnel</span></label>
-        <select class="form-input" id="ps-quality" style="height:auto;padding:9px 11px;" onchange="updateQualityBadge(this)">
-          <option value="">— Non spécifié —</option>
-          <option value="mediocre">💀 Qualité Médiocre  (&lt;500)</option>
-          <option value="basique">🔴 Qualité Basique  (500–600)</option>
-          <option value="acceptable">🟠 Qualité Acceptable  (600–700)</option>
-          <option value="honnete">🟡 Qualité Honnête  (700–800)</option>
-          <option value="moyenne">🟢 Qualité Moyenne  (800–900)</option>
-          <option value="haute">💎 Haute Qualité  (900–1000)</option>
-        </select>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <select class="form-input" id="ps-quality" style="flex:1;height:auto;padding:9px 11px;" onchange="updateQualityBadge(this)">
+            <option value="">— Non spécifié —</option>
+            <option value="mediocre">💀 Médiocre  (&lt;500)</option>
+            <option value="basique">🔴 Basique  (500–600)</option>
+            <option value="acceptable">🟠 Acceptable  (600–700)</option>
+            <option value="honnete">🟡 Honnête  (700–800)</option>
+            <option value="moyenne">🟢 Moyenne  (800–900)</option>
+            <option value="haute">💎 Haute  (900–1000)</option>
+          </select>
+          <div style="flex-shrink:0;width:110px;">
+            <input class="form-input" type="number" id="ps-quality-exact" placeholder="ex: 847" min="0" max="1000" step="1"
+              style="text-align:center;"
+              oninput="syncQualityFromExact(this.value)">
+            <div style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:3px;letter-spacing:1px;">VALEUR EXACTE</div>
+          </div>
+        </div>
         <div id="ps-quality-badge" style="display:none;margin-top:5px;padding:4px 10px;font-size:11px;font-family:var(--mono);letter-spacing:1px;border-left:3px solid;width:fit-content;"></div>
       </div>
 
@@ -8235,7 +8249,9 @@ function renderStockTable(stocks){
         buyVal: 0, sellVal: 0, qty: 0,
         price: s.price||0, sellprice: s.sellprice||0,
         loc: s.loc||'', note: s.note||'',
-        ids: [], // IDs des items originaux pour edit/delete
+        unit: s.unit||'scu',
+        qualityExact: s.qualityExact||null,
+        ids: [],
         addedAt: s.addedAt,
       };
     }
@@ -8248,13 +8264,10 @@ function renderStockTable(stocks){
     g.qty      += s.qty;
     g.buyVal   += (s.price||0) * s.qty;
     g.sellVal  += (s.sellprice||0) * s.qty;
-    // Prix moyen pondéré
     g.price     = g.qty > 0 ? g.buyVal  / g.qty : 0;
     g.sellprice = g.qty > 0 ? g.sellVal / g.qty : 0;
-    // Localisation : concaténer si différente
     if (s.loc && !g.loc.includes(s.loc)) g.loc = g.loc ? g.loc+', '+s.loc : s.loc;
     g.ids.push(s.id);
-    // Garder la date la plus récente
     if (!g.addedAt || s.addedAt > g.addedAt) g.addedAt = s.addedAt;
   });
 
@@ -8270,6 +8283,10 @@ function renderStockTable(stocks){
       <td class="td-name" style="max-width:140px;">
         <div>◈ ${esc(g.res)}</div>
         ${g.ids.length>1 ? `<div style="font-size:9px;color:var(--text-dim);">${g.ids.length} entrées</div>` : ''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+          ${g.unit && g.unit!=='scu' ? `<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(96,165,250,0.4);color:#60a5fa;letter-spacing:1px;">UNITÉ</span>` : `<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(247,140,30,0.3);color:var(--text-dim);letter-spacing:1px;">SCU</span>`}
+          ${g.qualityExact ? `<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(0,255,163,0.3);color:var(--green);font-family:var(--mono);letter-spacing:1px;">${g.qualityExact}</span>` : ''}
+        </div>
         ${g.note ? `<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;" title="${esc(g.note)}">${esc(g.note)}</div>` : ''}
       </td>
       <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
@@ -8873,6 +8890,21 @@ function updateQualityBadge(sel) {
   badge.textContent = q.label + '  ·  SCU ' + q.score;
 }
 
+// Synchronise le select plage depuis la valeur exacte tapée
+function syncQualityFromExact(val) {
+  const n = parseInt(val);
+  const sel = document.getElementById('ps-quality');
+  if (!sel) return;
+  if (!val || isNaN(n)) { sel.value = ''; }
+  else if (n < 500)  sel.value = 'mediocre';
+  else if (n < 600)  sel.value = 'basique';
+  else if (n < 700)  sel.value = 'acceptable';
+  else if (n < 800)  sel.value = 'honnete';
+  else if (n < 900)  sel.value = 'moyenne';
+  else               sel.value = 'haute';
+  updateQualityBadge(sel);
+}
+
 // Type de stock actif dans les modals : 'telos' ou 'perso'
 var _stockModalType = 'telos';
 
@@ -8885,6 +8917,8 @@ async function openPlayerStock(type){
   populateResSelectFiltered('mineral');
   ['ps-res','ps-qty','ps-price','ps-sellprice','ps-note'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const qSel=document.getElementById('ps-quality'); if(qSel){qSel.value=''; updateQualityBadge(qSel);}
+  const qExact=document.getElementById('ps-quality-exact'); if(qExact) qExact.value='';
+  const unitSel=document.getElementById('ps-unit'); if(unitSel) unitSel.value='scu';
   const resSel=document.getElementById('ps-res-select'); if(resSel) resSel.value='';
   document.getElementById('ps-cat').value = 'mineral';
   const grid = document.getElementById('ps-cat-grid');
@@ -9179,6 +9213,8 @@ async function addPlayerStock(){
   const loc       = document.getElementById('ps-loc').value;
   const note      = document.getElementById('ps-note').value.trim();
   const quality   = document.getElementById('ps-quality')?.value || '';
+  const qualityExact = parseInt(document.getElementById('ps-quality-exact')?.value) || null;
+  const unit      = document.getElementById('ps-unit')?.value || 'scu';
 
   if (!res)         { toast('Ressource manquante','Entrez un nom de ressource.','error'); return; }
   if (!qty||qty<=0) { toast('Quantité invalide','Entrez une quantité > 0.','error'); return; }
@@ -9186,7 +9222,7 @@ async function addPlayerStock(){
   const isPerso = _stockModalType === 'perso';
   const dbKey = isPerso ? 'uex-perso-'+selectedPid : 'uex-stocks-'+selectedPid;
   const stocks=(await DB.get(dbKey))||[];
-  stocks.push({ id:'s_'+Date.now(), res, cat, qty, price, sellprice, loc, note, quality, addedAt:new Date().toISOString() });
+  stocks.push({ id:'s_'+Date.now(), res, cat, qty, price, sellprice, loc, note, quality, qualityExact, unit, addedAt:new Date().toISOString() });
   await DB.set(dbKey, stocks);
   closePSModal();
   if (isPerso) {
