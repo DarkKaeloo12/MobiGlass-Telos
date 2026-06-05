@@ -1399,7 +1399,7 @@ body::before {
 // Pré-initialisation des globales critiques — évite les TDZ/undefined
 // avant que le script principal soit chargé
 var SESSION=null, players=[], FULL_LOGS_DATA=[], COMMANDES=[], BLUEPRINTS=[],
-    OBJECTIFS=[], MISSIONS=[], ROLES=['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'],
+    OBJECTIFS=[], MISSIONS=[], ROLES=['Trader','Mineur','Transporteur','Explorateur','Lead','Gestionnaire'],
     ROLES_CONFIG=null, ROLES_COLORS_CUSTOM={}, LIVE_ACTIVITY=[], RESSOURCE_CATALOGUE=[],
     PANELS_PUBLIC=['hub','inscription'],
     selectedPid=null, mapView='global', mapCanvas=null, mapCtx=null, mapW=0, mapH=0,
@@ -1422,7 +1422,7 @@ function showLoginWall(){} // stub
       <div><div class="n-main">INSCRIPTION</div><div class="n-sub">Rejoindre le réseau</div></div>
     </div>
 	
-	<div class="nav-item" onclick="goPanel('partners',this)">
+	<div class="nav-item" id="nav-partners" onclick="goPanel('partners',this)">
       <div class="n-icon">⬡</div>
       <div><div class="n-main">PARTENAIRES</div><div class="n-sub">Réseau commercial</div></div>
       <span class="nav-badge" id="badge-joueurs">0</span>
@@ -1456,22 +1456,17 @@ function showLoginWall(){} // stub
       <span class="nav-badge" id="badge-objectifs" style="display:none;">0</span>
     </div>
 	
-	<div class="nav-item" onclick="goPanel('missions',this)">
+	<div class="nav-item" id="nav-missions" onclick="goPanel('missions',this)">
       <div class="n-icon">☰</div>
       <div><div class="n-main">MISSIONS</div><div class="n-sub">Contrats TELOS</div></div>
     </div>
 	
-    <div class="nav-item" onclick="goPanel('commerce',this)">
+    <div class="nav-item" id="nav-commerce" onclick="goPanel('commerce',this)">
       <div class="n-icon">◈</div>
       <div><div class="n-main">COMMERCE</div><div class="n-sub">Achats / Ventes</div></div>
     </div>
-
-	<div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
-      <div class="n-icon">🏦</div>
-      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
-    </div>  
 	
-    <div class="nav-item" onclick="goPanel('stocks',this)">
+    <div class="nav-item" id="nav-stocks" onclick="goPanel('stocks',this)">
       <div class="n-icon">▤</div>
       <div><div class="n-main">STOCKS TELOS</div><div class="n-sub">Inventaire consolidé</div></div>
     </div>
@@ -1485,9 +1480,14 @@ function showLoginWall(){} // stub
       <div class="n-icon">⚔</div>
       <div><div class="n-main">DATA ARMURIE</div><div class="n-sub">Catalogue Armement</div></div>
     </div>
+	
+    <div class="nav-item" id="nav-banque" onclick="goPanel('banque',this)" style="display:none;">
+      <div class="n-icon">🏦</div>
+      <div><div class="n-main">BANQUE</div><div class="n-sub">Trésorerie TELOS</div></div>
+    </div>
 
 	<div class="nav-divider"></div>
-    <div class="nav-item" onclick="goPanel('logs',this)">
+    <div class="nav-item" id="nav-logs" onclick="goPanel('logs',this)">
       <div class="n-icon">≡</div>
       <div><div class="n-main">LOGS</div><div class="n-sub">Historique système</div></div>
     </div>
@@ -1799,12 +1799,9 @@ function showLoginWall(){} // stub
             <div class="form-field">
               <label class="form-lbl">Rôle dans l'organisation</label>
               <select class="form-input" id="reg-role" onchange="toggleGestionnaireCode(this.value)">
-                <option value="Trader">Trader</option>
-                <option value="Mineur">Mineur</option>
-                <option value="Transporteur">Transporteur</option>
-                <option value="Explorateur">Explorateur</option>
-                <option value="Gestionnaire">Gestionnaire</option>
+                <!-- Peuplé dynamiquement par populateRegRoles() -->
               </select>
+              <div class="form-hint" style="color:var(--text-dim);">Le rôle peut être modifié ultérieurement par un Gestionnaire ou Admin.</div>
             </div>
             <div class="form-field" id="gestionnaire-code-field" style="display:none;">
               <label class="form-lbl">Code d'accès Gestionnaire <span class="req">*</span></label>
@@ -2784,22 +2781,43 @@ function canManageRoles() {
   return SESSION.isAdmin || p?.role === 'Gestionnaire';
 }
 
-function updateNavRessources() {
-  // Inscription : visible uniquement si non connecté
+function updateNavRessources() { updateAllNav(); }
+function updateNavBanque() { updateAllNav(); }
+
+function updateAllNav() {
+  // Mapping nav-id → droit requis (null = toujours visible si connecté)
+  const NAV_DROITS = {
+    'nav-partners':   'partners',
+    'nav-joueurs':    'ressource_par',
+    'nav-armurerie':  'ressource_par',
+    'nav-blueprints': 'blueprints',
+    'nav-commandes':  'commandes',
+    'nav-objectifs':  'objectifs',
+    'nav-missions':   'missions',
+    'nav-commerce':   'commerce',
+    'nav-stocks':     'stocks',
+    'nav-ressources': 'ressources',
+    'nav-armurie':    'armurie',
+    'nav-banque':     'banque',
+    'nav-logs':       'logs',
+  };
+
+  // Onglets visibles même sans connexion
+  const PUBLIC_NAV = [];
+
+  Object.entries(NAV_DROITS).forEach(([navId, droit]) => {
+    const el = document.getElementById(navId);
+    if (!el) return;
+    if (!SESSION) {
+      el.style.display = PUBLIC_NAV.includes(navId) ? '' : 'none';
+    } else {
+      el.style.display = hasDroit(droit) ? '' : 'none';
+    }
+  });
+
+  // Inscription visible uniquement si non connecté
   const elInsc = document.getElementById('nav-inscription');
   if (elInsc) elInsc.style.display = SESSION ? 'none' : '';
-  // Ressources data : via droit 'ressources'
-  const el = document.getElementById('nav-ressources');
-  if (el) el.style.display = (SESSION && hasDroit('ressources')) ? '' : 'none';
-  // Armurie : via droit 'armurie'
-  const elArm = document.getElementById('nav-armurie');
-  if (elArm) elArm.style.display = (SESSION && hasDroit('armurie')) ? '' : 'none';
-  // Banque : via droit 'banque'
-  const elB = document.getElementById('nav-banque');
-  if (elB) elB.style.display = (SESSION && hasDroit('banque')) ? '' : 'none';
-  // Blueprints visible pour tous les membres connectés
-  const el2 = document.getElementById('nav-blueprints');
-  if (el2) el2.style.display = SESSION ? '' : 'none';
 }
 
 function setSession(player) {
@@ -7663,6 +7681,7 @@ function goPanel(id, el) {
 
   if (id==='map')      { setTimeout(()=>{ const c=document.getElementById('map-canvas-full'); if(c){const w=c.offsetWidth,h=c.offsetHeight;if(w>10&&h>10&&(c.width!==w||c.height!==h)){c.width=w;c.height=h;c._inited=false;}} }, 60); }
   if (id==='joueurs')  { (async()=>renderGlobal())(); updateGlobalFilter(); }
+  if (id==='inscription') { populateRegRoles(); }
   if (id==='stocks')   {
     renderStocksFromPlayers();
     if (SESSION) {
@@ -7723,9 +7742,25 @@ function switchJTab(tab){
 }
 
 /* Register a new player */
+// Rôles exclus de la fiche d'inscription (non sélectionnables à l'inscription)
+const ROLES_EXCLUS_INSCRIPTION = ['Gestionnaire', 'Lead'];
+
+function populateRegRoles() {
+  const sel = document.getElementById('reg-role');
+  if (!sel) return;
+  const current = sel.value;
+  const visibles = ROLES.filter(r => !ROLES_EXCLUS_INSCRIPTION.includes(r));
+  sel.innerHTML = visibles.map(r => `<option value="${r}">${r}</option>`).join('');
+  // Rétablir la sélection si toujours valide
+  if (visibles.includes(current)) sel.value = current;
+  // Mettre à jour l'affichage du champ gestionnaire
+  toggleGestionnaireCode(sel.value);
+}
+
 function toggleGestionnaireCode(role) {
   const field = document.getElementById('gestionnaire-code-field');
   const input = document.getElementById('reg-gestionnaire-code');
+  if (!field) return;
   if (role === 'Gestionnaire') {
     field.style.display = 'flex';
     field.style.flexDirection = 'column';
@@ -7779,19 +7814,17 @@ async function registerPlayer(){
   const p={ id:pid, name, rsi, uex:uex||null, role, codeHash, isAdmin:isFounder, joinedAt:new Date().toISOString() };
   players.push(p);
   await DB.set('uex-players', players);
-  // Sauvegarder le code personnel en DB (accès admin uniquement — récupération possible)
-  // Stocké séparément pour ne pas exposer le code brut dans la liste des joueurs
   await DB.set('telos-player-code-'+pid, { code: regCode, name, savedAt: new Date().toISOString() });
-  ['reg-name','reg-rsi','reg-uex'].forEach(id=>document.getElementById(id).value='');
+  ['reg-name','reg-rsi','reg-uex','reg-corpo-access','reg-code'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  populateRegRoles();
   renderPlayerList();
   updateBadges();
   updateGlobalFilter();
-  renderPartners(); // Mise à jour Partenaires
+  renderPartners();
   pushActivity('⬡', `${name} a rejoint le réseau TELOS`, '', true);
   updateKPIs();
   toast('Joueur enregistré !', `${name} a rejoint le réseau TELOS.`, 'success');
-  setSession(p); // Auto-connexion après inscription
-  // Naviguer vers Stock et afficher le profil
+  setSession(p);
   goPanel('joueurs');
   setTimeout(()=>selectPlayer(p.id), 80);
 }
@@ -8332,7 +8365,7 @@ async function saveAvatar(avatarData) {
    ÉDITION DU RÔLE
 ════════════════════════════════════════════════════════════ */
 // Rôles dynamiques — chargés depuis DB, avec fallback
-var ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+var ROLES = ['Trader','Mineur','Transporteur','Explorateur','Lead','Gestionnaire'];
 
 // Droits par défaut — structure : { roleKey: { tab: bool, ... } }
 // Chargé depuis DB via loadRolesConfig()
@@ -8369,6 +8402,7 @@ var DEFAULT_DROITS = {
   Mineur:        { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
   Transporteur:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
   Explorateur:   { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:0,logs:0,ressources:0,armurie:0,edit_stock:1,add_commande:1,add_objectif:0,add_mission:0,add_blueprint:0,add_transaction:0,delete_data:0,manage_roles:0 },
+  Lead:          { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:0,manage_roles:0 },
   Gestionnaire:  { hub:1,map:1,partners:1,stocks:1,ressource_par:1,blueprints:1,commandes:1,objectifs:1,missions:1,commerce:1,banque:1,logs:1,ressources:1,armurie:1,edit_stock:1,add_commande:1,add_objectif:1,add_mission:1,add_blueprint:1,add_transaction:1,delete_data:1,manage_roles:1 },
 };
 
@@ -9379,19 +9413,20 @@ async function saveRolesAndDroits() {
   const inputs = document.querySelectorAll('#roles-name-list input[data-role-idx]');
   inputs.forEach((inp, i) => { if (ROLES[i] !== undefined) ROLES[i] = inp.value.trim() || ROLES[i]; });
   await saveRolesConfig();
-  // Mettre à jour le select dans openEditRole
   toast('Rôles & droits sauvegardés', 'Configuration enregistrée.', 'success');
   renderRolesNameList();
   renderDroitsTable();
+  populateRegRoles && populateRegRoles();
 }
 
 async function resetRolesConfig() {
   if (!confirm('Réinitialiser tous les rôles et droits aux valeurs par défaut ?')) return;
-  ROLES = ['Trader','Mineur','Transporteur','Explorateur','Gestionnaire'];
+  ROLES = ['Trader','Mineur','Transporteur','Explorateur','Lead','Gestionnaire'];
   ROLES_CONFIG = JSON.parse(JSON.stringify(DEFAULT_DROITS));
   ROLES_COLORS_CUSTOM = {};
   await saveRolesConfig();
   renderRolesDroitsPanel();
+  populateRegRoles && populateRegRoles();
   toast('Réinitialisé', 'Rôles et droits remis par défaut.', 'info');
 }
 function closeSettings(){document.getElementById('settings-overlay').classList.remove('open');}
