@@ -10091,9 +10091,11 @@ async function renderArmTable() {
       <td class="td-green">${g.sellVal?Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
       <td class="td-dim" style="font-size:10px;"><span title="${esc(g.loc)}">📍 ${esc((g.loc||'—').slice(0,20))}</span></td>
       <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
-      <td style="display:flex;gap:4px;" onclick="event.stopPropagation()">
-        <button class="btn sm" data-action="arm-edit" data-id="${g.ids[0]}" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
-        <button class="btn danger sm" data-action="arm-del" data-id="${g.ids[0]}" data-name="${esc(g.name)}" title="Supprimer">✕</button>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px;">
+          <button class="btn sm" data-action="arm-edit" data-id="${g.ids[0]}" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
+          <button class="btn danger sm" data-action="arm-del" data-id="${g.ids[0]}" data-name="${esc(g.name)}" title="Supprimer">✕</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
