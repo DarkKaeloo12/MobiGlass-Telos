@@ -1663,30 +1663,30 @@ function showLoginWall(){} // stub
                   <button class="chart-ctrl"        id="bank-stat-all" onclick="setBankStat(0,this)">Tout</button>
                 </div>
               </div>
-              <div id="hub-bank-stats" style="flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;">
-
-                <!-- KPIs banque -->
-                <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;">
-                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
-                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Solde total</div>
-                    <div id="hbs-solde" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--orange);margin-top:3px;">0 aUEC</div>
-                  </div>
-                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
-                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Crédits</div>
-                    <div id="hbs-credits" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green);margin-top:3px;">+0</div>
-                  </div>
-                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
-                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Débits</div>
-                    <div id="hbs-debits" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--red);margin-top:3px;">-0</div>
-                  </div>
-                  <div style="flex:1;padding:10px 14px;">
-                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Transactions</div>
-                    <div id="hbs-count" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text-bright);margin-top:3px;">0 tx</div>
-                  </div>
+              <!-- KPIs banque -->
+              <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;">
+                <div style="flex:1;padding:7px 12px;border-right:1px solid var(--border);">
+                  <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Solde</div>
+                  <div id="hbs-solde" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--orange);">0 aUEC</div>
                 </div>
-
-                <!-- Dernières transactions -->
-                <div style="flex:1;overflow-y:auto;padding:6px 0;" id="hbs-tx-list"></div>
+                <div style="flex:1;padding:7px 12px;border-right:1px solid var(--border);">
+                  <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Crédits</div>
+                  <div id="hbs-credits" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--green);">+0</div>
+                </div>
+                <div style="flex:1;padding:7px 12px;border-right:1px solid var(--border);">
+                  <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Débits</div>
+                  <div id="hbs-debits" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--red);">-0</div>
+                </div>
+                <div style="flex:1;padding:7px 12px;">
+                  <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Transactions</div>
+                  <div id="hbs-count" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text-bright);">0 tx</div>
+                </div>
+              </div>
+              <!-- Graphique 3D -->
+              <div style="flex:1;position:relative;overflow:hidden;">
+                <canvas id="bank-3d-chart" style="width:100%;height:100%;display:block;"></canvas>
+                <div id="bank-chart-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--orange);padding:5px 10px;font-family:var(--mono);font-size:11px;color:var(--text-bright);white-space:nowrap;z-index:10;"></div>
+                <div id="bank-chart-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:11px;letter-spacing:1px;">Aucune transaction</div>
               </div>
             </div>
           </div>
@@ -3085,19 +3085,61 @@ function logout() {
   const _sb = document.querySelector('.pl-sidebar');
   if (_sb) _sb.style.display = '';
   toast('Déconnexion', 'Session TELOS fermée.', 'info');
-} {
-  SESSION = null;
-  renderAuthBar();
-  goPanel('hub');
-  pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
-  if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
-  renderMissions();
-  updateNavRessources();
+}
+
+async function renderAuthBar() {
+  const elName    = document.getElementById('sb-name');
+  const elId      = document.getElementById('sb-id');
+  const elRang    = document.getElementById('sb-rang');
+  const elRes     = document.getElementById('sb-res');
+  const elVal     = document.getElementById('sb-stock-val');
+  const elAvatar  = document.getElementById('sb-avatar');
+  const elRepFill = document.getElementById('sb-rep-fill');
+  const elBtn     = document.getElementById('sb-auth-btn');
+
+  if (SESSION) {
+    const player = players.find(p => p.id === SESSION.pid);
+    const stocks = player ? (await DB.get('uex-stocks-' + player.id)) || [] : [];
+    const totalVal = stocks.reduce((a,s) => a + (s.price||0)*s.qty, 0);
+    const totalRes = stocks.length;
+    const rang     = SESSION.isAdmin ? 'ADMIN' : (player?.role || 'PARTENAIRE');
+    const barPct   = Math.min(100, Math.round(totalRes / 20 * 100));
+
+    if (elName)    elName.textContent    = SESSION.name.toUpperCase();
+    if (elId)      elId.textContent      = 'ID : ' + (player?.id?.replace('p_','TELOS-') || '—');
+    if (elRang) {
+      elRang.textContent = rang.toUpperCase();
+      elRang.style.color = SESSION.isAdmin ? '#ffffff' : 'var(--text)';
+      elRang.style.fontWeight = SESSION.isAdmin ? '700' : '600';
+    }
+    if (elRes)     elRes.textContent     = totalRes + ' ressource' + (totalRes > 1 ? 's' : '');
+    if (elVal)     elVal.textContent     = Math.round(totalVal).toLocaleString('fr-FR') + ' aUEC';
+    if (elAvatar) {
+      elAvatar.style.overflow = 'hidden';
+      elAvatar.innerHTML = avHtml(player || SESSION.name, 44);
+    }
+    if (elRepFill) elRepFill.style.width = barPct + '%';
+    if (elBtn) {
+      elBtn.textContent = 'DÉCO';
+      elBtn.style.borderColor = 'rgba(255,68,68,0.4)';
+      elBtn.style.color = 'var(--red)';
+    }
+  } else {
+    if (elName)    elName.textContent    = '—';
+    if (elId)      elId.textContent      = 'ID : —';
+    if (elRang)    elRang.textContent    = '—';
+    if (elRes)     elRes.textContent     = '—';
+    if (elVal)     elVal.textContent     = '—';
+    if (elAvatar)  elAvatar.textContent  = '⬡';
+    if (elRepFill) elRepFill.style.width = '0%';
+    if (elBtn) {
+      elBtn.textContent = 'CONNEXION';
+      elBtn.style.borderColor = 'var(--orange)';
+      elBtn.style.color = 'var(--orange)';
+    }
+  }
+  updateNavRessources && updateNavRessources();
   updateNavBanque && updateNavBanque();
-  renderObjectifs();
-  const _sb = document.querySelector('.pl-sidebar');
-  if (_sb) _sb.style.display = '';
-  toast('Déconnexion', 'Session TELOS fermée.', 'info');
 }
 
 
@@ -3155,75 +3197,6 @@ function avHtml(playerOrName, size=34) {
     return `<span style="font-size:${Math.round(size*0.55)}px;line-height:1;">${avatar}</span>`;
   }
   return `<span style="font-size:${Math.round(size*0.5)}px;">${letter}</span>`;
-}
-async function renderAuthBar() {
-  // Éléments sidebar profil
-  const elName    = document.getElementById('sb-name');
-  const elId      = document.getElementById('sb-id');
-  const elRang    = document.getElementById('sb-rang');
-  const elRes     = document.getElementById('sb-res');
-  const elVal     = document.getElementById('sb-stock-val');
-  const elAvatar  = document.getElementById('sb-avatar');
-  const elRepFill = document.getElementById('sb-rep-fill');
-  const elBtn     = document.getElementById('sb-auth-btn');
-
-  if (SESSION) {
-    const player = players.find(p => p.id === SESSION.pid);
-    // Charger les stocks du joueur connecté
-    const stocks = player ? (await DB.get('uex-stocks-' + player.id)) || [] : [];
-    const totalVal   = stocks.reduce((a,s) => a + (s.price||0)*s.qty, 0);
-    const totalRes   = stocks.length;
-    // Rang = role du joueur ou Admin
-    const rang = SESSION.isAdmin ? 'ADMIN' : (player?.role || 'PARTENAIRE');
-    // Remplissage barre = nb ressources / 20 max
-    const barPct = Math.min(100, Math.round(totalRes / 20 * 100));
-
-    if (elName)    elName.textContent    = SESSION.name.toUpperCase();
-    if (elId)      elId.textContent      = 'ID : ' + (player?.id?.replace('p_','TELOS-') || '—');
-    if (elRang) {
-    elRang.textContent = rang.toUpperCase();
-    elRang.style.color = SESSION.isAdmin ? '#ffffff' : 'var(--text)';
-    elRang.style.fontWeight = SESSION.isAdmin ? '700' : '600';
-  }
-    if (elRes)     elRes.textContent     = totalRes + ' ressource' + (totalRes > 1 ? 's' : '');
-    if (elVal)     elVal.textContent     = Math.round(totalVal).toLocaleString('fr-FR') + ' aUEC';
-    if (elAvatar) {
-    elAvatar.style.overflow = 'hidden';
-    elAvatar.innerHTML = avHtml(player || SESSION.name, 44);
-  }
-    if (elRepFill) elRepFill.style.width = barPct + '%';
-    if (elBtn) {
-      elBtn.textContent = 'DÉCO';
-      elBtn.style.borderColor = 'rgba(255,68,68,0.4)';
-      elBtn.style.color = 'var(--red)';
-    }
-  } else {
-    if (elName)    elName.textContent    = '—';
-    if (elId)      elId.textContent      = 'ID : —';
-    if (elRang)    elRang.textContent    = '—';
-    if (elRes)     elRes.textContent     = '—';
-    if (elVal)     elVal.textContent     = '—';
-    if (elAvatar)  elAvatar.textContent  = '⬡';
-    if (elRepFill) elRepFill.style.width = '0%';
-    if (elBtn) {
-      elBtn.textContent = 'CONNEXION';
-      elBtn.style.borderColor = 'var(--orange)';
-      elBtn.style.color = 'var(--orange)';
-    }
-  }
-  // Onglet RESSOURCES — visible uniquement pour Admin/Gestionnaire
-}
-
-function requireAuth(pid, action) {
-  if (!SESSION) {
-    openLoginModal(pid, action);
-    return false;
-  }
-  if (!canEdit(pid)) {
-    toast('Accès refusé', 'Vous ne pouvez modifier que votre propre stock.', 'error');
-    return false;
-  }
-  return true;
 }
 
 /* ── Login Modal ── */
@@ -3565,248 +3538,7 @@ async function deleteMission(id) {
 }
 
 
-/* ════════════════════════════════════════════════════════════
-   PERSISTENT STORAGE — window.storage avec fallback localStorage
-════════════════════════════════════════════════════════════ */
-/* ════════════════════════════════════════════════════════════
-   AUTH — SYSTÈME CORPO TELOS
-════════════════════════════════════════════════════════════ */
-async function getGestionnaireHash() {
-  if (_gestionnaireCodeHash) return _gestionnaireCodeHash;
-  // Charger depuis DB ou utiliser le hash par défaut
-  const stored = await DB.get(GESTIONNAIRE_CODE_KEY);
-  if (stored) { _gestionnaireCodeHash = stored; return stored; }
-  // Hash par défaut : SHA-256("TELOS-CORP-2956")
-  const defaultHash = await sha256('TELOS-CORP-2956');
-  _gestionnaireCodeHash = defaultHash;
-  return defaultHash;
-}
-
-async function sha256(msg) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-function isLoggedIn()   { return SESSION !== null; }
-function isAdmin()      { return SESSION && SESSION.isAdmin; }
-function canEdit(pid)   { return SESSION && (SESSION.isAdmin || SESSION.pid === pid); }
-function canManageRoles() {
-  if (!SESSION) return false;
-  const p = players.find(x => x.id === SESSION.pid);
-  return SESSION.isAdmin || p?.role === 'Gestionnaire';
-}
-
-function setSession(player) {
-  SESSION = { pid: player.id, name: player.name, isAdmin: player.isAdmin||false };
-  renderAuthBar();
-  // Afficher l'onglet RESSOURCES si Admin/Gestionnaire
-  pushLog('system', 'SYSTEM', `Connexion établie : ${player.name} — Accès TELOS ${player.isAdmin?'ADMIN':'standard'}.`);
-  if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
-  renderMissions();
-  updateNavRessources();
-  renderObjectifs();
-  toast('Connexion établie', `Bienvenue, ${player.name} — Accès TELOS sécurisé.`, 'success');
-  refreshStockPanel();
-  // Recharger les blueprints cochés depuis la DB à chaque connexion
-  loadPlayerOwnedBlueprints().then(() => renderBlueprints());
-  // Recharger le panel actif si c'était un login wall
-  setTimeout(()=>{ const _ap=document.querySelector('.panel.active'); if(_ap){ const _id=_ap.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_id)) goPanel(_id); }}, 50);
-}
-
-function logout() {
-  SESSION = null;
-  renderAuthBar();
-  // Afficher login wall sur le panel actif si protégé
-  const _apl = document.querySelector('.panel.active');
-  if (_apl) { const _idl=_apl.id.replace('panel-',''); if(!PANELS_PUBLIC.includes(_idl)) showLoginWall(_apl, _idl); }
-  pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
-  renderMissions();
-  updateNavRessources && updateNavRessources();
-  const _sb = document.querySelector('.pl-sidebar');
-  if (_sb) _sb.style.display = '';
-  toast('Déconnexion', 'Session TELOS fermée.', 'info');
-} {
-  SESSION = null;
-  renderAuthBar();
-  // Fermer les panels sensibles
-  goPanel('hub');
-  pushLog('system', 'SYSTEM', 'Session TELOS fermée — déconnexion utilisateur.');
-  if(document.getElementById('panel-stocks').classList.contains('active')) renderStocksFromPlayers();
-  renderMissions(); // Refresh buttons selon le rôle de la session
-  // Réafficher la sidebar partenaires
-  const _sb = document.querySelector('.pl-sidebar');
-  if (_sb) _sb.style.display = '';
-  renderMissions();
-  toast('Déconnexion', 'Session TELOS fermée.', 'info');
-}
-
-
-/* ════════════════════════════════════════════════════════════
-   KPI STRIP — Source unique : valeurs exactes de renderStocksFromPlayers
-════════════════════════════════════════════════════════════ */
-function _pushKPI(valAchat, profit, nbRes, nbPartners) {
-  const prevVal     = _kpiPrev.val;
-  const prevProfit  = _kpiPrev.profit;
-  const prevRes     = _kpiPrev.res;
-  const prevPart    = _kpiPrev.partners;
-
-  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  const setD = (id, delta, unit) => {
-    const el=document.getElementById(id); if(!el) return;
-    if(delta===0){ el.textContent='—'; el.className='kpi-d'; return; }
-    const sign = delta>0 ? '▲ +' : '▼ ';
-    el.textContent = sign + Math.abs(Math.round(delta)).toLocaleString('fr-FR') + unit + ' (session)';
-    el.className = 'kpi-d ' + (delta>0 ? 'up' : 'down');
-  };
-
-  set('kpi-stock',    Math.round(valAchat).toLocaleString('fr-FR') + ' aUEC');
-  set('kpi-profit',   (profit>=0?'+':'') + Math.round(profit).toLocaleString('fr-FR') + ' aUEC');
-  set('kpi-res',      nbRes.toLocaleString('fr-FR'));
-  set('kpi-partners', String(nbPartners));
-
-  const hasPrev = prevVal>0 || prevRes>0;
-  if (hasPrev) {
-    setD('kpi-res-d',      nbRes      - prevRes,   ' res.');
-    setD('kpi-partners-d', nbPartners - prevPart,  ' partenaire'+(Math.abs(nbPartners-prevPart)>1?'s':''));
-  }
-  _kpiPrev = { val:valAchat, profit, res:nbRes, partners:nbPartners };
-}
-
-async function updateKPIs() {
-  // Déclenche renderStocksFromPlayers qui calcule fA/fP et appelle _pushKPI
-  await renderStocksFromPlayers();
-}
-
-// Valeurs de référence pour les deltas
-
-/* ════════════════════════════════════════════════════════════
-   HELPER — Rendu avatar universel
-════════════════════════════════════════════════════════════ */
-function avHtml(playerOrName, size=34) {
-  const isObj  = typeof playerOrName === 'object' && playerOrName !== null;
-  const name   = isObj ? playerOrName.name : playerOrName;
-  const avatar = isObj ? playerOrName.avatar : null;
-  const letter = name ? name.charAt(0).toUpperCase() : '⬡';
-  if (avatar && avatar.startsWith('data:')) {
-    return `<img src="${avatar}" style="width:${size}px;height:${size}px;max-width:${size}px;max-height:${size}px;object-fit:cover;display:block;position:relative;z-index:0;">`;
-  }
-  if (avatar && !avatar.startsWith('http')) {
-    return `<span style="font-size:${Math.round(size*0.55)}px;line-height:1;">${avatar}</span>`;
-  }
-  return `<span style="font-size:${Math.round(size*0.5)}px;">${letter}</span>`;
-}
-async function renderAuthBar() {
-  // Éléments sidebar profil
-  const elName    = document.getElementById('sb-name');
-  const elId      = document.getElementById('sb-id');
-  const elRang    = document.getElementById('sb-rang');
-  const elRes     = document.getElementById('sb-res');
-  const elVal     = document.getElementById('sb-stock-val');
-  const elAvatar  = document.getElementById('sb-avatar');
-  const elRepFill = document.getElementById('sb-rep-fill');
-  const elBtn     = document.getElementById('sb-auth-btn');
-
-  if (SESSION) {
-    const player = players.find(p => p.id === SESSION.pid);
-    // Charger les stocks du joueur connecté
-    const stocks = player ? (await DB.get('uex-stocks-' + player.id)) || [] : [];
-    const totalVal   = stocks.reduce((a,s) => a + (s.price||0)*s.qty, 0);
-    const totalRes   = stocks.length;
-    // Rang = role du joueur ou Admin
-    const rang = SESSION.isAdmin ? 'ADMIN' : (player?.role || 'PARTENAIRE');
-    // Remplissage barre = nb ressources / 20 max
-    const barPct = Math.min(100, Math.round(totalRes / 20 * 100));
-
-    if (elName)    elName.textContent    = SESSION.name.toUpperCase();
-    if (elId)      elId.textContent      = 'ID : ' + (player?.id?.replace('p_','TELOS-') || '—');
-    if (elRang) {
-    elRang.textContent = rang.toUpperCase();
-    elRang.style.color = SESSION.isAdmin ? '#ffffff' : 'var(--text)';
-    elRang.style.fontWeight = SESSION.isAdmin ? '700' : '600';
-  }
-    if (elRes)     elRes.textContent     = totalRes + ' ressource' + (totalRes > 1 ? 's' : '');
-    if (elVal)     elVal.textContent     = Math.round(totalVal).toLocaleString('fr-FR') + ' aUEC';
-    if (elAvatar) {
-    elAvatar.style.overflow = 'hidden';
-    elAvatar.innerHTML = avHtml(player || SESSION.name, 44);
-  }
-    if (elRepFill) elRepFill.style.width = barPct + '%';
-    if (elBtn) {
-      elBtn.textContent = 'DÉCO';
-      elBtn.style.borderColor = 'rgba(255,68,68,0.4)';
-      elBtn.style.color = 'var(--red)';
-    }
-  } else {
-    if (elName)    elName.textContent    = '—';
-    if (elId)      elId.textContent      = 'ID : —';
-    if (elRang)    elRang.textContent    = '—';
-    if (elRes)     elRes.textContent     = '—';
-    if (elVal)     elVal.textContent     = '—';
-    if (elAvatar)  elAvatar.textContent  = '⬡';
-    if (elRepFill) elRepFill.style.width = '0%';
-    if (elBtn) {
-      elBtn.textContent = 'CONNEXION';
-      elBtn.style.borderColor = 'var(--orange)';
-      elBtn.style.color = 'var(--orange)';
-    }
-  }
-  updateNavRessources && updateNavRessources();
-  updateNavBanque && updateNavBanque();
-}
-
-function requireAuth(pid, action) {
-  if (!SESSION) {
-    openLoginModal(pid, action);
-    return false;
-  }
-  if (!canEdit(pid)) {
-    toast('Accès refusé', 'Vous ne pouvez modifier que votre propre stock.', 'error');
-    return false;
-  }
-  return true;
-}
-
 /* ── Login Modal ── */
-function openLoginModal(targetPid=null, afterAction=null) {
-  _loginTarget = { pid: targetPid, action: afterAction };
-  const overlay = document.getElementById('login-overlay');
-  document.getElementById('login-name-sel').innerHTML =
-    '<option value="">— Sélectionnez votre compte —</option>' +
-    players.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  document.getElementById('login-code').value = '';
-  document.getElementById('login-err').textContent = '';
-  overlay.classList.add('open');
-  setTimeout(()=>document.getElementById('login-code').focus(), 100);
-}
-
-function closeLoginModal() {
-  document.getElementById('login-overlay').classList.remove('open');
-  _loginTarget = null;
-}
-
-async function doLogin() {
-  const pid  = document.getElementById('login-name-sel').value;
-  const code = document.getElementById('login-code').value.trim();
-  const err  = document.getElementById('login-err');
-  err.textContent = '';
-
-  if (!pid)  { err.textContent = 'Sélectionnez votre compte.'; return; }
-  if (!code) { err.textContent = 'Entrez votre code corpo.'; return; }
-
-  const player = players.find(p=>p.id===pid);
-  if (!player) { err.textContent = 'Compte introuvable.'; return; }
-
-  const hash = await sha256(code);
-  if (hash !== player.codeHash) {
-    err.textContent = '⚠ Code corpo incorrect. Accès refusé.';
-    return;
-  }
-
-  setSession(player);
-  closeLoginModal();
-  // Si une action était en attente
-  if (_loginTarget?.action) _loginTarget.action();
-}
 
 var LIVE_ACTIVITY = [];
 var MAX_ACTIVITY = 20;
@@ -4384,33 +4116,27 @@ function calcTotalStockValue() {
   return Math.round(total);
 }
 
-// ── Statistiques Banque TELOS dans le Hub ────────────────
 var _bankStatDays = 7;
 
 function setBankStat(days, btn) {
   _bankStatDays = days;
-  document.querySelectorAll('.chart-ctrl').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#bank-stat-7,#bank-stat-30,#bank-stat-all').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   renderHubBankStats();
 }
 
 function renderHubBankStats() {
-  const el = document.getElementById('hub-bank-stats');
-  if (!el || !BANK_DATA) return;
+  if (!BANK_DATA) return;
 
   const now = Date.now();
   const cutoff = _bankStatDays > 0 ? now - _bankStatDays * 86400000 : 0;
-
-  const filtered = BANK_DATA.filter(t => {
-    if (!cutoff) return true;
-    return new Date(t.date||t.addedAt||0).getTime() >= cutoff;
-  });
+  const filtered = BANK_DATA.filter(t => !cutoff || new Date(t.date||t.addedAt||0).getTime() >= cutoff);
 
   const credits = filtered.filter(t=>t.type==='credit').reduce((s,t)=>s+(t.amount||0),0);
   const debits  = filtered.filter(t=>t.type==='debit') .reduce((s,t)=>s+(t.amount||0),0);
   const solde   = BANK_DATA.reduce((s,t)=>s+(t.type==='credit'?1:-1)*(t.amount||0),0);
-
   const fmt = v => Math.round(v).toLocaleString('fr-FR');
+
   const el_s = document.getElementById('hbs-solde');
   const el_c = document.getElementById('hbs-credits');
   const el_d = document.getElementById('hbs-debits');
@@ -4420,28 +4146,167 @@ function renderHubBankStats() {
   if (el_d) el_d.textContent = '-'+fmt(debits)+' aUEC';
   if (el_n) el_n.textContent = filtered.length+' tx';
 
-  // Dernières transactions
-  const txList = document.getElementById('hbs-tx-list');
-  if (!txList) return;
-  if (!filtered.length) {
-    txList.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;">Aucune transaction sur cette période</div>`;
+  // Grouper par jour
+  const days = {};
+  filtered.forEach(t => {
+    const d = (t.date||t.addedAt||'').slice(0,10);
+    if (!d) return;
+    if (!days[d]) days[d] = { credit:0, debit:0 };
+    if (t.type==='credit') days[d].credit += t.amount||0;
+    else days[d].debit += t.amount||0;
+  });
+
+  const sorted = Object.keys(days).sort();
+  draw3DBarChart(sorted, days);
+}
+
+function draw3DBarChart(labels, data) {
+  const canvas = document.getElementById('bank-3d-chart');
+  const empty  = document.getElementById('bank-chart-empty');
+  const tip    = document.getElementById('bank-chart-tooltip');
+  if (!canvas) return;
+
+  const W = canvas.offsetWidth || 400;
+  const H = canvas.offsetHeight || 160;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, H);
+
+  if (!labels.length) {
+    if (empty) empty.style.display = 'flex';
     return;
   }
-  const sorted = [...filtered].sort((a,b)=>new Date(b.date||b.addedAt||0)-new Date(a.date||a.addedAt||0)).slice(0,8);
-  txList.innerHTML = sorted.map(t => {
-    const isCredit = t.type==='credit';
-    const amt = Math.round(t.amount||0).toLocaleString('fr-FR');
-    const sign = isCredit?'+':'-';
-    const col = isCredit?'var(--green)':'var(--red)';
-    const d = new Date(t.date||t.addedAt||0);
-    const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);font-size:11px;">
-      <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);flex-shrink:0;">${dateStr}</span>
-      <span style="flex:1;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.label||t.title||'Transaction'}</span>
-      ${t.cat?`<span style="font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--text-dim);">${t.cat}</span>`:''}
-      <span style="font-family:var(--mono);font-weight:700;color:${col};flex-shrink:0;">${sign}${amt} aUEC</span>
-    </div>`;
-  }).join('');
+  if (empty) empty.style.display = 'none';
+
+  const n = labels.length;
+  const pad = { l:30, r:10, t:12, b:28 };
+  const chartW = W - pad.l - pad.r;
+  const chartH = H - pad.t - pad.b;
+
+  // Perspective 3D isométrique
+  const depth = 8;   // profondeur des barres
+  const gap   = 0.3; // % d'espace entre groupes
+  const groupW = chartW / n;
+  const barW   = groupW * (1 - gap) / 2;
+
+  const maxVal = Math.max(...labels.map(l => Math.max(data[l].credit, data[l].debit)), 1);
+
+  // Axe Y
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  [0.25,0.5,0.75,1].forEach(f => {
+    const y = pad.t + chartH * (1 - f);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + chartW, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = `${Math.round(devicePixelRatio*7)/devicePixelRatio}px monospace`;
+    ctx.textAlign = 'right';
+    const v = maxVal * f;
+    ctx.fillText(v >= 1000 ? Math.round(v/1000)+'k' : Math.round(v), pad.l - 4, y + 3);
+  });
+
+  // Ligne de base
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + chartH);
+  ctx.lineTo(pad.l + chartW, pad.t + chartH);
+  ctx.stroke();
+
+  function draw3DBar(x, y, w, h, colorTop, colorFront, colorSide) {
+    const bx = pad.l + x;
+    const by = pad.t + y;
+    // Face avant
+    ctx.fillStyle = colorFront;
+    ctx.fillRect(bx, by, w, h);
+    // Face dessus (isométrique)
+    ctx.fillStyle = colorTop;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx + depth, by - depth);
+    ctx.lineTo(bx + w + depth, by - depth);
+    ctx.lineTo(bx + w, by);
+    ctx.closePath();
+    ctx.fill();
+    // Face droite (côté)
+    ctx.fillStyle = colorSide;
+    ctx.beginPath();
+    ctx.moveTo(bx + w, by);
+    ctx.lineTo(bx + w + depth, by - depth);
+    ctx.lineTo(bx + w + depth, by + h - depth);
+    ctx.lineTo(bx + w, by + h);
+    ctx.closePath();
+    ctx.fill();
+    // Contours
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(bx, by, w, h);
+  }
+
+  labels.forEach((label, i) => {
+    const gx    = i * groupW;
+    const dCredit = data[label].credit;
+    const dDebit  = data[label].debit;
+    const hCredit = dCredit > 0 ? (dCredit / maxVal) * chartH : 0;
+    const hDebit  = dDebit  > 0 ? (dDebit  / maxVal) * chartH : 0;
+    const creditX = gx + groupW * gap / 2;
+    const debitX  = creditX + barW + 2;
+
+    // Barre crédit (verte)
+    if (hCredit > 0) {
+      draw3DBar(creditX, chartH - hCredit, barW, hCredit,
+        'rgba(0,255,163,0.9)', 'rgba(0,200,130,0.85)', 'rgba(0,150,100,0.85)');
+    }
+    // Barre débit (rouge)
+    if (hDebit > 0) {
+      draw3DBar(debitX, chartH - hDebit, barW, hDebit,
+        'rgba(255,80,80,0.9)', 'rgba(220,60,60,0.85)', 'rgba(160,40,40,0.85)');
+    }
+
+    // Label date
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = `${Math.round(devicePixelRatio*8)/devicePixelRatio}px monospace`;
+    ctx.textAlign = 'center';
+    const lx = pad.l + gx + groupW / 2;
+    const dateShort = label.slice(5); // MM-DD
+    ctx.fillText(dateShort, lx, pad.t + chartH + 14);
+  });
+
+  // Légende
+  const legY = pad.t + 4;
+  ctx.fillStyle = 'rgba(0,255,163,0.8)';
+  ctx.fillRect(pad.l + 4, legY, 10, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Crédits', pad.l + 18, legY + 6);
+  ctx.fillStyle = 'rgba(255,80,80,0.8)';
+  ctx.fillRect(pad.l + 70, legY, 10, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('Débits', pad.l + 84, legY + 6);
+
+  // Tooltip hover
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const barGrpW = chartW / n;
+    const idx = Math.floor((mx - pad.l) / barGrpW);
+    if (idx >= 0 && idx < n) {
+      const label = labels[idx];
+      const d = data[label];
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX - rect.left + 10) + 'px';
+      tip.style.top  = (e.clientY - rect.top  - 30) + 'px';
+      tip.innerHTML = `<span style="color:rgba(255,255,255,0.5)">${label}</span><br>
+        <span style="color:var(--green)">+${fmt(d.credit)} aUEC</span>  
+        <span style="color:var(--red)">-${fmt(d.debit)} aUEC</span>`;
+    }
+  };
+  canvas.onmouseleave = () => { tip.style.display = 'none'; };
 }
 
 async function snapshotProfit() {
@@ -6626,14 +6491,11 @@ function openAddCommande(editId) {
 
   // Restaurer le type de craft si édition
   const sel = document.getElementById('cmd-assigned');
-  if (sel && c?.assigned) sel.value = c.assigned;
+  if (sel && c?.craftType) sel.value = c.craftType;
+  else if (sel && c?.assigned) sel.value = c.assigned;
 
-  // Populate blueprint select
-  const bpSel = document.getElementById('cmd-blueprint');
-  if (bpSel) {
-    bpSel.innerHTML = '<option value="">— Aucun blueprint —</option>'
-      + (BLUEPRINTS||[]).map(b=>`<option value="${b.id}"${c?.bpId===b.id?' selected':''}>${esc(b.name)}</option>`).join('');
-  }
+  // Populate blueprint select filtré par type de craft
+  filterCmdBlueprints(c?.bpId||'');
 
   // Reset exemplaires
   const qtyMult = document.getElementById('cmd-qty-mult');
@@ -6833,6 +6695,42 @@ function removeCmdResRow(btn) {
   const rows = list.querySelectorAll('.cmd-res-row');
   if (rows.length <= 1) { btn.closest('.cmd-res-row').querySelectorAll('input').forEach(i=>i.value=''); return; }
   btn.closest('.cmd-res-row').remove();
+}
+
+// Mapping type de craft → cat blueprint
+const CRAFT_TYPE_TO_BP_CAT = {
+  craft_fps:      ['fps', 'craft_fps', 'FPS', ''],
+  craft_vaisseau: ['vaisseau', 'craft_vaisseau', 'Vaisseau', ''],
+  vente:          null, // pas de blueprint pour vente
+  autre:          null,
+  '':             null, // tout afficher
+};
+
+function filterCmdBlueprints(selectedBpId) {
+  const craftType = document.getElementById('cmd-assigned')?.value || '';
+  const bpSel = document.getElementById('cmd-blueprint');
+  if (!bpSel) return;
+
+  let bps = BLUEPRINTS || [];
+
+  // Filtrer selon le type de craft
+  if (craftType === 'craft_fps') {
+    bps = bps.filter(b => {
+      const cat = (b.cat||b.type||b.category||'').toLowerCase();
+      return cat.includes('fps') || cat.includes('arme') || cat.includes('armor') || cat.includes('armure') || cat === '';
+    });
+  } else if (craftType === 'craft_vaisseau') {
+    bps = bps.filter(b => {
+      const cat = (b.cat||b.type||b.category||'').toLowerCase();
+      return cat.includes('vaisseau') || cat.includes('ship') || cat.includes('composant') || cat === '';
+    });
+  }
+  // vente/autre/vide → tout afficher
+
+  const current = selectedBpId || bpSel.value;
+  bpSel.innerHTML = '<option value="">— Aucun blueprint —</option>'
+    + bps.map(b => `<option value="${b.id}"${b.id===current?' selected':''}>${esc(b.name)}</option>`).join('');
+  if (current && bps.find(b=>b.id===current)) bpSel.value = current;
 }
 
 function onCmdBlueprintChange() {
@@ -7187,7 +7085,7 @@ async function notifyDiscord(commande, event) {
 
     let color, title, desc;
     if (event === 'created') {
-      color = 0xF78C1E; // orange
+      color = 0xF78C1E;
       title = '📋 Nouvelle commande créée';
       desc  = `**${commande.title}**`;
     } else if (event === 'en_cours') {
@@ -7195,19 +7093,24 @@ async function notifyDiscord(commande, event) {
       title = '▶ Commande en cours';
       desc  = `**${commande.title}**`;
     } else if (event === 'livree') {
-      color = 0x00FFA3; // vert
+      color = 0x00FFA3;
       title = '✅ Commande livrée !';
       desc  = `**${commande.title}**`;
+    } else if (event === 'deleted') {
+      color = 0xFF4444;
+      title = '🗑 Commande supprimée';
+      desc  = `~~${commande.title}~~`;
     } else return;
 
+    const brancheStr = commande.branche ? '🔗 Oui' : '○ Non';
     const ressources = (commande.resources||[]).map(r => `• ${r.name} ×${r.qty}`).join('\n') || '—';
     const fields = [
       { name: 'Type', value: type, inline: true },
       { name: 'Commanditaire', value: clientName, inline: true },
       { name: 'Priorité', value: `${prioIcon} ${commande.priority||'normale'}`, inline: true },
+      { name: 'Branchée', value: brancheStr, inline: true },
     ];
     if (commande.price > 0) fields.push({ name: 'Prix convenu', value: `${Number(commande.price).toLocaleString('fr-FR')} aUEC`, inline: true });
-    if (branche) fields.push({ name: 'Statut', value: branche, inline: true });
     if (ressources !== '—') fields.push({ name: 'Ressources demandées', value: ressources, inline: false });
     if (commande.notes) fields.push({ name: 'Notes', value: commande.notes, inline: false });
 
@@ -7215,7 +7118,7 @@ async function notifyDiscord(commande, event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'TELOS Corp',
+        username: 'MobiGlass Telos',
         avatar_url: 'https://i.imgur.com/4M7IWwP.png',
         embeds: [{
           title,
@@ -7223,7 +7126,7 @@ async function notifyDiscord(commande, event) {
           color,
           fields,
           footer: { text: `TELOS MobiGlass • ${new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` },
-          thumbnail: { url: 'https://i.imgur.com/4M7IWwP.png' }
+          thumbnail: { url: 'https://media.alienwarearena.com/media/2a4f6c434513c1bd01dd4252a3560427.png?quality=75&width=400' }
         }]
       })
     });
@@ -7264,6 +7167,7 @@ async function deleteCommande(id) {
   COMMANDES = COMMANDES.filter(x=>x.id!==id);
   await saveCommandes();
   renderCommandes();
+  notifyDiscord(comm, 'deleted');
   toast('Commande supprimée', comm.title, 'info');
 }
 
@@ -8206,19 +8110,17 @@ function goPanel(id, el) {
     }
   }
   if (id==='banque') { loadBankData().then(() => renderBanque()); }
-  if (id==='hub') {
-    setTimeout(()=>{
-      drawChart(chartDays);
-      // Forcer re-sync du canvas map si la taille a changé
-      const c = document.getElementById('stanton-canvas');
-      if (c) {
-        const w = c.offsetWidth, h = c.offsetHeight;
-        if (w > 10 && h > 10 && (c.width !== w || c.height !== h)) {
-          c.width = w; c.height = h; c._inited = false;
-        }
+  if (id==='hub') { setTimeout(() => { renderHubBankStats && renderHubBankStats(); }, 80); }
+  setTimeout(()=>{
+    drawChart(chartDays);
+    const c = document.getElementById('stanton-canvas');
+    if (c) {
+      const w = c.offsetWidth, h = c.offsetHeight;
+      if (w > 10 && h > 10 && (c.width !== w || c.height !== h)) {
+        c.width = w; c.height = h; c._inited = false;
       }
-    }, 60);
-  }
+    }
+  }, 60);
   if (id==='armurerie') {
     renderArmPartnerList();
     // Auto-sélectionner le joueur connecté
@@ -11641,7 +11543,7 @@ async function saveBankTransaction() {
         <!-- Type de craft -->
         <div class="form-field">
           <label class="form-lbl">Type de craft</label>
-          <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;">
+          <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;" onchange="filterCmdBlueprints()">
             <option value="">— Non défini —</option>
             <option value="craft_vaisseau">🚀 Craft Vaisseau</option>
             <option value="craft_fps">🛡 Craft FPS</option>
