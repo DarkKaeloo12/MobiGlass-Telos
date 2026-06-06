@@ -6559,14 +6559,18 @@ function toggleCmdBranche() {
 }
 
 // ── Panneau détail ressource ──────────────────────────────
-var _sdpAllStocks = []; // stocks bruts du partenaire actif
+var _sdpTelosStocks = []; // stocks TELOS bruts du partenaire actif
+var _sdpPersoStocks = []; // stocks personnels bruts du partenaire actif
+var _sdpAllStocks = []; // alias — pointe vers le bon contexte selon la clé
 
 function openStockDetail(key) {
   const grp = (window._sdpGroups || {})[key];
   if (!grp) return;
   const ids = grp.ids;
   const isPerso = !!grp.isPerso;
-  const entries = ids.map(id => _sdpAllStocks.find(s => s.id === id)).filter(Boolean);
+  // Choisir le bon tableau de stocks selon le contexte
+  const stocksArray = isPerso ? _sdpPersoStocks : _sdpTelosStocks;
+  const entries = ids.map(id => stocksArray.find(s => s.id === id)).filter(Boolean);
   if (!entries.length) return;
 
   const res  = entries[0].res;
@@ -8396,7 +8400,8 @@ function renderStockTable(stocks){
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
-  // Stocker pour le panneau détail
+  // Stocker pour le panneau détail (TELOS)
+  _sdpTelosStocks = stocks;
   _sdpAllStocks = stocks;
   const groups = {};
   stocks.forEach(s => {
@@ -8494,7 +8499,8 @@ function renderPersoTable(stocks) {
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
-  // Stocker pour le panneau détail (namespace perso)
+  // Stocker pour le panneau détail (perso)
+  _sdpPersoStocks = stocks;
   _sdpAllStocks = stocks;
   window._sdpGroups = window._sdpGroups || {};
 
@@ -10035,8 +10041,9 @@ async function renderArmPersoTable(items) {
   if (!items.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
 
-  // Index pour panneau détail
+  // Index pour panneau détail (perso)
   window._armGroups = window._armGroups || {};
+  window._armPersoItems = items;
   window._armAllItems = items;
 
   const groups = {};
@@ -10135,20 +10142,36 @@ async function selectArmPlayer(pid) {
   // Profil compact — style identique à prof-hero du panel joueurs
   const head = document.getElementById('arm-profile-head');
   if (head) {
-    const tv = ((await DB.get('uex-armory-'+pid))||[]).length;
+    const armCount = ((await DB.get('uex-armory-'+pid))||[]).length;
+    const bpCount = ((window._playerBpCache&&window._playerBpCache[pid])||[]).length;
     head.style.background = 'var(--bg)';
     head.innerHTML = `
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;">
-        ${avHtml(p,44)}
-        <div style="flex:1;">
-          <div style="font-size:16px;font-weight:700;color:var(--text-bright);">${esc(p.name)}</div>
-          <div style="font-size:11px;color:var(--text-dim);letter-spacing:1px;">${p.role||'—'}</div>
+    <div style="display:flex;flex-direction:column;width:100%;">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px 12px;border:1px solid var(--border);margin:12px;background:var(--bg2);position:relative;">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--orange),transparent);"></div>
+        <div style="width:48px;height:48px;flex-shrink:0;background:var(--bg3);border:2px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--orange);font-weight:700;clip-path:polygon(10% 0%,90% 0%,100% 10%,100% 90%,90% 100%,10% 100%,0% 90%,0% 10%);overflow:hidden;">${avHtml(p,48)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:1px;line-height:1.1;">${esc(p.name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
+            ${p.isAdmin
+              ? `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border:1px solid #fff;color:#fff;font-family:var(--ui);">ADMIN</span>`
+              : `<span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border:1px solid ${ROLE_COLORS[p.role]||'var(--orange)'};color:${ROLE_COLORS[p.role]||'var(--orange)'};font-family:var(--ui);">${p.role||'—'}</span>`
+            }
+            <span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">depuis ${fmtDate(p.joinedAt)}</span>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">
+            <a class="prof-link" href="${esc(p.rsi)}" target="_blank" rel="noopener" style="font-size:9px;padding:2px 6px;"><span class="ll">RSI</span>${shortUrl(p.rsi)}</a>
+            ${p.uex?`<a class="prof-link" href="${esc(p.uex)}" target="_blank" rel="noopener" style="font-size:9px;padding:2px 6px;"><span class="ll">UEX</span>${shortUrl(p.uex)}</a>`:''}
+          </div>
         </div>
-        <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text-dim);">
-          <div style="color:var(--orange);font-size:18px;font-weight:700;">${tv}</div>
-          <div style="font-size:10px;letter-spacing:1px;">équipements</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          <div style="text-align:right;">
+            <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">ÉQUIPEMENTS</div>
+            <div style="font-family:var(--mono);font-size:17px;color:${armCount?'var(--orange)':'var(--text-dim)'};">${armCount} items</div>
+          </div>
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }
   // Afficher le panel actif
   document.getElementById('arm-placeholder').style.display = 'none';
@@ -10202,9 +10225,11 @@ async function renderArmTable() {
   empty.style.display='none';
   const qMeta = (q)=>QUALITY_META[q]||{label:q,color:'var(--text-dim)'};
 
-  // Index pour panneau détail
+  // Index pour panneau détail (TELOS)
   window._armGroups = {};
-  window._armAllItems = (await DB.get('uex-armory-'+_armSelectedPid))||[];
+  const _telosItemsFull = (await DB.get('uex-armory-'+_armSelectedPid))||[];
+  window._armTelosItems = _telosItemsFull;
+  window._armAllItems = _telosItemsFull;
 
   tbody.innerHTML = rows.map(g => {
     const margin = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
@@ -10235,8 +10260,8 @@ async function renderArmTable() {
       <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;">
-          <button class="btn sm" data-action="arm-edit" data-id="${g.ids[0]}" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
-          <button class="btn danger sm" data-action="arm-del" data-id="${g.ids[0]}" data-name="${esc(g.name)}" title="Supprimer">✕</button>
+          <button class="btn sm" onclick="openArmModal('${g.ids[0]}','telos')" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
+          <button class="btn danger sm" onclick="armDelItem('${g.ids[0]}','${esc(g.name)}')">✕</button>
         </div>
       </td>
     </tr>`;
@@ -10270,7 +10295,9 @@ function syncArmQualityBadge() {}
 function openArmDetail(key) {
   const ids = (window._armGroups||{})[key];
   if (!ids||!ids.length) return;
-  const allItems = window._armAllItems || [];
+  // Choisir le bon tableau selon le préfixe de clé
+  const isPerso = key.startsWith('armperso_');
+  const allItems = isPerso ? (window._armPersoItems||[]) : (window._armTelosItems||[]);
   const entries = ids.map(id=>allItems.find(s=>s.id===id)).filter(Boolean);
   if (!entries.length) return;
 
