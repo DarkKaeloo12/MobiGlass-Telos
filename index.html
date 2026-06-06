@@ -10036,10 +10036,8 @@ async function renderArmTable() {
   const catF  = document.getElementById('arm-cat-filter')?.value||'all';
   const qualF = document.getElementById('arm-quality-filter')?.value;
   const search= (document.getElementById('arm-item-search')?.value||'').toLowerCase();
-  if (catF  !== 'all') items = items.filter(i=>i.cat===catF);
-  if (qualF !== undefined && document.getElementById('arm-quality-filter')?.value !== 'all') {
-    items = items.filter(i=>(i.quality||'')===(qualF||''));
-  }
+  if (catF !== 'all') items = items.filter(i=>i.cat===catF);
+  if (qualF !== 'all') items = items.filter(i=>(i.quality||'')===(qualF||''));
   if (search) items = items.filter(i=>(i.name||'').toLowerCase().includes(search)||(i.note||'').toLowerCase().includes(search));
   // Consolider par nom+cat
   const groups = {};
