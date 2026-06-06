@@ -2214,7 +2214,7 @@ function showLoginWall(){} // stub
           </div>
 
           <!-- Contenu principal (masqué par défaut) -->
-          <div class="pl-view" id="arm-content" style="display:none;border-radius:0 !important;border-top:none !important;">
+          <div class="pl-view" id="arm-content" style="display:none;background:var(--bg);border-radius:0 !important;border-top:none !important;">
 
               <!-- Placeholder avant sélection -->
               <div id="arm-placeholder" class="pl-placeholder" style="display:none;">
@@ -10281,7 +10281,22 @@ async function openArmModal(editId) {
           <div class="form-field"><label class="form-lbl">Prix vente (aUEC)</label>
             <input class="form-input" type="number" id="arm-sellprice" min="0" placeholder="0"></div>
           <div class="form-field" style="grid-column:span 2;"><label class="form-lbl">Localisation</label>
-            <input class="form-input" type="text" id="arm-loc" placeholder="ex: Area18" maxlength="60"></div>
+            <select class="form-input" id="arm-loc" style="height:auto;padding:9px 11px;">
+              <optgroup label="Planètes">
+                <option>Area18 (ArcCorp)</option>
+                <option>Lorville (Hurston)</option>
+                <option>New Babbage (microTech)</option>
+                <option>Orison (Crusader)</option>
+              </optgroup>
+              <optgroup label="Stations">
+                <option>Port Tressler</option>
+                <option>Grimhex</option>
+                <option>Everus Harbor</option>
+                <option>Baijini Point</option>
+                <option>Pyro Gateway</option>
+              </optgroup>
+              <option>Autre</option>
+            </select></div>
         </div>
         <div class="form-field"><label class="form-lbl">Notes</label>
           <input class="form-input" type="text" id="arm-note" placeholder="Grade, état, variante..." maxlength="120"></div>
@@ -10342,7 +10357,7 @@ function populateArmDbSelect(cat, currentName) {
   const dbKey = ARM_CAT_TO_DB[cat] || 'fps';
   const items = (SC_DB[dbKey] || []).sort((a,b) => a.name.localeCompare(b.name,'fr'));
   sel.innerHTML = '<option value="">— Catalogue Corp TELOS —</option>'
-    + items.map(i => `<option value="${i.name}"${i.name===currentName?' selected':''}>${i.name}${i.prix?' — '+i.prix.toLocaleString('fr-FR')+' aUEC':''}</option>`).join('');
+    + items.map(i => `<option value="${i.name}"${i.name===currentName?' selected':''}>${i.name}</option>`).join('');
   if (currentName) sel.value = currentName;
 }
 
