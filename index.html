@@ -1133,7 +1133,17 @@ body::before {
 /* ══ ARMURERIE ══════════════════════════════════════════════════ */
 #panel-armurerie { flex-direction: column; }
 #panel-armurerie.active { flex-direction: column; }
-#arm-content, #arm-active, #arm-profile-head { background: var(--bg) !important; }
+#arm-content img, #arm-active img, #arm-profile-head img,
+#panel-armurerie img {
+  max-width: 100%;
+  object-fit: cover;
+  display: block;
+}
+#arm-content, #arm-active, #arm-profile-head,
+#panel-armurerie, #arm-list-view {
+  background: var(--bg) !important;
+  isolation: isolate;
+}
 .arm-cat-badge { display:inline-block;padding:1px 7px;font-size:9px;letter-spacing:1px;border:1px solid currentColor;font-family:var(--ui);text-transform:uppercase;border-radius:2px; }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -3016,7 +3026,7 @@ function avHtml(playerOrName, size=34) {
   const letter = name ? name.charAt(0).toUpperCase() : '⬡';
 
   if (avatar) {
-    if (avatar.startsWith('data:') || avatar.startsWith('http')) {
+    if (avatar.startsWith('data:')) {
       return `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
     }
     // Emoji icône
@@ -3558,7 +3568,7 @@ function avHtml(playerOrName, size=34) {
   const letter = name ? name.charAt(0).toUpperCase() : '⬡';
 
   if (avatar) {
-    if (avatar.startsWith('data:') || avatar.startsWith('http')) {
+    if (avatar.startsWith('data:')) {
       return `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
     }
     // Emoji icône
