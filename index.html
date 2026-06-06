@@ -6496,8 +6496,10 @@ function toggleCmdBranche() {
 var _sdpAllStocks = []; // stocks bruts du partenaire actif
 
 function openStockDetail(key) {
-  const ids = (window._sdpGroups || {})[key];
-  if (!ids || !ids.length) return;
+  const grp = (window._sdpGroups || {})[key];
+  if (!grp) return;
+  const ids = grp.ids;
+  const isPerso = !!grp.isPerso;
   const entries = ids.map(id => _sdpAllStocks.find(s => s.id === id)).filter(Boolean);
   if (!entries.length) return;
 
@@ -6541,8 +6543,8 @@ function openStockDetail(key) {
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:10px;letter-spacing:1.5px;color:var(--text-dim);">ENTRÉE #${i+1}</span>
         <div style="display:flex;gap:5px;">
-          <button onclick="closeStockDetail();openEditStock('${s.id}')" style="font-size:10px;padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-family:var(--ui);">✏ Modifier</button>
-          <button onclick="closeStockDetail();confirmDelStock('${s.id}','${esc(s.res)}')" style="font-size:10px;padding:2px 8px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);">✕</button>
+          <button onclick="closeStockDetail();${isPerso?`openEditPerso('${s.id}')`:`openEditStock('${s.id}')`}" style="font-size:10px;padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-family:var(--ui);">✏ Modifier</button>
+          <button onclick="closeStockDetail();${isPerso?`confirmDelPerso('${s.id}','${esc(s.res)}')`:`confirmDelStock('${s.id}','${esc(s.res)}')`}" style="font-size:10px;padding:2px 8px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);">✕</button>
         </div>
       </div>
 
@@ -8401,7 +8403,7 @@ function renderStockTable(stocks){
     const marginCls = margin!==null ? (parseFloat(margin)>=0?'td-green':'td-red') : '';
     const firstId = g.ids[0];
     const gkey = (g.res+'|'+g.cat).replace(/[^a-z0-9|]/gi,'_');
-    window._sdpGroups[gkey] = g.ids;
+    window._sdpGroups[gkey] = { ids: g.ids, isPerso: false };
     return `<tr style="cursor:pointer;" onclick="openStockDetail('${gkey}')"
       onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
       <td class="td-name" style="max-width:140px;">
@@ -8454,12 +8456,17 @@ function renderPersoTable(stocks) {
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
+  // Stocker pour le panneau détail (namespace perso)
+  _sdpAllStocks = stocks;
+  window._sdpGroups = window._sdpGroups || {};
+
   const groups = {};
   stocks.forEach(s => {
     const key = (s.res||'').toLowerCase().trim() + '|' + (s.cat||'');
     if (!groups[key]) {
       groups[key] = { res:s.res, cat:s.cat, qa:0, qv:0, qc:0, qf:0, buyVal:0, sellVal:0, qty:0,
-        price:s.price||0, sellprice:s.sellprice||0, loc:s.loc||'', note:s.note||'', ids:[], addedAt:s.addedAt };
+        price:s.price||0, sellprice:s.sellprice||0, loc:s.loc||'', note:s.note||'',
+        unit:s.unit||'scu', qualityExact:s.qualityExact||null, ids:[], addedAt:s.addedAt };
     }
     const g = groups[key];
     const b = qualityBucket(s);
@@ -8474,14 +8481,21 @@ function renderPersoTable(stocks) {
   const rows = Object.values(groups).sort((a,b)=>a.res.localeCompare(b.res,'fr'));
 
   body.innerHTML = rows.map(g => {
-    const margin  = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
-    const profit  = g.sellprice>0?g.sellVal-g.buyVal:null;
+    const margin   = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
+    const profit   = g.sellprice>0?g.sellVal-g.buyVal:null;
     const marginCls = margin!==null?(parseFloat(margin)>=0?'td-green':'td-red'):'';
-    const firstId = g.ids[0];
-    return `<tr>
+    const firstId  = g.ids[0];
+    const gkey     = 'perso_' + (g.res+'|'+g.cat).replace(/[^a-z0-9|]/gi,'_');
+    window._sdpGroups[gkey] = { ids: g.ids, isPerso: true };
+    return `<tr style="cursor:pointer;" onclick="openStockDetail('${gkey}')"
+      onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
       <td class="td-name" style="max-width:140px;">
         <div>🎒 ${esc(g.res)}</div>
         ${g.ids.length>1?`<div style="font-size:9px;color:var(--text-dim);">${g.ids.length} entrées</div>`:''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+          ${g.unit && g.unit!=='scu' ? `<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(96,165,250,0.4);color:#60a5fa;letter-spacing:1px;">UNITÉ</span>` : `<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(247,140,30,0.3);color:var(--text-dim);letter-spacing:1px;">SCU</span>`}
+          ${g.qualityExact?`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(0,255,163,0.3);color:var(--green);font-family:var(--mono);letter-spacing:1px;">${g.qualityExact}</span>`:''}
+        </div>
         ${g.note?`<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;" title="${esc(g.note)}">${esc(g.note)}</div>`:''}
       </td>
       <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
@@ -8494,7 +8508,7 @@ function renderPersoTable(stocks) {
       <td class="${profit!==null?(profit>=0?'td-green':'td-red'):''}">${profit!==null?(profit>=0?'+':'')+Math.round(profit).toLocaleString('fr-FR')+' aUEC':'—'}</td>
       <td class="td-dim" style="font-size:10px;"><div style="display:flex;align-items:center;gap:5px;"><span>📍</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="${esc(g.loc)}">${esc(g.loc||'—')}</span></div></td>
       <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
-      <td style="display:flex;gap:4px;">
+      <td style="display:flex;gap:4px;" onclick="event.stopPropagation()">
         <button class="btn sm" onclick="openEditPerso('${firstId}')" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
         <button class="btn danger sm" onclick="confirmDelPerso('${firstId}','${esc(g.res)}')" title="Supprimer">✕</button>
       </td>
