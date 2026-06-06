@@ -2757,6 +2757,32 @@ function showLoginWall(){} // stub
   </div>
 </div>
 
+<!-- ══ STOCK DETAIL PANEL ══ -->
+<div id="stock-detail-overlay" onclick="if(event.target===this)closeStockDetail()" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);">
+  <div id="stock-detail-panel" style="position:absolute;right:0;top:0;bottom:0;width:420px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform 0.22s cubic-bezier(.4,0,.2,1);">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3);">
+      <div>
+        <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">◈ Détail ressource</div>
+        <div id="sdp-res-name" style="font-size:16px;font-weight:700;color:var(--orange);letter-spacing:1px;margin-top:2px;">—</div>
+      </div>
+      <button onclick="closeStockDetail()" style="border:1px solid var(--border);background:transparent;color:var(--text-dim);padding:4px 10px;cursor:pointer;font-family:var(--ui);font-size:13px;">✕</button>
+    </div>
+
+    <!-- Résumé consolidé -->
+    <div id="sdp-summary" style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);"></div>
+
+    <!-- Liste des entrées individuelles -->
+    <div style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;" id="sdp-entries"></div>
+
+    <!-- Footer -->
+    <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0;background:var(--bg3);">
+      <button onclick="closeStockDetail()" style="padding:6px 20px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:11px;letter-spacing:1px;cursor:pointer;">FERMER</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ════════════════════════════════════════════════════════════
    PERSISTENT STORAGE — window.storage avec fallback localStorage
@@ -6466,6 +6492,97 @@ function toggleCmdBranche() {
   }
 }
 
+// ── Panneau détail ressource ──────────────────────────────
+var _sdpAllStocks = []; // stocks bruts du partenaire actif
+
+function openStockDetail(ids, allStocks) {
+  _sdpAllStocks = allStocks;
+  const entries = ids.map(id => allStocks.find(s => s.id === id)).filter(Boolean);
+  if (!entries.length) return;
+
+  const res  = entries[0].res;
+  const QUALITY_LABELS = { mediocre:'💀 Médiocre', basique:'🔴 Basique', acceptable:'🟠 Acceptable', honnete:'🟡 Honnête', moyenne:'🟢 Moyenne', haute:'💎 Haute' };
+  const QUALITY_COLORS = { mediocre:'#6b7280', basique:'var(--red)', acceptable:'var(--orange)', honnete:'#eab308', moyenne:'var(--green)', haute:'#a855f7' };
+  const BUCKET_LABELS  = { aucune:'⚪ Sans qualité', vente:'🔴 Vente (<500)', vaisseau:'🔵 Craft Vaisseau', fps:'🟢 Craft FPS' };
+
+  document.getElementById('sdp-res-name').textContent = res;
+
+  // Résumé
+  const totalQty   = entries.reduce((a,s) => a + Number(s.qty), 0);
+  const totalBuy   = entries.reduce((a,s) => a + (s.price||0)*s.qty, 0);
+  const totalSell  = entries.reduce((a,s) => a + (s.sellprice||0)*s.qty, 0);
+  const profit     = totalSell - totalBuy;
+  document.getElementById('sdp-summary').innerHTML = `
+    <div style="flex:1;padding:10px 12px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Entrées</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">${entries.length}</div>
+    </div>
+    <div style="flex:1;padding:10px 12px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Quantité totale</div>
+      <div style="font-size:20px;font-weight:700;color:var(--orange);font-family:var(--mono);">${totalQty.toLocaleString('fr-FR')}</div>
+    </div>
+    <div style="flex:1;padding:10px 12px;text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Profit total</div>
+      <div style="font-size:20px;font-weight:700;font-family:var(--mono);color:${profit>=0?'var(--green)':'var(--red)'};">${profit>=0?'+':''}${Math.round(profit).toLocaleString('fr-FR')} <span style="font-size:11px;">aUEC</span></div>
+    </div>`;
+
+  // Entrées individuelles
+  document.getElementById('sdp-entries').innerHTML = entries.map((s, i) => {
+    const ql    = QUALITY_LABELS[s.quality] || '— Non spécifié';
+    const qcol  = QUALITY_COLORS[s.quality] || 'var(--text-dim)';
+    const bkt   = BUCKET_LABELS[qualityBucket(s)] || '—';
+    const unit  = s.unit === 'unite' ? 'Unité' : 'SCU';
+    const pft   = s.sellprice>0 ? (s.sellprice - (s.price||0)) * s.qty : null;
+    const margin= s.price>0&&s.sellprice>0 ? ((s.sellprice-s.price)/s.price*100).toFixed(1) : null;
+    return `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid ${qcol};padding:12px 14px;display:flex;flex-direction:column;gap:6px;">
+      <!-- En-tête entrée -->
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:10px;letter-spacing:1.5px;color:var(--text-dim);">ENTRÉE #${i+1}</span>
+        <div style="display:flex;gap:5px;">
+          <button onclick="closeStockDetail();openEditStock('${s.id}')" style="font-size:10px;padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-family:var(--ui);">✏ Modifier</button>
+          <button onclick="closeStockDetail();confirmDelStock('${s.id}','${esc(s.res)}')" style="font-size:10px;padding:2px 8px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);">✕</button>
+        </div>
+      </div>
+
+      <!-- Qualité -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:${qcol};">${ql}</span>
+        ${s.qualityExact ? `<span style="font-family:var(--mono);font-size:13px;color:${qcol};border:1px solid ${qcol};padding:1px 8px;">${s.qualityExact} <span style="font-size:9px;opacity:.7;">/ 1000</span></span>` : ''}
+        <span style="font-size:10px;color:var(--text-dim);">${bkt}</span>
+      </div>
+
+      <!-- Grille détails -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:11px;">
+        <div><span style="color:var(--text-dim);">Quantité</span><br><span style="color:var(--text-bright);font-family:var(--mono);font-weight:700;">${Number(s.qty).toLocaleString('fr-FR')} <span style="font-size:9px;color:var(--text-dim);">${unit}</span></span></div>
+        <div><span style="color:var(--text-dim);">Localisation</span><br><span style="color:var(--text-bright);">📍 ${esc(s.loc||'—')}</span></div>
+        <div><span style="color:var(--text-dim);">Prix achat /u</span><br><span style="color:var(--text-bright);font-family:var(--mono);">${s.price ? s.price.toFixed(2)+' aUEC' : '—'}</span></div>
+        <div><span style="color:var(--text-dim);">Prix vente /u</span><br><span style="color:var(--blue);font-family:var(--mono);">${s.sellprice ? s.sellprice.toFixed(2)+' aUEC' : '—'}</span></div>
+        <div><span style="color:var(--text-dim);">Val. achat total</span><br><span style="color:var(--text-bright);font-family:var(--mono);">${s.price&&s.qty ? Math.round(s.price*s.qty).toLocaleString('fr-FR')+' aUEC' : '—'}</span></div>
+        <div><span style="color:var(--text-dim);">Marge</span><br><span style="color:${margin!==null?(parseFloat(margin)>=0?'var(--green)':'var(--red)'):'var(--text-dim)'};font-family:var(--mono);">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Profit total</span><br><span style="color:${pft!==null?(pft>=0?'var(--green)':'var(--red)'):'var(--text-dim)'};font-family:var(--mono);">${pft!==null?(pft>=0?'+':'')+Math.round(pft).toLocaleString('fr-FR')+' aUEC':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Date ajout</span><br><span style="color:var(--text-dim);font-size:10px;">${fmtDate(s.addedAt)}</span></div>
+      </div>
+
+      ${s.note ? `<div style="border-top:1px solid var(--border);padding-top:6px;font-size:10px;color:var(--text-dim);font-family:var(--mono);">📝 ${esc(s.note)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Ouvrir
+  const ov = document.getElementById('stock-detail-overlay');
+  const pn = document.getElementById('stock-detail-panel');
+  ov.style.display = 'flex';
+  ov.style.alignItems = 'stretch';
+  setTimeout(() => pn.style.transform = 'translateX(0)', 10);
+}
+
+function closeStockDetail() {
+  const ov = document.getElementById('stock-detail-overlay');
+  const pn = document.getElementById('stock-detail-panel');
+  pn.style.transform = 'translateX(100%)';
+  setTimeout(() => { ov.style.display = 'none'; }, 220);
+}
+
 // Vider et repeupler les lignes de ressources
 function setCmdResources(resources) {
   const list = document.getElementById('cmd-resources-list');
@@ -8238,7 +8355,8 @@ function renderStockTable(stocks){
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
-  // ── Consolider par nom+catégorie : cumuler les quantités par bucket ──
+  // Stocker pour le panneau détail
+  _sdpAllStocks = stocks;
   const groups = {};
   stocks.forEach(s => {
     const key = (s.res||'').toLowerCase().trim() + '|' + (s.cat||'');
@@ -8279,7 +8397,9 @@ function renderStockTable(stocks){
     const marginCls = margin!==null ? (parseFloat(margin)>=0?'td-green':'td-red') : '';
     // Boutons : si 1 seul item → edit direct, sinon on peut quand même editer le premier
     const firstId = g.ids[0];
-    return `<tr>
+    const idsJson = JSON.stringify(g.ids).replace(/"/g,'&quot;');
+    return `<tr style="cursor:pointer;" onclick="openStockDetail(${idsJson.replace(/&quot;/g,"'")}, _sdpAllStocks)"
+      onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
       <td class="td-name" style="max-width:140px;">
         <div>◈ ${esc(g.res)}</div>
         ${g.ids.length>1 ? `<div style="font-size:9px;color:var(--text-dim);">${g.ids.length} entrées</div>` : ''}
@@ -8307,7 +8427,7 @@ function renderStockTable(stocks){
         </div>
       </td>
       <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
-      <td style="display:flex;gap:4px;">
+      <td style="display:flex;gap:4px;" onclick="event.stopPropagation()">
         <button class="btn sm" onclick="openEditStock('${firstId}')" style="border-color:var(--orange);color:var(--orange);" title="Modifier la première entrée">✏</button>
         <button class="btn danger sm" onclick="confirmDelStock('${firstId}','${esc(g.res)}')" title="${g.ids.length>1?'Supprimer la première entrée':'Supprimer'}">✕</button>
       </td>
