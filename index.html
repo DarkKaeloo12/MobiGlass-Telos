@@ -591,6 +591,8 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
   font-size: 15px; color: var(--orange);
   clip-path: polygon(10% 0%,90% 0%,100% 10%,100% 90%,90% 100%,10% 100%,0% 90%,0% 10%);
+  overflow: hidden;
+  contain: strict;
 }
 .pl-info { flex: 1; min-width: 0; }
 .pl-name { font-size: 15px; font-weight: 700; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1133,11 +1135,11 @@ body::before {
 /* ══ ARMURERIE ══════════════════════════════════════════════════ */
 #panel-armurerie { flex-direction: column; }
 #panel-armurerie.active { flex-direction: column; }
-#arm-content img, #arm-active img, #arm-profile-head img,
-#panel-armurerie img {
-  max-width: 100%;
-  object-fit: cover;
-  display: block;
+.pl-avatar img, .prof-avatar img, .sbp-avatar img,
+[class*="avatar"] img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  position: relative; z-index: 0;
 }
 #arm-content, #arm-active, #arm-profile-head,
 #panel-armurerie, #arm-list-view {
