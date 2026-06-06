@@ -2288,7 +2288,7 @@ function showLoginWall(){} // stub
                       <th>Date</th>
                       <th>Action</th>
                     </tr></thead>
-                    <tbody id="arm-tbody"></tbody>
+                    <tbody id="arm-partner-tbody"></tbody>
                   </table>
                   <div id="arm-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
                     <div style="font-size:32px;opacity:.2;">⚔</div>
@@ -10028,7 +10028,7 @@ async function selectArmPlayer(pid) {
 }
 
 async function renderArmTable() {
-  const tbody = document.getElementById('arm-tbody');
+  const tbody = document.getElementById('arm-partner-tbody');
   const empty = document.getElementById('arm-empty');
   if (!tbody || !_armSelectedPid) return;
   let items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
