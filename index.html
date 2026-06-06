@@ -3021,17 +3021,14 @@ var _kpiPrev = { val: 0, profit: 0, res: 0, partners: 0 };
    HELPER — Rendu avatar universel
 ════════════════════════════════════════════════════════════ */
 function avHtml(playerOrName, size=34) {
-  // playerOrName peut être un objet player ou une string (initiale)
   const isObj  = typeof playerOrName === 'object' && playerOrName !== null;
   const name   = isObj ? playerOrName.name : playerOrName;
   const avatar = isObj ? playerOrName.avatar : null;
   const letter = name ? name.charAt(0).toUpperCase() : '⬡';
-
-  if (avatar) {
-    if (avatar.startsWith('data:')) {
-      return `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
-    }
-    // Emoji icône
+  if (avatar && avatar.startsWith('data:')) {
+    return `<img src="${avatar}" style="width:${size}px;height:${size}px;max-width:${size}px;max-height:${size}px;object-fit:cover;display:block;position:relative;z-index:0;">`;
+  }
+  if (avatar && !avatar.startsWith('http')) {
     return `<span style="font-size:${Math.round(size*0.55)}px;line-height:1;">${avatar}</span>`;
   }
   return `<span style="font-size:${Math.round(size*0.5)}px;">${letter}</span>`;
@@ -3563,17 +3560,14 @@ async function updateKPIs() {
    HELPER — Rendu avatar universel
 ════════════════════════════════════════════════════════════ */
 function avHtml(playerOrName, size=34) {
-  // playerOrName peut être un objet player ou une string (initiale)
   const isObj  = typeof playerOrName === 'object' && playerOrName !== null;
   const name   = isObj ? playerOrName.name : playerOrName;
   const avatar = isObj ? playerOrName.avatar : null;
   const letter = name ? name.charAt(0).toUpperCase() : '⬡';
-
-  if (avatar) {
-    if (avatar.startsWith('data:')) {
-      return `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
-    }
-    // Emoji icône
+  if (avatar && avatar.startsWith('data:')) {
+    return `<img src="${avatar}" style="width:${size}px;height:${size}px;max-width:${size}px;max-height:${size}px;object-fit:cover;display:block;position:relative;z-index:0;">`;
+  }
+  if (avatar && !avatar.startsWith('http')) {
     return `<span style="font-size:${Math.round(size*0.55)}px;line-height:1;">${avatar}</span>`;
   }
   return `<span style="font-size:${Math.round(size*0.5)}px;">${letter}</span>`;
@@ -10537,6 +10531,15 @@ async function init(){
   setInterval(fluctuate,8500);
   // Load players from persistent storage
   players=(await DB.get('uex-players'))||[];
+  // Migration : supprimer les avatars URL http (gardez seulement base64 et emoji)
+  var _avatarFixed = false;
+  players.forEach(p => {
+    if (p.avatar && (p.avatar.startsWith('http://') || p.avatar.startsWith('https://'))) {
+      p.avatar = null;
+      _avatarFixed = true;
+    }
+  });
+  if (_avatarFixed) await DB.set('uex-players', players);
   await loadRolesConfig();
   updateNavBanque && updateNavBanque();
   await loadBankData();
