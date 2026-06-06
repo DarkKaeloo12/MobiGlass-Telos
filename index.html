@@ -10037,8 +10037,9 @@ async function renderArmTable() {
   const groups = {};
   items.forEach(s => {
     const key = (s.name||'').toLowerCase()+'|'+(s.cat||'');
-    if (!groups[key]) groups[key] = { name:s.name, cat:s.cat, quality:s.quality||'', qty:0,
-      buyVal:0, sellVal:0, price:0, sellprice:0, loc:s.loc||'', ids:[], addedAt:s.addedAt };
+    if (!groups[key]) groups[key] = { name:s.name, cat:s.cat, quality:s.quality||'',
+      unit:s.unit||'unite', qualityExact:s.qualityExact||null,
+      qty:0, buyVal:0, sellVal:0, price:0, sellprice:0, loc:s.loc||'', ids:[], addedAt:s.addedAt };
     const g = groups[key];
     g.qty     += s.qty||0;
     g.buyVal  += (s.price||0)*(s.qty||0);
@@ -10052,13 +10053,28 @@ async function renderArmTable() {
   if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; updateArmFooter([]); return; }
   empty.style.display='none';
   const qMeta = (q)=>QUALITY_META[q]||{label:q,color:'var(--text-dim)'};
+
+  // Index pour panneau détail
+  window._armGroups = {};
+  window._armAllItems = (await DB.get('uex-armory-'+_armSelectedPid))||[];
+
   tbody.innerHTML = rows.map(g => {
     const margin = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
     const profit = g.sellprice>0?g.sellVal-g.buyVal:null;
     const col = ARM_CAT_COLORS[g.cat]||'var(--text-dim)';
     const qm = qMeta(g.quality);
-    return `<tr>
-      <td class="td-name">◈ ${esc(g.name)}${g.ids.length>1?'<div style="font-size:9px;color:var(--text-dim);">'+g.ids.length+' entrées</div>':''}</td>
+    const gkey = (g.name+'|'+g.cat).replace(/[^a-z0-9|]/gi,'_');
+    window._armGroups[gkey] = g.ids;
+    return `<tr style="cursor:pointer;" onclick="openArmDetail('${gkey}')"
+      onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
+      <td class="td-name">
+        ◈ ${esc(g.name)}
+        ${g.ids.length>1?'<div style="font-size:9px;color:var(--text-dim);">'+g.ids.length+' entrées</div>':''}
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          ${g.unit&&g.unit!=='unite'?`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(247,140,30,0.3);color:var(--text-dim);letter-spacing:1px;">SCU</span>`:`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(96,165,250,0.4);color:#60a5fa;letter-spacing:1px;">UNITÉ</span>`}
+          ${g.qualityExact?`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(0,255,163,0.3);color:var(--green);font-family:var(--mono);">${g.qualityExact}</span>`:''}
+        </div>
+      </td>
       <td><span class="arm-cat-badge" style="color:${col};border-color:${col};">${ARM_CAT_LABELS[g.cat]||g.cat}</span></td>
       <td>${g.quality?'<span style="color:'+qm.color+';font-size:10px;">'+qm.label+'</span>':'<span style="color:var(--text-dim);font-size:10px;">—</span>'}</td>
       <td style="text-align:center;font-weight:700;color:var(--text-bright);">${g.qty}</td>
@@ -10069,7 +10085,7 @@ async function renderArmTable() {
       <td class="td-green">${g.sellVal?Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
       <td class="td-dim" style="font-size:10px;"><span title="${esc(g.loc)}">📍 ${esc((g.loc||'—').slice(0,20))}</span></td>
       <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
-      <td style="display:flex;gap:4px;">
+      <td style="display:flex;gap:4px;" onclick="event.stopPropagation()">
         <button class="btn sm" data-action="arm-edit" data-id="${g.ids[0]}" style="border-color:var(--orange);color:var(--orange);" title="Modifier">✏</button>
         <button class="btn danger sm" data-action="arm-del" data-id="${g.ids[0]}" data-name="${esc(g.name)}" title="Supprimer">✕</button>
       </td>
@@ -10099,6 +10115,90 @@ function goArmStockFull() {
 var _armEditId = null;
 var _armPsModalOpen = false;
 
+function syncArmQualityBadge() {}
+
+function openArmDetail(key) {
+  const ids = (window._armGroups||{})[key];
+  if (!ids||!ids.length) return;
+  const allItems = window._armAllItems || [];
+  const entries = ids.map(id=>allItems.find(s=>s.id===id)).filter(Boolean);
+  if (!entries.length) return;
+
+  const QUALITY_LABELS = { mediocre:'💀 Médiocre', basique:'🔴 Basique', acceptable:'🟠 Acceptable', honnete:'🟡 Honnête', moyenne:'🟢 Moyenne', haute:'💎 Haute' };
+  const QUALITY_COLORS = { mediocre:'#6b7280', basique:'var(--red)', acceptable:'var(--orange)', honnete:'#eab308', moyenne:'var(--green)', haute:'#a855f7' };
+
+  document.getElementById('sdp-res-name').textContent = entries[0].name;
+
+  const totalQty  = entries.reduce((a,s)=>a+Number(s.qty),0);
+  const totalBuy  = entries.reduce((a,s)=>a+(s.price||0)*s.qty,0);
+  const totalSell = entries.reduce((a,s)=>a+(s.sellprice||0)*s.qty,0);
+  const profit    = totalSell - totalBuy;
+  document.getElementById('sdp-summary').innerHTML = `
+    <div style="flex:1;padding:10px 12px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Entrées</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">${entries.length}</div>
+    </div>
+    <div style="flex:1;padding:10px 12px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Quantité</div>
+      <div style="font-size:20px;font-weight:700;color:var(--orange);font-family:var(--mono);">${totalQty.toLocaleString('fr-FR')}</div>
+    </div>
+    <div style="flex:1;padding:10px 12px;text-align:center;">
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Profit total</div>
+      <div style="font-size:20px;font-weight:700;font-family:var(--mono);color:${profit>=0?'var(--green)':'var(--red)'};">${profit>=0?'+':''}${Math.round(profit).toLocaleString('fr-FR')} <span style="font-size:11px;">aUEC</span></div>
+    </div>`;
+
+  document.getElementById('sdp-entries').innerHTML = entries.map((s,i) => {
+    const ql   = QUALITY_LABELS[s.quality]||'— Non spécifié';
+    const qcol = QUALITY_COLORS[s.quality]||'var(--text-dim)';
+    const unit = s.unit==='scu'?'SCU':'Unité';
+    const pft  = s.sellprice>0?(s.sellprice-(s.price||0))*s.qty:null;
+    const margin= s.price>0&&s.sellprice>0?((s.sellprice-s.price)/s.price*100).toFixed(1):null;
+    const catCol= ARM_CAT_COLORS[s.cat]||'var(--text-dim)';
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid ${qcol};padding:12px 14px;display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:10px;letter-spacing:1.5px;color:var(--text-dim);">ENTRÉE #${i+1}</span>
+        <div style="display:flex;gap:5px;">
+          <button onclick="closeStockDetail();openArmModal('${s.id}')" style="font-size:10px;padding:2px 8px;border:1px solid var(--orange);color:var(--orange);background:transparent;cursor:pointer;font-family:var(--ui);">✏ Modifier</button>
+          <button onclick="closeStockDetail();armDelItem('${s.id}','${esc(s.name)}')" style="font-size:10px;padding:2px 8px;border:1px solid rgba(255,68,68,0.5);color:var(--red);background:transparent;cursor:pointer;font-family:var(--ui);">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:${qcol};">${ql}</span>
+        ${s.qualityExact?`<span style="font-family:var(--mono);font-size:13px;color:${qcol};border:1px solid ${qcol};padding:1px 8px;">${s.qualityExact} <span style="font-size:9px;opacity:.7;">/ 1000</span></span>`:''}
+        <span style="font-size:10px;padding:1px 7px;border:1px solid ${catCol};color:${catCol};">${ARM_CAT_LABELS[s.cat]||s.cat}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:11px;">
+        <div><span style="color:var(--text-dim);">Quantité</span><br><span style="color:var(--text-bright);font-family:var(--mono);font-weight:700;">${Number(s.qty).toLocaleString('fr-FR')} <span style="font-size:9px;color:var(--text-dim);">${unit}</span></span></div>
+        <div><span style="color:var(--text-dim);">Localisation</span><br><span style="color:var(--text-bright);">📍 ${esc(s.loc||'—')}</span></div>
+        <div><span style="color:var(--text-dim);">Prix achat /u</span><br><span style="color:var(--text-bright);font-family:var(--mono);">${s.price?s.price.toFixed(0)+' aUEC':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Prix vente /u</span><br><span style="color:var(--blue);font-family:var(--mono);">${s.sellprice?s.sellprice.toFixed(0)+' aUEC':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Marge</span><br><span style="color:${margin!==null?(parseFloat(margin)>=0?'var(--green)':'var(--red)'):'var(--text-dim)'};font-family:var(--mono);">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Profit total</span><br><span style="color:${pft!==null?(pft>=0?'var(--green)':'var(--red)'):'var(--text-dim)'};font-family:var(--mono);">${pft!==null?(pft>=0?'+':'')+Math.round(pft).toLocaleString('fr-FR')+' aUEC':'—'}</span></div>
+        <div><span style="color:var(--text-dim);">Date ajout</span><br><span style="color:var(--text-dim);font-size:10px;">${fmtDate(s.addedAt)}</span></div>
+      </div>
+      ${s.note?`<div style="border-top:1px solid var(--border);padding-top:6px;font-size:10px;color:var(--text-dim);font-family:var(--mono);">📝 ${esc(s.note)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const ov = document.getElementById('stock-detail-overlay');
+  const pn = document.getElementById('stock-detail-panel');
+  ov.style.display = 'flex'; ov.style.alignItems = 'stretch';
+  setTimeout(()=>pn.style.transform='translateX(0)', 10);
+}
+
+async function armDelItem(sid, name) {
+  showConfirm('⚠ Supprimer cet équipement',
+    `Retirer <strong style="color:var(--orange)">${name}</strong> de l'armurerie ?<br><small>Action irréversible.</small>`,
+    async()=>{
+      let items=(await DB.get('uex-armory-'+_armSelectedPid))||[];
+      items=items.filter(s=>s.id!==sid);
+      await DB.set('uex-armory-'+_armSelectedPid, items);
+      await renderArmTable();
+      toast('Équipement supprimé','','success');
+    }
+  );
+}
+
 function openAddArmItem(editId) {
   _armEditId = editId || null;
   const item = editId ? (async()=>{ const items=(await DB.get('uex-armory-'+_armSelectedPid))||[]; return items.find(x=>x.id===editId); })() : Promise.resolve(null);
@@ -10115,36 +10215,72 @@ async function openArmModal(editId) {
     overlay = document.createElement('div');
     overlay.id = 'arm-modal-overlay';
     overlay.className = 'overlay';
-    overlay.innerHTML = `<div class="modal" style="max-width:480px;" onclick="event.stopPropagation()">
-      <div class="modal-head"><span class="modal-title" id="arm-modal-title">⚔ AJOUTER UN ITEM</span><button class="modal-close" onclick="closeArmModal()">✕</button></div>
+    overlay.innerHTML = `<div class="modal" style="max-width:520px;" onclick="event.stopPropagation()">
+      <div class="modal-head"><span class="modal-title" id="arm-modal-title">⚔ AJOUTER UN ÉQUIPEMENT</span><button class="modal-close" onclick="closeArmModal()">✕</button></div>
       <div class="modal-body" style="gap:12px;">
-        <div class="form-field"><label class="form-lbl">Désignation <span class="req">*</span></label>
-          <input class="form-input" type="text" id="arm-name" placeholder="ex: Custaniah Light Helmet" maxlength="100"></div>
+
+        <!-- Catégorie -->
+        <div class="form-field">
+          <label class="form-lbl">Catégorie <span class="req">*</span></label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" id="arm-cat-btns">
+            <button type="button" class="cat-sel-btn active" data-armcat="arme_fps"           onclick="selectArmCat('arme_fps')"          style="flex:1;padding:6px 10px;font-size:11px;">🔫 Armes FPS</button>
+            <button type="button" class="cat-sel-btn"        data-armcat="armure"             onclick="selectArmCat('armure')"            style="flex:1;padding:6px 10px;font-size:11px;">🛡 Armures</button>
+            <button type="button" class="cat-sel-btn"        data-armcat="arme_vaisseau"      onclick="selectArmCat('arme_vaisseau')"     style="flex:1;padding:6px 10px;font-size:11px;">🚀 Armes Vaisseau</button>
+            <button type="button" class="cat-sel-btn"        data-armcat="composant_vaisseau" onclick="selectArmCat('composant_vaisseau')" style="flex:1;padding:6px 10px;font-size:11px;">🔧 Composants</button>
+          </div>
+          <input type="hidden" id="arm-cat" value="arme_fps">
+        </div>
+
+        <!-- Sélect DB + saisie manuelle -->
+        <div class="form-field">
+          <label class="form-lbl">Désignation <span class="req">*</span></label>
+          <select class="form-input" id="arm-db-select" style="height:auto;padding:9px 11px;" onchange="armDbSelectChange(this.value)">
+            <option value="">— Catalogue Corp TELOS —</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px;margin:4px 0;">
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+            <span style="font-size:9px;letter-spacing:1px;color:var(--text-dim);">OU SAISIR MANUELLEMENT</span>
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+          </div>
+          <input class="form-input" type="text" id="arm-name" placeholder="ex: Custaniah Light Helmet" maxlength="100" oninput="document.getElementById('arm-db-select').value=''">
+        </div>
+
         <div class="grid2">
-          <div class="form-field"><label class="form-lbl">Catégorie <span class="req">*</span></label>
-            <select class="form-input" id="arm-cat" style="height:auto;padding:9px 11px;">
-              <option value="arme_fps">🔫 Arme FPS</option>
-              <option value="armure">🛡 Armure</option>
-              <option value="composant_vaisseau">🔧 Composant Vaisseau</option>
-              <option value="arme_vaisseau">🚀 Arme Vaisseau</option>
-            </select></div>
-          <div class="form-field"><label class="form-lbl">Qualité</label>
-            <select class="form-input" id="arm-quality" style="height:auto;padding:9px 11px;">
-              <option value="">— Sans qualité —</option>
-              <option value="mediocre">Médiocre (&lt;500)</option>
-              <option value="basique">Basique (500-600)</option>
-              <option value="acceptable">Acceptable (600-700)</option>
-              <option value="honnete">Honnête (700-800)</option>
-              <option value="moyenne">Moyenne (800-900)</option>
-              <option value="haute">Haute (900-1000)</option>
-            </select></div>
-          <div class="form-field"><label class="form-lbl">Quantité <span class="req">*</span></label>
-            <input class="form-input" type="number" id="arm-qty" min="1" step="1" value="1"></div>
+          <!-- Quantité + unité -->
+          <div class="form-field">
+            <label class="form-lbl">Quantité <span class="req">*</span></label>
+            <div style="display:flex;gap:6px;">
+              <input class="form-input" type="number" id="arm-qty" min="1" step="1" value="1" style="flex:1;">
+              <select class="form-input" id="arm-unit" style="width:90px;height:auto;padding:9px 8px;">
+                <option value="unite">Unité</option>
+                <option value="scu">SCU</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Qualité plage + exacte -->
+          <div class="form-field">
+            <label class="form-lbl">Qualité</label>
+            <div style="display:flex;gap:6px;">
+              <select class="form-input" id="arm-quality" style="flex:1;height:auto;padding:9px 8px;" onchange="syncArmQualityBadge()">
+                <option value="">— Sans qualité —</option>
+                <option value="mediocre">💀 Médiocre (&lt;500)</option>
+                <option value="basique">🔴 Basique (500-600)</option>
+                <option value="acceptable">🟠 Acceptable (600-700)</option>
+                <option value="honnete">🟡 Honnête (700-800)</option>
+                <option value="moyenne">🟢 Moyenne (800-900)</option>
+                <option value="haute">💎 Haute (900-1000)</option>
+              </select>
+              <input class="form-input" type="number" id="arm-quality-exact" placeholder="0–1000" min="0" max="1000"
+                style="width:80px;text-align:center;" oninput="syncArmQualityFromExact(this.value)">
+            </div>
+          </div>
+
           <div class="form-field"><label class="form-lbl">Prix achat (aUEC)</label>
             <input class="form-input" type="number" id="arm-price" min="0" placeholder="0"></div>
           <div class="form-field"><label class="form-lbl">Prix vente (aUEC)</label>
             <input class="form-input" type="number" id="arm-sellprice" min="0" placeholder="0"></div>
-          <div class="form-field"><label class="form-lbl">Localisation</label>
+          <div class="form-field" style="grid-column:span 2;"><label class="form-lbl">Localisation</label>
             <input class="form-input" type="text" id="arm-loc" placeholder="ex: Area18" maxlength="60"></div>
         </div>
         <div class="form-field"><label class="form-lbl">Notes</label>
@@ -10158,17 +10294,24 @@ async function openArmModal(editId) {
     overlay.addEventListener('click', e=>{ if(e.target===overlay) closeArmModal(); });
     document.body.appendChild(overlay);
   }
-  document.getElementById('arm-modal-title').textContent = editId ? "✏ MODIFIER L'ITEM" : '⚔ AJOUTER UN ITEM';
+  document.getElementById('arm-modal-title').textContent = editId ? "✏ MODIFIER L'ÉQUIPEMENT" : '⚔ AJOUTER UN ÉQUIPEMENT';
   // Remplir si édition
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
-  set('arm-name',      item?.name||'');
-  set('arm-cat',       item?.cat||'arme_fps');
-  set('arm-quality',   item?.quality||'');
-  set('arm-qty',       item?.qty||1);
-  set('arm-price',     item?.price||'');
-  set('arm-sellprice', item?.sellprice||'');
-  set('arm-loc',       item?.loc||'');
-  set('arm-note',      item?.note||'');
+  const cat = item?.cat||'arme_fps';
+  set('arm-cat', cat);
+  set('arm-qty',          item?.qty||1);
+  set('arm-unit',         item?.unit||'unite');
+  set('arm-quality',      item?.quality||'');
+  set('arm-quality-exact',item?.qualityExact||'');
+  set('arm-price',        item?.price||'');
+  set('arm-sellprice',    item?.sellprice||'');
+  set('arm-loc',          item?.loc||'');
+  set('arm-note',         item?.note||'');
+  set('arm-name',         item?.name||'');
+  // Catégorie boutons
+  selectArmCat(cat);
+  // Peupler le select DB
+  populateArmDbSelect(cat, item?.name||'');
   overlay.classList.add('open');
   setTimeout(()=>document.getElementById('arm-name')?.focus(), 80);
 }
@@ -10179,22 +10322,79 @@ function closeArmModal() {
   _armEditId = null;
 }
 
+// Mapping catégorie → clé SC_DB
+const ARM_CAT_TO_DB = { arme_fps:'fps', armure:'armor', arme_vaisseau:'shipwep', composant_vaisseau:'shipcomp' };
+
+function selectArmCat(cat) {
+  document.getElementById('arm-cat').value = cat;
+  document.querySelectorAll('#arm-cat-btns .cat-sel-btn').forEach(b => {
+    const on = b.dataset.armcat === cat;
+    b.style.borderColor   = on ? 'var(--orange)' : 'var(--border)';
+    b.style.color         = on ? 'var(--orange)' : 'var(--text-dim)';
+    b.style.background    = on ? 'rgba(247,140,30,0.1)' : 'transparent';
+  });
+  populateArmDbSelect(cat, '');
+}
+
+function populateArmDbSelect(cat, currentName) {
+  const sel = document.getElementById('arm-db-select');
+  if (!sel) return;
+  const dbKey = ARM_CAT_TO_DB[cat] || 'fps';
+  const items = (SC_DB[dbKey] || []).sort((a,b) => a.name.localeCompare(b.name,'fr'));
+  sel.innerHTML = '<option value="">— Catalogue Corp TELOS —</option>'
+    + items.map(i => `<option value="${i.name}"${i.name===currentName?' selected':''}>${i.name}${i.prix?' — '+i.prix.toLocaleString('fr-FR')+' aUEC':''}</option>`).join('');
+  if (currentName) sel.value = currentName;
+}
+
+function armDbSelectChange(val) {
+  if (!val) return;
+  const nameEl = document.getElementById('arm-name');
+  if (nameEl) nameEl.value = val;
+  // Auto-fill prix achat depuis SC_DB
+  const cat = document.getElementById('arm-cat')?.value || 'arme_fps';
+  const dbKey = ARM_CAT_TO_DB[cat] || 'fps';
+  const found = (SC_DB[dbKey] || []).find(i => i.name === val);
+  if (found?.prix) {
+    const priceEl = document.getElementById('arm-price');
+    if (priceEl && !priceEl.value) priceEl.value = found.prix;
+    const locEl = document.getElementById('arm-loc');
+    if (locEl && !locEl.value && found.loc) locEl.value = found.loc;
+  }
+}
+
+function syncArmQualityFromExact(val) {
+  const n = parseInt(val);
+  const sel = document.getElementById('arm-quality');
+  if (!sel) return;
+  if (!val || isNaN(n)) sel.value = '';
+  else if (n < 500) sel.value = 'mediocre';
+  else if (n < 600) sel.value = 'basique';
+  else if (n < 700) sel.value = 'acceptable';
+  else if (n < 800) sel.value = 'honnete';
+  else if (n < 900) sel.value = 'moyenne';
+  else              sel.value = 'haute';
+}
+
+function syncArmQualityBadge() {} // placeholder
+
 async function saveArmItem() {
   if (!SESSION || !_armSelectedPid) return;
   const name = document.getElementById('arm-name')?.value.trim();
   if (!name) { toast('Nom requis','','error'); return; }
   const items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
   const entry = {
-    id:        _armEditId || ('arm_'+Date.now()),
+    id:           _armEditId || ('arm_'+Date.now()),
     name,
-    cat:       document.getElementById('arm-cat')?.value       || 'arme_fps',
-    quality:   document.getElementById('arm-quality')?.value   || '',
-    qty:       parseFloat(document.getElementById('arm-qty')?.value)||1,
-    price:     parseFloat(document.getElementById('arm-price')?.value)||0,
-    sellprice: parseFloat(document.getElementById('arm-sellprice')?.value)||0,
-    loc:       document.getElementById('arm-loc')?.value.trim()||'',
-    note:      document.getElementById('arm-note')?.value.trim()||'',
-    addedAt:   _armEditId ? (items.find(x=>x.id===_armEditId)?.addedAt||new Date().toISOString()) : new Date().toISOString(),
+    cat:          document.getElementById('arm-cat')?.value       || 'arme_fps',
+    quality:      document.getElementById('arm-quality')?.value   || '',
+    qualityExact: parseInt(document.getElementById('arm-quality-exact')?.value)||null,
+    unit:         document.getElementById('arm-unit')?.value      || 'unite',
+    qty:          parseFloat(document.getElementById('arm-qty')?.value)||1,
+    price:        parseFloat(document.getElementById('arm-price')?.value)||0,
+    sellprice:    parseFloat(document.getElementById('arm-sellprice')?.value)||0,
+    loc:          document.getElementById('arm-loc')?.value.trim()||'',
+    note:         document.getElementById('arm-note')?.value.trim()||'',
+    addedAt:      _armEditId ? (items.find(x=>x.id===_armEditId)?.addedAt||new Date().toISOString()) : new Date().toISOString(),
   };
   if (_armEditId) {
     const idx = items.findIndex(x=>x.id===_armEditId);
