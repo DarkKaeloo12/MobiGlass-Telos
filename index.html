@@ -6495,9 +6495,10 @@ function toggleCmdBranche() {
 // ── Panneau détail ressource ──────────────────────────────
 var _sdpAllStocks = []; // stocks bruts du partenaire actif
 
-function openStockDetail(ids, allStocks) {
-  _sdpAllStocks = allStocks;
-  const entries = ids.map(id => allStocks.find(s => s.id === id)).filter(Boolean);
+function openStockDetail(key) {
+  const ids = (window._sdpGroups || {})[key];
+  if (!ids || !ids.length) return;
+  const entries = ids.map(id => _sdpAllStocks.find(s => s.id === id)).filter(Boolean);
   if (!entries.length) return;
 
   const res  = entries[0].res;
@@ -8389,16 +8390,19 @@ function renderStockTable(stocks){
     if (!g.addedAt || s.addedAt > g.addedAt) g.addedAt = s.addedAt;
   });
 
+  // Index global pour le panneau détail : clé → IDs bruts
+  window._sdpGroups = {};
+
   const rows = Object.values(groups).sort((a,b) => a.res.localeCompare(b.res,'fr'));
 
   body.innerHTML = rows.map(g => {
     const margin  = g.price>0 && g.sellprice>0 ? ((g.sellprice-g.price)/g.price*100).toFixed(1) : null;
     const profit  = g.sellprice>0 ? g.sellVal - g.buyVal : null;
     const marginCls = margin!==null ? (parseFloat(margin)>=0?'td-green':'td-red') : '';
-    // Boutons : si 1 seul item → edit direct, sinon on peut quand même editer le premier
     const firstId = g.ids[0];
-    const idsJson = JSON.stringify(g.ids).replace(/"/g,'&quot;');
-    return `<tr style="cursor:pointer;" onclick="openStockDetail(${idsJson.replace(/&quot;/g,"'")}, _sdpAllStocks)"
+    const gkey = (g.res+'|'+g.cat).replace(/[^a-z0-9|]/gi,'_');
+    window._sdpGroups[gkey] = g.ids;
+    return `<tr style="cursor:pointer;" onclick="openStockDetail('${gkey}')"
       onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
       <td class="td-name" style="max-width:140px;">
         <div>◈ ${esc(g.res)}</div>
