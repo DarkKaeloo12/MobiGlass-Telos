@@ -7089,7 +7089,7 @@ async function notifyDiscord(commande, event) {
       title = '📋 Nouvelle commande créée';
       desc  = `**${commande.title}**`;
     } else if (event === 'en_cours') {
-      color = 0xF78C1E;
+      color = 0x9B59B6; // violet
       title = '▶ Commande en cours';
       desc  = `**${commande.title}**`;
     } else if (event === 'livree') {
@@ -7118,7 +7118,7 @@ async function notifyDiscord(commande, event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'MobiGlass Telos',
+        username: 'TELOS Corp',
         avatar_url: 'https://i.imgur.com/4M7IWwP.png',
         embeds: [{
           title,
@@ -7126,7 +7126,7 @@ async function notifyDiscord(commande, event) {
           color,
           fields,
           footer: { text: `TELOS MobiGlass • ${new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` },
-          thumbnail: { url: 'https://media.alienwarearena.com/media/2a4f6c434513c1bd01dd4252a3560427.png?quality=75&width=400' }
+          thumbnail: { url: 'https://i.imgur.com/4M7IWwP.png' }
         }]
       })
     });
@@ -9678,15 +9678,22 @@ async function updateBadges(){
   _s('badge-joueurs', players.length);
   _s('kpi-partners', players.length);
   // Compter toutes les ressources TELOS de tous les partenaires
-  let totalRes = 0;
+  let totalRes = 0, totalArm = 0;
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-'+p.id)) || [];
     totalRes += stocks.length;
+    const armory = (await DB.get('uex-armory-'+p.id)) || [];
+    totalArm += armory.length;
   }
   const badgeRes = document.getElementById('badge-ressource-stock');
   if (badgeRes) {
     badgeRes.textContent = totalRes;
     badgeRes.style.display = totalRes > 0 ? '' : 'none';
+  }
+  const badgeArm = document.getElementById('badge-armurerie');
+  if (badgeArm) {
+    badgeArm.textContent = totalArm;
+    badgeArm.style.display = totalArm > 0 ? '' : 'none';
   }
 }
 
@@ -10490,6 +10497,7 @@ async function armDelItem(sid, name) {
       items=items.filter(s=>s.id!==sid);
       await DB.set('uex-armory-'+_armSelectedPid, items);
       await renderArmTable();
+      updateBadges();
       toast('Équipement supprimé','','success');
     }
   );
@@ -10724,6 +10732,7 @@ async function saveArmItem() {
   } else {
     await renderArmTable();
     renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+    updateBadges();
   }
   toast(_armEditId?'Item modifié':'Item ajouté', name, 'success');
 }
