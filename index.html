@@ -2241,77 +2241,121 @@ function showLoginWall(){} // stub
                 <!-- En-tête profil compact -->
                 <div class="prof-hero" id="arm-profile-head" style="flex-shrink:0;"></div>
 
-                <!-- Toolbar -->
-                <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;">
-                  <span class="sec-title"><span class="acc">⚔</span> Équipements apportés</span>
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
-                    <select id="arm-cat-filter" class="form-input" style="width:170px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
-                      <option value="all">Toutes catégories</option>
-                      <option value="arme_fps">🔫 Armes FPS</option>
-                      <option value="armure">🛡 Armures</option>
-                      <option value="composant_vaisseau">🔧 Composants Vaisseau</option>
-                      <option value="arme_vaisseau">🚀 Armes Vaisseau</option>
-                    </select>
-                    <select id="arm-quality-filter" class="form-input" style="width:150px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
-                      <option value="all">Toutes qualités</option>
-                      <option value="">Sans qualité</option>
-                      <option value="mediocre">Médiocre</option>
-                      <option value="basique">Basique</option>
-                      <option value="acceptable">Acceptable</option>
-                      <option value="honnete">Honnête</option>
-                      <option value="moyenne">Moyenne</option>
-                      <option value="haute">Haute</option>
-                    </select>
-                    <div class="search-box" style="max-width:180px;">
-                      <span class="search-ico">⌕</span>
-                      <input type="text" id="arm-item-search" placeholder="Rechercher..." oninput="renderArmTable()">
+                <!-- Sous-onglets TELOS / Personnel -->
+                <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 16px;background:var(--bg2);">
+                  <button id="armtab-telos" onclick="switchArmTab('telos',this)"
+                    style="padding:7px 16px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">
+                    ⚔ STOCK TELOS
+                  </button>
+                  <button id="armtab-perso" onclick="switchArmTab('perso',this)"
+                    style="padding:7px 16px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">
+                    🎒 STOCK PERSONNEL
+                  </button>
+                </div>
+
+                <!-- ── Onglet TELOS ── -->
+                <div id="armtab-content-telos" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+                  <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;">
+                    <span class="sec-title"><span class="acc">⚔</span> Équipements apportés au réseau</span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+                      <select id="arm-cat-filter" class="form-input" style="width:170px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
+                        <option value="all">Toutes catégories</option>
+                        <option value="arme_fps">🔫 Armes FPS</option>
+                        <option value="armure">🛡 Armures</option>
+                        <option value="composant_vaisseau">🔧 Composants Vaisseau</option>
+                        <option value="arme_vaisseau">🚀 Armes Vaisseau</option>
+                      </select>
+                      <select id="arm-quality-filter" class="form-input" style="width:150px;height:auto;padding:5px 10px;font-size:11px;" onchange="renderArmTable()">
+                        <option value="all">Toutes qualités</option>
+                        <option value="">Sans qualité</option>
+                        <option value="mediocre">Médiocre</option>
+                        <option value="basique">Basique</option>
+                        <option value="acceptable">Acceptable</option>
+                        <option value="honnete">Honnête</option>
+                        <option value="moyenne">Moyenne</option>
+                        <option value="haute">Haute</option>
+                      </select>
+                      <div class="search-box" style="max-width:180px;">
+                        <span class="search-ico">⌕</span>
+                        <input type="text" id="arm-item-search" placeholder="Rechercher..." oninput="renderArmTable()">
+                      </div>
+                      <button class="btn primary" onclick="openAddArmItem('telos')" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ Ajouter</button>
+                      <button class="btn danger" id="arm-remove-btn" onclick="openRMArmModal()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;display:none;border-color:rgba(255,68,68,0.5);">— Retirer</button>
                     </div>
-                    <button class="btn primary" onclick="openAddArmItem()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ Ajouter</button>
-                    <button class="btn danger" id="arm-remove-btn" onclick="openRMArmModal()" style="padding:5px 14px;font-size:11px;letter-spacing:1px;display:none;border-color:rgba(255,68,68,0.5);">— Retirer</button>
+                  </div>
+                  <div class="st-wrap">
+                    <table class="data-table" style="width:100%;min-width:900px;">
+                      <thead><tr>
+                        <th>Désignation</th><th>Catégorie</th><th>Qualité</th>
+                        <th style="text-align:center;">Qté</th>
+                        <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
+                        <th>Val. achat</th><th>Val. vente</th>
+                        <th>📍 Localisation</th><th>Date</th><th>Action</th>
+                      </tr></thead>
+                      <tbody id="arm-partner-tbody"></tbody>
+                    </table>
+                    <div id="arm-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
+                      <div style="font-size:32px;opacity:.2;">⚔</div>
+                      <div style="margin-top:10px;">Aucun équipement enregistré</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:0;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);">
+                    <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">ITEMS</div>
+                      <div id="arm-sf-distinct" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0</div>
+                    </div>
+                    <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">UNITÉS</div>
+                      <div id="arm-sf-units" style="font-size:14px;font-weight:700;color:var(--orange);font-family:var(--mono);">0</div>
+                    </div>
+                    <div style="padding:8px 16px;">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">VALEUR ACHAT</div>
+                      <div id="arm-sf-total" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0 aUEC</div>
+                    </div>
+                    <button onclick="goArmStockFull()" style="margin-left:auto;padding:0 18px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;">VOIR TOUT →</button>
                   </div>
                 </div>
 
-                <!-- Tableau équipements -->
-                <div class="st-wrap">
-                  <table class="data-table" style="width:100%;min-width:900px;">
-                    <thead><tr>
-                      <th>Désignation</th>
-                      <th>Catégorie</th>
-                      <th>Qualité</th>
-                      <th style="text-align:center;">Qté</th>
-                      <th>Prix achat</th>
-                      <th>Prix vente</th>
-                      <th>Marge</th>
-                      <th>Val. achat</th>
-                      <th>Val. vente</th>
-                      <th>📍 Localisation</th>
-                      <th>Date</th>
-                      <th>Action</th>
-                    </tr></thead>
-                    <tbody id="arm-partner-tbody"></tbody>
-                  </table>
-                  <div id="arm-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
-                    <div style="font-size:32px;opacity:.2;">⚔</div>
-                    <div style="margin-top:10px;">Aucun équipement enregistré</div>
+                <!-- ── Onglet PERSONNEL ── -->
+                <div id="armtab-content-perso" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+                  <div class="sec-bar" style="padding:8px 18px;flex-shrink:0;">
+                    <span class="sec-title"><span class="acc">🎒</span> Armurerie personnelle <span style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:6px;">Non lié au réseau TELOS</span></span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+                      <button class="btn primary" onclick="openAddArmItem('perso')" style="padding:5px 14px;font-size:11px;letter-spacing:1px;">+ Ajouter</button>
+                    </div>
+                  </div>
+                  <div class="st-wrap">
+                    <table class="data-table" style="width:100%;min-width:900px;">
+                      <thead><tr>
+                        <th>Désignation</th><th>Catégorie</th><th>Qualité</th>
+                        <th style="text-align:center;">Qté</th>
+                        <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
+                        <th>Val. achat</th><th>Val. vente</th>
+                        <th>📍 Localisation</th><th>Date</th><th>Action</th>
+                      </tr></thead>
+                      <tbody id="arm-perso-tbody"></tbody>
+                    </table>
+                    <div id="arm-perso-empty" style="display:none;padding:40px;text-align:center;color:var(--text-dim);">
+                      <div style="font-size:32px;opacity:.2;">🎒</div>
+                      <div style="margin-top:10px;">Aucun équipement personnel</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:0;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);">
+                    <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">ITEMS</div>
+                      <div id="arm-perso-distinct" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0</div>
+                    </div>
+                    <div style="padding:8px 16px;border-right:1px solid var(--border);">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">UNITÉS</div>
+                      <div id="arm-perso-units" style="font-size:14px;font-weight:700;color:var(--orange);font-family:var(--mono);">0</div>
+                    </div>
+                    <div style="padding:8px 16px;">
+                      <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">VALEUR ACHAT</div>
+                      <div id="arm-perso-total" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0 aUEC</div>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Footer stats -->
-                <div style="display:flex;gap:0;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);">
-                  <div style="padding:8px 16px;border-right:1px solid var(--border);">
-                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">ITEMS</div>
-                    <div id="arm-sf-distinct" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0</div>
-                  </div>
-                  <div style="padding:8px 16px;border-right:1px solid var(--border);">
-                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">UNITÉS</div>
-                    <div id="arm-sf-units" style="font-size:14px;font-weight:700;color:var(--orange);font-family:var(--mono);">0</div>
-                  </div>
-                  <div style="padding:8px 16px;">
-                    <div style="font-size:8px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">VALEUR ACHAT</div>
-                    <div id="arm-sf-total" style="font-size:14px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">0 aUEC</div>
-                  </div>
-                  <button onclick="goArmStockFull()" style="margin-left:auto;padding:0 18px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--orange);font-family:var(--ui);font-size:10px;letter-spacing:1px;cursor:pointer;">VOIR TOUT →</button>
-                </div>
               </div>
             </div>
           </div>
@@ -4593,7 +4637,7 @@ async function renderStocksFromPlayers() {
   const cat          = stockCat;
   const filterPlayer = (document.getElementById('telos-filter-player')||{}).value||'';
 
-  // ── Collecter tous les stocks bruts ──
+  // ── Collecter tous les stocks bruts (ressources + armurerie) ──
   let rawRows = [];
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-'+p.id)) || [];
@@ -4603,6 +4647,21 @@ async function renderStocksFromPlayers() {
       name:    s.res,
       cat:     s.cat,
       qty:     Number(s.qty),
+      buy:     Number(s.price)     || 0,
+      sell:    Number(s.sellprice) || 0,
+      loc:     s.loc || '—',
+      note:    s.note || '',
+      quality: s.quality || '',
+      addedAt: s.addedAt,
+    }));
+    // Armurerie → fusionner comme des ressources
+    const armory = (await DB.get('uex-armory-'+p.id)) || [];
+    armory.forEach(s => rawRows.push({
+      pid:     p.id,
+      player:  p.name,
+      name:    s.name,
+      cat:     s.cat || 'armurerie',
+      qty:     Number(s.qty) || 1,
       buy:     Number(s.price)     || 0,
       sell:    Number(s.sellprice) || 0,
       loc:     s.loc || '—',
@@ -8214,34 +8273,6 @@ async function selectPlayer(id){
         </div>
       </div>
 
-      <!-- 3 stats -->
-      <div style="display:flex;border-top:1px solid var(--border);">
-        <div style="flex:1;padding:7px 14px;border-right:1px solid var(--border);">
-          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">SCU TOTAL</div>
-          <div style="font-family:var(--mono);font-size:15px;color:var(--text-bright);">${tu.toLocaleString('fr-FR')}</div>
-        </div>
-        <div style="flex:1;padding:7px 14px;border-right:1px solid var(--border);">
-          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">VALEUR ACHAT</div>
-          <div style="font-family:var(--mono);font-size:15px;color:var(--text-bright);">${tv?Math.round(tv).toLocaleString('fr-FR'):'0'}</div>
-        </div>
-        <div style="flex:1;padding:7px 14px;">
-          <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px;">P/L MARCHÉ</div>
-          <div style="font-family:var(--mono);font-size:15px;color:${plCol};">${plSign}${Math.round(plMarket).toLocaleString('fr-FR')}</div>
-        </div>
-      </div>
-
-      <!-- Valeur marché -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(247,140,30,0.04);border-top:1px solid var(--border);">
-        <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">VALEUR MARCHÉ</div>
-        <div style="font-family:var(--mono);font-size:16px;color:var(--orange);letter-spacing:1px;">${marketVal?Math.round(marketVal).toLocaleString('fr-FR')+' aUEC':'0 aUEC'}</div>
-      </div>
-
-      <!-- Aucun stock / voir stock complet -->
-      <div style="padding:6px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        ${!stocks.length?`<span style="font-size:11px;color:var(--text-dim);letter-spacing:1px;">Aucun stock déclaré</span>`:'<span></span>'}
-        <span style="font-size:10px;letter-spacing:1.5px;color:var(--orange);text-transform:uppercase;opacity:0.7;">VOIR STOCK COMPLET →</span>
-      </div>
-
     </div>`;
   // Réinitialiser sur l'onglet TELOS à chaque changement de partenaire
   _currentPlTab = 'telos';
@@ -9973,6 +10004,109 @@ async function renderArmPartnerList(filter='') {
 
 function filterArmPartners(v) { renderArmPartnerList(v); }
 
+var _currentArmTab = 'telos';
+
+function switchArmTab(tab, btn) {
+  _currentArmTab = tab;
+  ['telos','perso'].forEach(t => {
+    const b = document.getElementById('armtab-' + t);
+    const c = document.getElementById('armtab-content-' + t);
+    if (!b || !c) return;
+    if (t === tab) {
+      b.style.borderBottomColor = 'var(--orange)';
+      b.style.color = 'var(--text-bright)';
+      c.style.display = 'flex';
+    } else {
+      b.style.borderBottomColor = 'transparent';
+      b.style.color = 'var(--text-dim)';
+      c.style.display = 'none';
+    }
+  });
+  if (_armSelectedPid) {
+    if (tab === 'telos') renderArmTable();
+    else DB.get('uex-armory-perso-'+_armSelectedPid).then(items => renderArmPersoTable(items||[]));
+  }
+}
+
+async function renderArmPersoTable(items) {
+  const tbody = document.getElementById('arm-perso-tbody');
+  const empty = document.getElementById('arm-perso-empty');
+  if (!tbody) return;
+  if (!items.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  // Index pour panneau détail
+  window._armGroups = window._armGroups || {};
+  window._armAllItems = items;
+
+  const groups = {};
+  items.forEach(s => {
+    const key = (s.name||'').toLowerCase()+'|'+(s.cat||'');
+    if (!groups[key]) groups[key] = { name:s.name, cat:s.cat, quality:s.quality||'',
+      unit:s.unit||'unite', qualityExact:s.qualityExact||null,
+      qty:0, buyVal:0, sellVal:0, price:0, sellprice:0, loc:s.loc||'', ids:[], addedAt:s.addedAt };
+    const g = groups[key];
+    g.qty += s.qty||0; g.buyVal += (s.price||0)*(s.qty||0); g.sellVal += (s.sellprice||0)*(s.qty||0);
+    if (g.qty>0) { g.price=g.buyVal/g.qty; g.sellprice=g.sellVal/g.qty; }
+    if (s.loc && !g.loc.includes(s.loc)) g.loc = g.loc?g.loc+', '+s.loc:s.loc;
+    g.ids.push(s.id);
+    if (!g.addedAt||s.addedAt>g.addedAt) g.addedAt=s.addedAt;
+  });
+
+  const rows = Object.values(groups).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+  const qMeta = (q)=>QUALITY_META[q]||{label:q,color:'var(--text-dim)'};
+
+  tbody.innerHTML = rows.map(g => {
+    const margin = g.price>0&&g.sellprice>0?((g.sellprice-g.price)/g.price*100).toFixed(1):null;
+    const col = ARM_CAT_COLORS[g.cat]||'var(--text-dim)';
+    const qm = qMeta(g.quality);
+    const gkey = 'armperso_'+(g.name+'|'+g.cat).replace(/[^a-z0-9|]/gi,'_');
+    window._armGroups[gkey] = { ids: g.ids, isPerso: true };
+    return `<tr style="cursor:pointer;" onclick="openArmDetail('${gkey}')"
+      onmouseover="this.style.background='rgba(247,140,30,0.05)'" onmouseout="this.style.background=''">
+      <td class="td-name">🎒 ${esc(g.name)}
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          ${g.unit!=='unite'?`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(247,140,30,0.3);color:var(--text-dim);">SCU</span>`:`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(96,165,250,0.4);color:#60a5fa;">UNITÉ</span>`}
+          ${g.qualityExact?`<span style="font-size:9px;padding:1px 5px;border:1px solid rgba(0,255,163,0.3);color:var(--green);font-family:var(--mono);">${g.qualityExact}</span>`:''}
+        </div>
+      </td>
+      <td><span class="arm-cat-badge" style="color:${col};border-color:${col};">${ARM_CAT_LABELS[g.cat]||g.cat}</span></td>
+      <td>${g.quality?'<span style="color:'+qm.color+';font-size:10px;">'+qm.label+'</span>':'<span style="color:var(--text-dim);font-size:10px;">—</span>'}</td>
+      <td style="text-align:center;font-weight:700;color:var(--text-bright);">${g.qty}</td>
+      <td class="td-dim">${g.price?g.price.toFixed(0)+' aUEC':'—'}</td>
+      <td style="color:var(--blue);">${g.sellprice?g.sellprice.toFixed(0)+' aUEC':'—'}</td>
+      <td class="${margin!==null?(parseFloat(margin)>=0?'td-green':'td-red'):''}">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</td>
+      <td class="td-dim">${g.buyVal?Math.round(g.buyVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-green">${g.sellVal?Math.round(g.sellVal).toLocaleString('fr-FR')+' aUEC':'—'}</td>
+      <td class="td-dim" style="font-size:10px;"><span>📍 ${esc((g.loc||'—').slice(0,20))}</span></td>
+      <td class="td-dim" style="font-size:10px;">${fmtDate(g.addedAt)}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px;">
+          <button class="btn sm" onclick="openArmModal('${g.ids[0]}','perso')" style="border-color:var(--orange);color:var(--orange);">✏</button>
+          <button class="btn danger sm" onclick="armPersoDelItem('${g.ids[0]}','${esc(g.name)}')">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('arm-perso-distinct').textContent = rows.length;
+  document.getElementById('arm-perso-units').textContent = rows.reduce((s,r)=>s+r.qty,0).toLocaleString('fr-FR');
+  document.getElementById('arm-perso-total').textContent = Math.round(rows.reduce((s,r)=>s+r.buyVal,0)).toLocaleString('fr-FR')+' aUEC';
+}
+
+async function armPersoDelItem(sid, name) {
+  showConfirm('⚠ Supprimer cet équipement',
+    `Retirer <strong style="color:var(--orange)">${name}</strong> de l'armurerie personnelle ?`,
+    async()=>{
+      let items=(await DB.get('uex-armory-perso-'+_armSelectedPid))||[];
+      items=items.filter(s=>s.id!==sid);
+      await DB.set('uex-armory-perso-'+_armSelectedPid, items);
+      renderArmPersoTable(items);
+      toast('Équipement supprimé','','success');
+    }
+  );
+}
+
 function backToArmList() {
   document.getElementById('arm-list-view').style.display = 'flex';
   const ac = document.getElementById('arm-content');
@@ -10020,10 +10154,18 @@ async function selectArmPlayer(pid) {
   document.getElementById('arm-placeholder').style.display = 'none';
   const active = document.getElementById('arm-active');
   active.style.display = 'flex';
-  // Bouton retirer visible si c'est soi ou admin
   const rmBtn = document.getElementById('arm-remove-btn');
   if (rmBtn) rmBtn.style.display = (SESSION?.pid===pid||SESSION?.isAdmin) ? '' : 'none';
+  // Réinitialiser sur l'onglet TELOS
+  _currentArmTab = 'telos';
+  ['telos','perso'].forEach(t => {
+    const b = document.getElementById('armtab-' + t);
+    const c = document.getElementById('armtab-content-' + t);
+    if (b) { b.style.borderBottomColor = t==='telos'?'var(--orange)':'transparent'; b.style.color = t==='telos'?'var(--text-bright)':'var(--text-dim)'; }
+    if (c) c.style.display = t==='telos' ? 'flex' : 'none';
+  });
   await renderArmTable();
+  DB.get('uex-armory-perso-'+pid).then(items => renderArmPersoTable(items||[]));
   renderArmPartnerList(document.getElementById('arm-search')?.value||'');
 }
 
@@ -10207,16 +10349,18 @@ async function armDelItem(sid, name) {
   );
 }
 
-function openAddArmItem(editId) {
-  _armEditId = editId || null;
-  const item = editId ? (async()=>{ const items=(await DB.get('uex-armory-'+_armSelectedPid))||[]; return items.find(x=>x.id===editId); })() : Promise.resolve(null);
-  // Ouvrir le modal PS mais adapté armurerie
-  openArmModal(editId);
+var _armModalType = 'telos';
+
+function openAddArmItem(type) {
+  _armModalType = type || _currentArmTab || 'telos';
+  openArmModal(null);
 }
 
-async function openArmModal(editId) {
+async function openArmModal(editId, type) {
   _armEditId = editId || null;
-  const items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  if (type) _armModalType = type;
+  const dbKey = _armModalType === 'perso' ? 'uex-armory-perso-'+_armSelectedPid : 'uex-armory-'+_armSelectedPid;
+  const items = (await DB.get(dbKey)) || [];
   const item = editId ? items.find(x=>x.id===editId) : null;
   let overlay = document.getElementById('arm-modal-overlay');
   if (!overlay) {
@@ -10404,7 +10548,9 @@ async function saveArmItem() {
   if (!SESSION || !_armSelectedPid) return;
   const name = document.getElementById('arm-name')?.value.trim();
   if (!name) { toast('Nom requis','','error'); return; }
-  const items = (await DB.get('uex-armory-'+_armSelectedPid)) || [];
+  const isPerso = _armModalType === 'perso';
+  const dbKey = isPerso ? 'uex-armory-perso-'+_armSelectedPid : 'uex-armory-'+_armSelectedPid;
+  const items = (await DB.get(dbKey)) || [];
   const entry = {
     id:           _armEditId || ('arm_'+Date.now()),
     name,
@@ -10425,10 +10571,14 @@ async function saveArmItem() {
   } else {
     items.push(entry);
   }
-  await DB.set('uex-armory-'+_armSelectedPid, items);
+  await DB.set(dbKey, items);
   closeArmModal();
-  await renderArmTable();
-  renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+  if (isPerso) {
+    renderArmPersoTable(items);
+  } else {
+    await renderArmTable();
+    renderArmPartnerList(document.getElementById('arm-search')?.value||'');
+  }
   toast(_armEditId?'Item modifié':'Item ajouté', name, 'success');
 }
 
