@@ -1501,6 +1501,7 @@ function showLoginWall(){} // stub
     <div class="nav-item" onclick="goToStock(this)" id="nav-joueurs">
       <div class="n-icon">📦</div>
       <div><div class="n-main">RESSOURCE</div><div class="n-sub">Par partenaire</div></div>
+      <span class="nav-badge" id="badge-ressource-stock" style="display:none;">0</span>
     </div>
     <div class="nav-item" onclick="goToArmurerie(this)" id="nav-armurerie">
       <div class="n-icon">⚔</div>
@@ -1655,16 +1656,37 @@ function showLoginWall(){} // stub
             </div>
             <div class="hub-sec" style="flex:1;display:flex;flex-direction:column;">
               <div class="sec-bar">
-                <span class="sec-title"><span class="acc">↗</span> Évolution du profit</span>
+                <span class="sec-title"><span class="acc">🏦</span> Statistiques Banque TELOS</span>
                 <div class="chart-controls">
-                  <button class="chart-ctrl active" onclick="setChart(7,this)">7J</button>
-                  <button class="chart-ctrl" onclick="setChart(14,this)">14J</button>
-                  <button class="chart-ctrl" onclick="setChart(30,this)">30J</button>
+                  <button class="chart-ctrl active" id="bank-stat-7"  onclick="setBankStat(7,this)">7J</button>
+                  <button class="chart-ctrl"        id="bank-stat-30" onclick="setBankStat(30,this)">30J</button>
+                  <button class="chart-ctrl"        id="bank-stat-all" onclick="setBankStat(0,this)">Tout</button>
                 </div>
               </div>
-              <div style="flex:1;padding:7px 11px 4px;position:relative;">
-                <canvas id="profit-chart" style="width:100%;height:100%;display:block;"></canvas>
-                <div id="profit-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--orange);padding:5px 10px;font-family:var(--mono);font-size:11px;color:var(--text-bright);white-space:nowrap;z-index:10;"></div>
+              <div id="hub-bank-stats" style="flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;">
+
+                <!-- KPIs banque -->
+                <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;">
+                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
+                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Solde total</div>
+                    <div id="hbs-solde" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--orange);margin-top:3px;">0 aUEC</div>
+                  </div>
+                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
+                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Crédits</div>
+                    <div id="hbs-credits" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green);margin-top:3px;">+0</div>
+                  </div>
+                  <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);">
+                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Débits</div>
+                    <div id="hbs-debits" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--red);margin-top:3px;">-0</div>
+                  </div>
+                  <div style="flex:1;padding:10px 14px;">
+                    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;">Transactions</div>
+                    <div id="hbs-count" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text-bright);margin-top:3px;">0 tx</div>
+                  </div>
+                </div>
+
+                <!-- Dernières transactions -->
+                <div style="flex:1;overflow-y:auto;padding:6px 0;" id="hbs-tx-list"></div>
               </div>
             </div>
           </div>
@@ -4362,6 +4384,66 @@ function calcTotalStockValue() {
   return Math.round(total);
 }
 
+// ── Statistiques Banque TELOS dans le Hub ────────────────
+var _bankStatDays = 7;
+
+function setBankStat(days, btn) {
+  _bankStatDays = days;
+  document.querySelectorAll('.chart-ctrl').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderHubBankStats();
+}
+
+function renderHubBankStats() {
+  const el = document.getElementById('hub-bank-stats');
+  if (!el || !BANK_DATA) return;
+
+  const now = Date.now();
+  const cutoff = _bankStatDays > 0 ? now - _bankStatDays * 86400000 : 0;
+
+  const filtered = BANK_DATA.filter(t => {
+    if (!cutoff) return true;
+    return new Date(t.date||t.addedAt||0).getTime() >= cutoff;
+  });
+
+  const credits = filtered.filter(t=>t.type==='credit').reduce((s,t)=>s+(t.amount||0),0);
+  const debits  = filtered.filter(t=>t.type==='debit') .reduce((s,t)=>s+(t.amount||0),0);
+  const solde   = BANK_DATA.reduce((s,t)=>s+(t.type==='credit'?1:-1)*(t.amount||0),0);
+
+  const fmt = v => Math.round(v).toLocaleString('fr-FR');
+  const el_s = document.getElementById('hbs-solde');
+  const el_c = document.getElementById('hbs-credits');
+  const el_d = document.getElementById('hbs-debits');
+  const el_n = document.getElementById('hbs-count');
+  if (el_s) { el_s.textContent = fmt(solde)+' aUEC'; el_s.style.color = solde>=0?'var(--orange)':'var(--red)'; }
+  if (el_c) el_c.textContent = '+'+fmt(credits)+' aUEC';
+  if (el_d) el_d.textContent = '-'+fmt(debits)+' aUEC';
+  if (el_n) el_n.textContent = filtered.length+' tx';
+
+  // Dernières transactions
+  const txList = document.getElementById('hbs-tx-list');
+  if (!txList) return;
+  if (!filtered.length) {
+    txList.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;">Aucune transaction sur cette période</div>`;
+    return;
+  }
+  const sorted = [...filtered].sort((a,b)=>new Date(b.date||b.addedAt||0)-new Date(a.date||a.addedAt||0)).slice(0,8);
+  txList.innerHTML = sorted.map(t => {
+    const isCredit = t.type==='credit';
+    const amt = Math.round(t.amount||0).toLocaleString('fr-FR');
+    const sign = isCredit?'+':'-';
+    const col = isCredit?'var(--green)':'var(--red)';
+    const d = new Date(t.date||t.addedAt||0);
+    const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);font-size:11px;">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);flex-shrink:0;">${dateStr}</span>
+      <span style="flex:1;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.label||t.title||'Transaction'}</span>
+      ${t.cat?`<span style="font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--text-dim);">${t.cat}</span>`:''}
+      <span style="font-family:var(--mono);font-weight:700;color:${col};flex-shrink:0;">${sign}${amt} aUEC</span>
+    </div>`;
+  }).join('');
+}
+
 async function snapshotProfit() {
   const val = calcTotalStockValue();
   if (val <= 0) return; // Ne pas enregistrer si vide
@@ -6861,7 +6943,10 @@ async function saveCommande() {
   pushLog('trade','TRADE',(_editCmdId?'Commande modifiée':'Nouvelle commande')+' ['+entry.type+']: '+entry.title);
   toast(_editCmdId?'Commande modifiée':'Commande créée', entry.title, 'success');
   // Contrôle automatique du stock en arrière-plan (uniquement à la création)
-  if (!_editCmdId) checkStockForCommande(entry);
+  if (!_editCmdId) {
+    checkStockForCommande(entry);
+    notifyDiscord(entry, 'created');
+  }
   // Une commande réserve du stock → recalculer les objectifs
   refreshAllObjStockInfo();
 }
@@ -7089,6 +7174,64 @@ ${resumé}`,
   }, 800);
 }
 
+// ── Discord Webhook — Notifications Commandes ────────────
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1512816823270117546/c0f2J3-g3u-sbT2KKD3hrGcgBefHG3VFXgeVK-aqcvPLjkWcdrTOJViQtqy2GaaGm0Yi';
+
+async function notifyDiscord(commande, event) {
+  try {
+    const prio = { normale:'⚪', haute:'🟠', urgente:'🔴' };
+    const type = commande.type === 'interne' ? '🏛 Interne' : '🌐 Externe';
+    const clientName = players.find(p=>p.id===commande.client)?.name || commande.client || '—';
+    const prioIcon = prio[commande.priority] || '⚪';
+    const branche = commande.branche ? '🔗 Branchée' : '';
+
+    let color, title, desc;
+    if (event === 'created') {
+      color = 0xF78C1E; // orange
+      title = '📋 Nouvelle commande créée';
+      desc  = `**${commande.title}**`;
+    } else if (event === 'en_cours') {
+      color = 0xF78C1E;
+      title = '▶ Commande en cours';
+      desc  = `**${commande.title}**`;
+    } else if (event === 'livree') {
+      color = 0x00FFA3; // vert
+      title = '✅ Commande livrée !';
+      desc  = `**${commande.title}**`;
+    } else return;
+
+    const ressources = (commande.resources||[]).map(r => `• ${r.name} ×${r.qty}`).join('\n') || '—';
+    const fields = [
+      { name: 'Type', value: type, inline: true },
+      { name: 'Commanditaire', value: clientName, inline: true },
+      { name: 'Priorité', value: `${prioIcon} ${commande.priority||'normale'}`, inline: true },
+    ];
+    if (commande.price > 0) fields.push({ name: 'Prix convenu', value: `${Number(commande.price).toLocaleString('fr-FR')} aUEC`, inline: true });
+    if (branche) fields.push({ name: 'Statut', value: branche, inline: true });
+    if (ressources !== '—') fields.push({ name: 'Ressources demandées', value: ressources, inline: false });
+    if (commande.notes) fields.push({ name: 'Notes', value: commande.notes, inline: false });
+
+    await fetch(DISCORD_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'TELOS Corp',
+        avatar_url: 'https://i.imgur.com/4M7IWwP.png',
+        embeds: [{
+          title,
+          description: desc,
+          color,
+          fields,
+          footer: { text: `TELOS MobiGlass • ${new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` },
+          thumbnail: { url: 'https://i.imgur.com/4M7IWwP.png' }
+        }]
+      })
+    });
+  } catch(e) {
+    console.warn('Discord webhook error:', e);
+  }
+}
+
 async function setCmdStatus(id, status) {
   const c = COMMANDES.find(x=>x.id===id);
   if (!c) return;
@@ -7100,6 +7243,8 @@ async function setCmdStatus(id, status) {
   const statusLabels = {livree:'Livrée ✓', en_cours:'En cours ▶', attente:'Rouverte ↺'};
   pushActivity('📋', 'Commande '+statusLabels[status]+' : '+c.title, '', status==='livree');
   toast('Statut mis à jour', statusLabels[status]||status, status==='livree'?'success':'info');
+  // Notification Discord
+  if (status === 'en_cours' || status === 'livree') notifyDiscord(c, status);
 }
 
 async function cancelCommande(id) {
@@ -9626,7 +9771,22 @@ function updateGlobalFilter(){
   const cur=sel.value;
   sel.innerHTML='<option value="">Tous les joueurs</option>'+players.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}</option>`).join('');
 }
-function updateBadges(){const _s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};_s('badge-joueurs',players.length);_s('kpi-partners',players.length);}
+async function updateBadges(){
+  const _s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  _s('badge-joueurs', players.length);
+  _s('kpi-partners', players.length);
+  // Compter toutes les ressources TELOS de tous les partenaires
+  let totalRes = 0;
+  for (const p of players) {
+    const stocks = (await DB.get('uex-stocks-'+p.id)) || [];
+    totalRes += stocks.length;
+  }
+  const badgeRes = document.getElementById('badge-ressource-stock');
+  if (badgeRes) {
+    badgeRes.textContent = totalRes;
+    badgeRes.style.display = totalRes > 0 ? '' : 'none';
+  }
+}
 
 /* ════════════════════════════════════════════════════════════
    LOGS (live push)
@@ -10777,6 +10937,7 @@ async function init(){
   await loadRolesConfig();
   updateNavBanque && updateNavBanque();
   await loadBankData();
+  renderHubBankStats();
   renderPlayerList();
   updateBadges();
   updateGlobalFilter();
@@ -10861,6 +11022,7 @@ async function loadBankData() {
 }
 async function saveBankData() {
   await DB.set('telos-bank', BANK_DATA);
+  renderHubBankStats && renderHubBankStats();
 }
 
 // ── Visiblité nav banque ──
@@ -10970,75 +11132,79 @@ function renderBankTransactions() {
 
   const catMeta    = cat => BANK_CAT_META[cat] || { label: cat, color: 'var(--text-dim)', icon: '○' };
   const memberName = mid => { const p = players.find(x => x.id === mid); return p ? p.name : (mid || 'Système'); };
-  const memberInit = mid => memberName(mid).charAt(0).toUpperCase();
 
-  container.innerHTML = slice.map(t => {
-    const cm       = catMeta(t.cat);
-    const isCredit = t.type === 'credit';
-    const amt      = (isCredit ? '+' : '−') + Math.round(t.amount || 0).toLocaleString('fr-FR') + ' aUEC';
-    const dateObj  = t.date ? new Date(t.date) : null;
-    const dateStr  = dateObj ? dateObj.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-    const timeStr  = dateObj ? dateObj.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
-    const mName    = memberName(t.memberId);
-    const typeLabel = isCredit ? '↑ CRÉDIT' : '↓ DÉBIT';
-
-    return `<div style="
-        display:grid;
-        grid-template-columns:4px 56px 1fr auto auto;
-        align-items:center;
-        gap:0;
-        background:var(--bg2);
-        border:1px solid var(--border);
-        border-radius:2px;
-        overflow:hidden;
-        transition:border-color 0.15s;
-        cursor:pointer;
-      "
-      onmouseover="this.style.borderColor='${isCredit?'rgba(0,255,163,0.35)':'rgba(255,68,68,0.35)'}'"
-      onmouseout="this.style.borderColor='var(--border)'"
-      onclick="openBankDetail('${t.id}')">
-
-      <!-- Barre colorée gauche -->
-      <div style="height:100%;background:${isCredit?'var(--green)':'var(--red)'};"></div>
-
-      <!-- Date -->
-      <div style="padding:14px 12px;border-right:1px solid var(--border);text-align:center;flex-shrink:0;">
-        <div style="font-size:13px;font-weight:700;color:var(--text-bright);font-family:var(--mono);">${dateStr.split(' ')[0]}</div>
-        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">${dateStr.split(' ').slice(1).join(' ')}</div>
-        <div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-family:var(--mono);">${timeStr}</div>
-      </div>
-
-      <!-- Info principale -->
-      <div style="padding:12px 16px;display:flex;align-items:center;gap:14px;min-width:0;">
-        <!-- Avatar membre -->
-        <div style="width:36px;height:36px;flex-shrink:0;background:var(--bg3);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--orange);">${memberInit(t.memberId)}</div>
-        <div style="min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.desc || '—')}</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;">
-            <span style="font-size:11px;color:var(--text-dim);">${esc(mName)}</span>
-            <span style="font-size:10px;padding:1px 7px;border:1px solid ${isCredit?'rgba(0,255,163,0.3)':'rgba(255,68,68,0.3)'};color:${isCredit?'var(--green)':'var(--red)'};letter-spacing:1px;font-family:var(--ui);">${typeLabel}</span>
-            <span style="font-size:10px;color:${cm.color};padding:1px 7px;border:1px solid var(--border);">${cm.label}</span>
-            ${t.note ? `<span style="font-size:10px;color:var(--text-dim);font-style:italic;">${esc(t.note)}</span>` : ''}
-          </div>
-        </div>
-      </div>
-
-      <!-- Montant -->
-      <div style="padding:12px 20px;text-align:right;flex-shrink:0;">
-        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${isCredit?'var(--green)':'var(--red)'};">${amt}</div>
-        <div style="font-size:10px;color:var(--green);margin-top:4px;letter-spacing:1px;">✓ Validée</div>
-      </div>
-
-      <!-- Actions -->
-      <div style="padding:12px 14px;flex-shrink:0;border-left:1px solid var(--border);">
-        ${canManageRoles()
-          ? `<button data-action="bank-delete" data-id="${t.id}"
-               onclick="event.stopPropagation()"
-               style="padding:5px 9px;border:1px solid rgba(255,68,68,0.35);background:transparent;color:var(--red);font-size:12px;cursor:pointer;">🗑</button>`
-          : '<span style="display:inline-block;width:32px;"></span>'}
-      </div>
-    </div>`;
-  }).join('');
+  container.innerHTML = `
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;white-space:nowrap;">Date</th>
+        <th style="text-align:left;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Description</th>
+        <th style="text-align:left;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Membre</th>
+        <th style="text-align:left;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Catégorie</th>
+        <th style="text-align:left;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Type</th>
+        <th style="text-align:right;padding:7px 12px;font-size:9px;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Montant</th>
+        <th style="padding:7px 8px;width:36px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${slice.map(t => {
+        const cm       = catMeta(t.cat);
+        const isCredit = t.type === 'credit';
+        const amt      = (isCredit ? '+' : '−') + Math.round(t.amount || 0).toLocaleString('fr-FR') + ' aUEC';
+        const dateObj  = t.date ? new Date(t.date) : null;
+        const dateStr  = dateObj ? dateObj.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
+        const timeStr  = dateObj ? dateObj.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
+        const mName    = memberName(t.memberId);
+        const accentCol = isCredit ? 'var(--green)' : 'var(--red)';
+        return `<tr class="bank-row"
+          onclick="openBankDetail('${t.id}')"
+          style="border-bottom:1px solid var(--border);transition:background 0.1s;">
+          <!-- Indicateur + date -->
+          <td style="padding:10px 12px;white-space:nowrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:3px;height:32px;border-radius:2px;background:${accentCol};flex-shrink:0;"></div>
+              <div>
+                <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-bright);">${dateStr}</div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);">${timeStr}</div>
+              </div>
+            </div>
+          </td>
+          <!-- Description -->
+          <td style="padding:10px 12px;max-width:260px;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.desc||'—')}</div>
+            ${t.note ? `<div style="font-size:10px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;margin-top:2px;">${esc(t.note)}</div>` : ''}
+          </td>
+          <!-- Membre -->
+          <td style="padding:10px 12px;white-space:nowrap;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--orange);flex-shrink:0;">${mName.charAt(0).toUpperCase()}</div>
+              <span style="font-size:11px;color:var(--text-dim);">${esc(mName)}</span>
+            </div>
+          </td>
+          <!-- Catégorie -->
+          <td style="padding:10px 12px;white-space:nowrap;">
+            <span style="font-size:10px;padding:2px 8px;border:1px solid var(--border);color:${cm.color};letter-spacing:0.5px;">${cm.icon} ${cm.label}</span>
+          </td>
+          <!-- Type -->
+          <td style="padding:10px 12px;white-space:nowrap;">
+            <span style="font-size:10px;padding:2px 8px;border:1px solid ${accentCol}33;color:${accentCol};letter-spacing:1px;font-family:var(--ui);">${isCredit?'↑ CRÉDIT':'↓ DÉBIT'}</span>
+          </td>
+          <!-- Montant -->
+          <td style="padding:10px 12px;text-align:right;white-space:nowrap;">
+            <div style="font-size:15px;font-weight:700;font-family:var(--mono);color:${accentCol};">${amt}</div>
+          </td>
+          <!-- Supprimer -->
+          <td style="padding:10px 8px;text-align:center;" onclick="event.stopPropagation()">
+            ${canManageRoles()
+              ? `<button data-action="bank-delete" data-id="${t.id}"
+                   style="padding:3px 7px;border:1px solid rgba(255,68,68,0.3);background:transparent;color:rgba(255,68,68,0.6);font-size:11px;cursor:pointer;opacity:0.6;" title="Supprimer"
+                   onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑</button>`
+              : ''}
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
 
   renderBankPagination(total, pages);
 }
