@@ -2112,20 +2112,43 @@ function showLoginWall(){} // stub
         </div>
       </div>
 
-      <div class="panel" id="panel-logs">
-        <div class="toolbar">
-          <div class="search-box" style="max-width:240px;flex:1;">
-            <span class="search-ico">⌕</span>
-            <input type="text" id="log-search" placeholder="Filtrer les logs..." oninput="renderFullLogs()">
-          </div>
-          <button class="filter-btn active" onclick="setLogFilter('all',this)">Tous</button>
-          <button class="filter-btn" onclick="setLogFilter('trade',this)">Trade</button>
-          <button class="filter-btn" onclick="setLogFilter('system',this)">Système</button>
-          <button class="filter-btn" onclick="setLogFilter('partner',this)">Partenaires</button>
-          <button class="filter-btn" onclick="setLogFilter('alert',this)">Alertes</button>
-          <span style="margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--mono);" id="log-count"></span>
+      <div class="panel" id="panel-logs" style="flex-direction:column;">
+        <!-- Sous-onglets Logs / Historique -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <button id="logtab-logs" onclick="switchLogTab('logs',this)" style="padding:8px 20px;border:none;border-bottom:2px solid var(--orange);background:transparent;color:var(--text-bright);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">📡 LOGS</button>
+          <button id="logtab-historique" onclick="switchLogTab('historique',this)" style="padding:8px 20px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);font-family:var(--ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;">📜 HISTORIQUE</button>
         </div>
-        <div class="logs-wrap" id="logs-full"></div>
+        <!-- Contenu LOGS -->
+        <div id="logtab-content-logs" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+          <div class="toolbar">
+            <div class="search-box" style="max-width:240px;flex:1;">
+              <span class="search-ico">⌕</span>
+              <input type="text" id="log-search" placeholder="Filtrer les logs..." oninput="renderFullLogs()">
+            </div>
+            <button class="filter-btn active" onclick="setLogFilter('all',this)">Tous</button>
+            <button class="filter-btn" onclick="setLogFilter('trade',this)">Trade</button>
+            <button class="filter-btn" onclick="setLogFilter('system',this)">Système</button>
+            <button class="filter-btn" onclick="setLogFilter('partner',this)">Partenaires</button>
+            <button class="filter-btn" onclick="setLogFilter('alert',this)">Alertes</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--mono);" id="log-count"></span>
+          </div>
+          <div class="logs-wrap" id="logs-full"></div>
+        </div>
+        <!-- Contenu HISTORIQUE -->
+        <div id="logtab-content-historique" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+          <div class="toolbar" style="gap:8px;">
+            <div class="search-box" style="max-width:240px;flex:1;">
+              <span class="search-ico">⌕</span>
+              <input type="text" id="hist-search" placeholder="Rechercher dans l'historique..." oninput="renderHistorique()">
+            </div>
+            <button class="filter-btn active" id="hf-all" onclick="setHistFilter('all',this)">Tous</button>
+            <button class="filter-btn" id="hf-commande" onclick="setHistFilter('commande',this)">Commandes</button>
+            <button class="filter-btn" id="hf-objectif" onclick="setHistFilter('objectif',this)">Objectifs</button>
+            <button class="filter-btn" id="hf-annulee" onclick="setHistFilter('annulee',this)">Annulées</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--mono);" id="hist-count"></span>
+          </div>
+          <div class="logs-wrap" id="hist-full"></div>
+        </div>
       </div>
 
       <!-- ══ RESSOURCES ══ -->
@@ -3001,11 +3024,6 @@ async function sha256(msg) {
 function isLoggedIn()   { return SESSION !== null; }
 function isAdmin()      { return SESSION && SESSION.isAdmin; }
 function canEdit(pid)   { return SESSION && (SESSION.isAdmin || SESSION.pid === pid); }
-function requireAuth(pid, callback) {
-  if (canEdit(pid)) return true;
-  openLoginModal(pid, callback);
-  return false;
-}
 function canManageRoles() {
   if (!SESSION) return false;
   const p = players.find(x => x.id === SESSION.pid);
@@ -3567,6 +3585,9 @@ function timeAgo(ts) {
 // SYS_LOGS_DATA remplacé — le mini-log hub lit directement FULL_LOGS_DATA
 
 var FULL_LOGS_DATA = []; // Alimenté en temps réel par les actions
+var HISTORIQUE_DATA = []; // Persistant — commandes livrées/annulées + objectifs validés
+var _histFilter = 'all';
+var _currentLogTab = 'logs';
 
 var BUYS  = [
   { res:'Gold',     qty:120, price:7.45,  total:894,  loc:'Lorville',    time:'il y a 25min' },
@@ -4181,165 +4202,182 @@ function draw3DBarChart(labels, data) {
   ctx.clearRect(0, 0, W, H);
 
   if (!labels.length) {
-    if (empty) { empty.style.display = 'flex'; }
+    if (empty) empty.style.display = 'flex';
     canvas.onmousemove = null; canvas.onmouseleave = null;
     return;
   }
   if (empty) empty.style.display = 'none';
 
-  const n    = labels.length;
-  const pad  = { l: 46, r: 16, t: 20, b: 30 };
-  const cW   = W - pad.l - pad.r;
-  const cH   = H - pad.t - pad.b;
+  const n   = labels.length;
+  const pad = { l:52, r:20, t:24, b:36 };
+  const cW  = W - pad.l - pad.r;
+  const cH  = H - pad.t - pad.b;
 
-  // Calcul solde cumulé + max/min pour l'axe
-  let runCredit = 0, runDebit = 0, runBalance = 0;
+  // Construire les points de solde cumulatif
+  let runBalance = 0;
   const pts = labels.map(l => {
-    runCredit  += data[l].credit;
-    runDebit   += data[l].debit;
-    runBalance += data[l].credit - data[l].debit;
-    return { label: l, credit: data[l].credit, debit: data[l].debit, balance: runBalance };
+    const c = data[l].credit || 0;
+    const d = data[l].debit  || 0;
+    runBalance += c - d;
+    return { label:l, credit:c, debit:d, balance:runBalance };
   });
 
-  const allVals = pts.flatMap(p => [p.balance]);
-  const rawMax  = Math.max(...allVals, 0);
-  const rawMin  = Math.min(...allVals, 0);
-  const span    = rawMax - rawMin || 1;
-  const yMax    = rawMax + span * 0.1;
-  const yMin    = rawMin - span * 0.1;
-  const ySpan   = yMax - yMin;
+  // Plage des valeurs : crédits au-dessus du zéro, débits en négatif, solde
+  const maxPos = Math.max(...pts.map(p => Math.max(p.credit, p.balance, 0)), 1);
+  const maxNeg = Math.max(...pts.map(p => p.debit), 0);
+  const rawMax =  maxPos;
+  const rawMin = -maxNeg;
+  const span   = (rawMax - rawMin) || 1;
+  const yMax   = rawMax + span * 0.12;
+  const yMin   = rawMin - span * 0.08;
+  const ySpan  = yMax - yMin;
 
   function toY(v) { return pad.t + cH * (1 - (v - yMin) / ySpan); }
   function toX(i) { return pad.l + (n === 1 ? cW / 2 : i * cW / (n - 1)); }
+  const barW = Math.max(4, Math.min(28, cW / n * 0.55));
 
-  // Grilles horizontales
-  const steps = 4;
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  const zeroY = toY(0);
+
+  // ── Grille horizontale ──
+  const gridSteps = 5;
   ctx.lineWidth = 1;
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.font = `${9 / dpr * dpr}px monospace`;
+  ctx.font = '9px monospace';
   ctx.textAlign = 'right';
-  for (let s = 0; s <= steps; s++) {
-    const v = yMin + ySpan * (s / steps);
+  for (let s = 0; s <= gridSteps; s++) {
+    const v = yMin + ySpan * (s / gridSteps);
     const y = toY(v);
+    ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)';
+    ctx.setLineDash(v === 0 ? [] : [3, 4]);
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cW, y); ctx.stroke();
-    const lbl = Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : Math.round(v)+'';
+    ctx.setLineDash([]);
+    const lbl = (v >= 0 ? '' : '-') + (Math.abs(v) >= 1e6 ? (Math.abs(v)/1e6).toFixed(1)+'M' : Math.abs(v) >= 1e3 ? (Math.abs(v)/1e3).toFixed(0)+'k' : Math.round(Math.abs(v))+'');
+    ctx.fillStyle = v >= 0 ? 'rgba(0,255,163,0.4)' : 'rgba(255,80,80,0.4)';
     ctx.fillText(lbl, pad.l - 5, y + 3);
   }
 
-  // Ligne zéro
-  if (yMin < 0 && yMax > 0) {
-    const zy = toY(0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.20)';
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(pad.l, zy); ctx.lineTo(pad.l + cW, zy); ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  // ── Barres crédits (vers le haut, vertes) ──
+  pts.forEach((p, i) => {
+    if (p.credit <= 0) return;
+    const x  = toX(i) - barW / 2;
+    const y  = toY(p.credit);
+    const bH = zeroY - y;
+    if (bH <= 0) return;
+    const g = ctx.createLinearGradient(0, y, 0, zeroY);
+    g.addColorStop(0, 'rgba(0,255,163,0.75)');
+    g.addColorStop(1, 'rgba(0,255,163,0.20)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, barW, bH);
+    // Bord haut
+    ctx.fillStyle = 'rgba(0,255,163,0.9)';
+    ctx.fillRect(x, y, barW, 2);
+  });
 
-  // Zone de remplissage sous la courbe (solde)
+  // ── Barres débits (vers le bas, rouges) ──
+  pts.forEach((p, i) => {
+    if (p.debit <= 0) return;
+    const x  = toX(i) - barW / 2;
+    const y  = zeroY;
+    const bH = toY(-p.debit) - zeroY;
+    if (bH <= 0) return;
+    const g = ctx.createLinearGradient(0, y, 0, y + bH);
+    g.addColorStop(0, 'rgba(255,68,68,0.65)');
+    g.addColorStop(1, 'rgba(255,68,68,0.15)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, barW, bH);
+    // Bord bas
+    ctx.fillStyle = 'rgba(255,68,68,0.85)';
+    ctx.fillRect(x, y + bH - 2, barW, 2);
+  });
+
+  // ── Zone de remplissage courbe solde ──
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(toX(0), toY(0));
+  ctx.moveTo(toX(0), zeroY);
   pts.forEach((p, i) => ctx.lineTo(toX(i), toY(p.balance)));
-  ctx.lineTo(toX(n - 1), toY(0));
+  ctx.lineTo(toX(n - 1), zeroY);
   ctx.closePath();
-  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
-  if (pts[pts.length-1].balance >= 0) {
-    grad.addColorStop(0, 'rgba(0,255,163,0.22)');
-    grad.addColorStop(1, 'rgba(0,255,163,0.02)');
+  const gradFill = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
+  const lastBal = pts[pts.length - 1].balance;
+  if (lastBal >= 0) {
+    gradFill.addColorStop(0, 'rgba(247,140,30,0.18)');
+    gradFill.addColorStop(1, 'rgba(247,140,30,0.02)');
   } else {
-    grad.addColorStop(0, 'rgba(255,68,68,0.02)');
-    grad.addColorStop(1, 'rgba(255,68,68,0.22)');
+    gradFill.addColorStop(0, 'rgba(247,140,30,0.02)');
+    gradFill.addColorStop(1, 'rgba(247,140,30,0.18)');
   }
-  ctx.fillStyle = grad;
+  ctx.fillStyle = gradFill;
   ctx.fill();
   ctx.restore();
 
-  // Courbe crédit (verte pointillée fine)
-  const creditPts = (() => { let acc = 0; return pts.map((p,i) => { acc+=p.credit; return {x:toX(i),y:toY(acc)}; }); })();
-  ctx.strokeStyle = 'rgba(0,255,163,0.45)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 4]);
-  ctx.beginPath();
-  creditPts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Courbe débit (rouge pointillée fine)
-  const debitPts = (() => { let acc = 0; return pts.map((p,i) => { acc+=p.debit; return {x:toX(i),y:toY(acc)}; }); })();
-  ctx.strokeStyle = 'rgba(255,68,68,0.45)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 4]);
-  ctx.beginPath();
-  debitPts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Courbe solde principale (épaisse)
-  const lastBal = pts[pts.length - 1].balance;
-  ctx.strokeStyle = lastBal >= 0 ? 'rgba(0,255,163,0.9)' : 'rgba(255,68,68,0.9)';
-  ctx.lineWidth = 2;
+  // ── Courbe solde (orange épaisse) ──
+  ctx.strokeStyle = 'rgba(247,140,30,0.95)';
+  ctx.lineWidth = 2.2;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  pts.forEach((p, i) => i===0 ? ctx.moveTo(toX(i), toY(p.balance)) : ctx.lineTo(toX(i), toY(p.balance)));
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(toX(i), toY(p.balance)) : ctx.lineTo(toX(i), toY(p.balance)));
   ctx.stroke();
 
-  // Points sur la courbe solde
+  // ── Points solde ──
   pts.forEach((p, i) => {
     const x = toX(i), y = toY(p.balance);
     ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
-    ctx.fillStyle = p.balance >= 0 ? 'rgba(0,255,163,1)' : 'rgba(255,68,68,1)';
+    ctx.arc(x, y, i === pts.length - 1 ? 4 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = p.balance >= 0 ? 'rgba(247,140,30,1)' : 'rgba(255,68,68,1)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.5)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
   });
 
-  // Labels dates axe X
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  // ── Labels axe X ──
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
-  const maxLabels = Math.floor(cW / 40);
-  const step = Math.max(1, Math.ceil(n / maxLabels));
+  const maxLbl = Math.floor(cW / 38);
+  const step = Math.max(1, Math.ceil(n / maxLbl));
   labels.forEach((l, i) => {
     if (i % step === 0 || i === n - 1) {
-      ctx.fillText(l.slice(5), toX(i), pad.t + cH + 18);
+      ctx.fillText(l.slice(5), toX(i), pad.t + cH + 22);
     }
   });
 
-  // Légende
-  const legX = pad.l + 4, legY = 8;
-  [[legX, 'rgba(0,255,163,0.9)', 'Solde'],
-   [legX+65, 'rgba(0,255,163,0.45)', 'Crédits'],
-   [legX+135, 'rgba(255,68,68,0.45)', 'Débits']].forEach(([x, col, lbl], idx) => {
-    ctx.strokeStyle = col; ctx.lineWidth = idx===0?2:1;
-    if (idx > 0) ctx.setLineDash([3,4]); else ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(x, legY+4); ctx.lineTo(x+16, legY+4); ctx.stroke();
-    ctx.setLineDash([]);
+  // ── Légende ──
+  const legItems = [
+    [pad.l + 4,    'rgba(247,140,30,0.95)', 'Solde',    false],
+    [pad.l + 68,   'rgba(0,255,163,0.8)',   'Crédits',  true ],
+    [pad.l + 140,  'rgba(255,68,68,0.8)',   'Débits',   true ],
+  ];
+  legItems.forEach(([x, col, lbl, isBar]) => {
+    if (isBar) {
+      ctx.fillStyle = col;
+      ctx.fillRect(x, 3, 14, 9);
+    } else {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x + 14, 8); ctx.stroke();
+    }
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = '9px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(lbl, x+20, legY+7);
+    ctx.fillText(lbl, x + 18, 12);
   });
 
-  // Tooltip hover
+  // ── Tooltip ──
   canvas.onmousemove = (e) => {
     if (!tip) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     let closest = 0, minDist = Infinity;
     pts.forEach((p, i) => { const d = Math.abs(toX(i) - mx); if (d < minDist) { minDist = d; closest = i; } });
-    if (minDist < cW / n * 0.7) {
+    if (minDist < cW / n * 0.75) {
       const p = pts[closest];
+      const fmt = v => Math.round(v).toLocaleString('fr-FR');
       tip.style.display = 'block';
-      const tx = Math.min(e.clientX - rect.left + 12, W - 160);
-      tip.style.left = tx + 'px';
-      tip.style.top  = Math.max(4, e.clientY - rect.top - 40) + 'px';
+      tip.style.left = Math.min(mx + 12, W - 160) + 'px';
+      tip.style.top  = Math.max(4, e.clientY - rect.top - 48) + 'px';
       tip.innerHTML =
-        `<span style="color:rgba(255,255,255,0.5);display:block;margin-bottom:3px;">${p.label}</span>` +
-        `<span style="color:var(--green)">+${fmt(p.credit)} aUEC</span>  ` +
-        `<span style="color:var(--red)">-${fmt(p.debit)} aUEC</span><br>` +
-        `<span style="color:${p.balance>=0?'var(--green)':'var(--red)'}">Solde : ${p.balance>=0?'+':''}${fmt(p.balance)} aUEC</span>`;
+        '<span style="color:rgba(255,255,255,0.5);display:block;margin-bottom:3px;">' + p.label + '</span>' +
+        '<span style="color:var(--green)">+' + fmt(p.credit) + ' aUEC</span>  ' +
+        '<span style="color:var(--red)">-' + fmt(p.debit) + ' aUEC</span><br>' +
+        '<span style="color:' + (p.balance>=0?'var(--orange)':'var(--red)') + '">Solde cumulé : ' + (p.balance>=0?'+':'') + fmt(p.balance) + ' aUEC</span>';
     } else {
       tip.style.display = 'none';
     }
@@ -4586,6 +4624,98 @@ function renderSysLogs(){
     </div>`).join('');
 }
 var logFilter = 'all';
+
+/* ════════════════════════════════════════════════════════════
+   LOGS — Sous-onglets (Logs / Historique)
+════════════════════════════════════════════════════════════ */
+function switchLogTab(tab, btn) {
+  _currentLogTab = tab;
+  document.getElementById('logtab-content-logs').style.display       = tab === 'logs'       ? 'flex' : 'none';
+  document.getElementById('logtab-content-historique').style.display = tab === 'historique' ? 'flex' : 'none';
+  ['logs','historique'].forEach(t => {
+    const b = document.getElementById('logtab-'+t);
+    if (b) {
+      b.style.borderBottom = t === tab ? '2px solid var(--orange)' : '2px solid transparent';
+      b.style.color        = t === tab ? 'var(--text-bright)' : 'var(--text-dim)';
+    }
+  });
+  if (tab === 'historique') renderHistorique();
+  else renderFullLogs();
+}
+
+/* ════════════════════════════════════════════════════════════
+   HISTORIQUE — Persistant (commandes livrées/annulées + objectifs validés)
+════════════════════════════════════════════════════════════ */
+async function loadHistorique() {
+  HISTORIQUE_DATA = (await DB.get('telos-historique')) || [];
+}
+
+async function pushHistorique(entry) {
+  if (!HISTORIQUE_DATA) HISTORIQUE_DATA = [];
+  HISTORIQUE_DATA.unshift(entry);
+  await DB.set('telos-historique', HISTORIQUE_DATA);
+  if (_currentLogTab === 'historique') renderHistorique();
+}
+
+function setHistFilter(f, btn) {
+  _histFilter = f;
+  document.querySelectorAll('#panel-logs #logtab-content-historique .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderHistorique();
+}
+
+function renderHistorique() {
+  const el = document.getElementById('hist-full');
+  if (!el) return;
+  const search = (document.getElementById('hist-search')?.value || '').toLowerCase();
+
+  let data = [...(HISTORIQUE_DATA || [])];
+  if (_histFilter === 'commande') data = data.filter(h => h.kind === 'commande' && h.status === 'livree');
+  else if (_histFilter === 'objectif') data = data.filter(h => h.kind === 'objectif');
+  else if (_histFilter === 'annulee') data = data.filter(h => h.kind === 'commande' && h.status === 'annulee');
+  if (search) data = data.filter(h => (h.title||'').toLowerCase().includes(search) || (h.by||'').toLowerCase().includes(search) || (h.commanditaire||'').toLowerCase().includes(search));
+
+  const countEl = document.getElementById('hist-count');
+  if (countEl) countEl.textContent = data.length + ' entrée' + (data.length > 1 ? 's' : '');
+
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-dim);font-size:12px;letter-spacing:1px;">Aucune entrée dans l\'historique.</div>';
+    return;
+  }
+
+  el.innerHTML = data.map(h => {
+    const d = new Date(h.at);
+    const dateStr = !isNaN(d) ? d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '—';
+    const isCmd = h.kind === 'commande';
+    const isLivree = h.status === 'livree';
+    const isAnnulee = h.status === 'annulee';
+
+    const icon  = isCmd ? (isLivree ? '📋' : '✕') : '✅';
+    const color = isCmd ? (isLivree ? 'var(--green)' : 'var(--red)') : 'var(--green)';
+    const badge = isCmd
+      ? (isLivree ? '<span style="color:var(--green);font-size:9px;letter-spacing:1px;font-family:var(--ui);">LIVRÉE</span>' : '<span style="color:var(--red);font-size:9px;letter-spacing:1px;font-family:var(--ui);">ANNULÉE</span>')
+      : '<span style="color:var(--green);font-size:9px;letter-spacing:1px;font-family:var(--ui);">VALIDÉ</span>';
+    const sub = isCmd
+      ? (h.commanditaire ? ' · ' + esc(h.commanditaire) : '') + (h.craftType ? ' · ' + esc(h.craftType) : '')
+      : (h.reward ? ' · ' + esc(h.reward) : '');
+
+    return '<div class="log-entry" style="padding:7px 0;border-bottom:1px solid rgba(247,140,30,0.06);display:flex;gap:10px;align-items:center;">'
+      + '<span style="flex-shrink:0;font-size:15px;">' + icon + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="display:flex;align-items:center;gap:8px;">'
+      +     '<span style="font-weight:700;color:var(--text-bright);font-size:12px;">' + esc(h.title) + '</span>'
+      +     badge
+      +   '</div>'
+      +   '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">'
+      +     '<span style="color:' + color + ';">' + (isCmd ? (h.type === 'interne' ? 'INTERNE' : 'EXTERNE') : 'OBJECTIF') + '</span>'
+      +     esc(sub)
+      +     (h.by ? ' · par <span style="color:var(--orange);">' + esc(h.by) + '</span>' : '')
+      +   '</div>'
+      + '</div>'
+      + '<span style="flex-shrink:0;font-size:10px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;">' + dateStr + '</span>'
+      + '</div>';
+  }).join('');
+}
 
 function setLogFilter(f, btn) {
   logFilter = f;
@@ -6341,6 +6471,17 @@ async function toggleObjDone(id) {
   renderObjectifs();
   pushActivity(o.done ? '✅' : '↺', (o.done ? 'Objectif terminé : ' : 'Objectif réactivé : ') + o.title, o.reward || '', o.done);
   toast(o.done ? 'Objectif terminé !' : 'Objectif réactivé', o.title, o.done ? 'success' : 'info');
+  if (o.done) {
+    pushHistorique({
+      kind: 'objectif',
+      status: 'valide',
+      title: o.title,
+      cat: o.cat || '',
+      reward: o.reward || '',
+      at: new Date().toISOString(),
+      by: SESSION?.name || ''
+    });
+  }
 }
 
 async function updateObjProgress(id, val) {
@@ -6922,8 +7063,8 @@ function objStockBucket(obj) {
     return ['vaisseau', 'fps'];
   }
 
-  // Par défaut : ressources sans qualité assignée
-  return ['aucune'];
+  // Par défaut : toutes les qualités ≥500 + sans qualité (exclut uniquement 'vente')
+  return ['aucune', 'vaisseau', 'fps'];
 }
 
 async function getStockNetForObjectif(obj) {
@@ -7184,6 +7325,19 @@ async function setCmdStatus(id, status) {
   const statusLabels = {livree:'Livrée ✓', en_cours:'En cours ▶', attente:'Rouverte ↺'};
   pushActivity('📋', 'Commande '+statusLabels[status]+' : '+c.title, '', status==='livree');
   toast('Statut mis à jour', statusLabels[status]||status, status==='livree'?'success':'info');
+  // Enregistrer dans l'historique persistant
+  if (status === 'livree' || status === 'annulee') {
+    pushHistorique({
+      kind: 'commande',
+      status: status,
+      title: c.title,
+      type: c.type,
+      commanditaire: c.commanditaire || '',
+      craftType: c.craftType || '',
+      at: new Date().toISOString(),
+      by: SESSION?.name || ''
+    });
+  }
   // Notification Discord
   if (status === 'en_cours' || status === 'livree') notifyDiscord(c, status);
 }
@@ -7722,6 +7876,7 @@ var BP_CAT_LABELS = {
 
 async function loadBlueprints() {
   BLUEPRINTS = (await DB.get('telos-blueprints')) || [];
+  HISTORIQUE_DATA = (await DB.get('telos-historique')) || [];
   // Charger le cache de tous les joueurs pour que les owners soient disponibles partout
   if (!window._playerBpCache) window._playerBpCache = {};
   await Promise.all(players.map(async p => {
@@ -8148,6 +8303,7 @@ function goPanel(id, el) {
     }
   }
   if (id==='banque') { loadBankData().then(() => renderBanque()); }
+  if (id==='logs') { if (!HISTORIQUE_DATA.length) loadHistorique(); }
   if (id==='hub') { setTimeout(() => { renderHubBankStats && renderHubBankStats(); }, 80); }
   setTimeout(()=>{
     drawChart(chartDays);
@@ -9711,9 +9867,9 @@ async function updateBadges(){
   let totalRes = 0, totalArm = 0;
   for (const p of players) {
     const stocks = (await DB.get('uex-stocks-'+p.id)) || [];
-    totalRes += stocks.length;
+    totalRes += stocks.filter(s => (parseFloat(s.qty)||0) > 0).length;
     const armory = (await DB.get('uex-armory-'+p.id)) || [];
-    totalArm += armory.length;
+    totalArm += armory.filter(a => (parseFloat(a.qty)||0) > 0).length;
   }
   const badgeRes = document.getElementById('badge-ressource-stock');
   if (badgeRes) {
@@ -10425,7 +10581,7 @@ async function renderArmTable() {
   updateArmFooter(rows);
   // Badge nav
   const badge = document.getElementById('badge-armurerie');
-  const allItems = (await DB.get('uex-armory-'+_armSelectedPid))||[];
+  const allItems = ((await DB.get('uex-armory-'+_armSelectedPid))||[]).filter(a=>(parseFloat(a.qty)||0)>0);
   if (badge) { badge.textContent=allItems.length; badge.style.display=allItems.length?'':'none'; }
 }
 
@@ -11872,3 +12028,5 @@ async function saveBankTransaction() {
 </div>
 </div></body>
 </html>
+
+
