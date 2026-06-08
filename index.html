@@ -1760,9 +1760,8 @@ function showLoginWall(){} // stub
               <th onclick="sortStocks('cat')">Catégorie ↕</th>
               <th onclick="sortStocks('player')">Partenaire ↕</th>
               <th title="Pas de qualité assignée" style="color:var(--text-dim);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_aucune')">⚪ Qté ↕<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
-              <th title="Qualité &lt;500 — vente uniquement" style="color:var(--orange);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vente')">🔴 Vente ↕<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
-              <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vaisseau')">🔵 Craft V. ↕<div style="font-size:8px;opacity:.7;">500–800</div></th>
-              <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_fps')">🟢 Craft FPS ↕<div style="font-size:8px;opacity:.7;">800–1000</div></th>
+              <th title="Qualité &lt;500 — vente uniquement" style="color:var(--orange);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_vente')">🔴 &lt;500 ↕</th>
+              <th title="Qualité ≥500 — Craft (Vaisseau &amp; FPS)" style="color:var(--green);cursor:default;white-space:nowrap;" onclick="sortStocks('qty_craft500')">🟢 500&lt; ↕<div style="font-size:8px;opacity:.7;">≥500</div></th>
               <th onclick="sortStocks('buy')">Prix achat ↕</th>
               <th onclick="sortStocks('sell')">Prix vente ↕</th>
               <th onclick="sortStocks('margin')">Marge ↕</th>
@@ -1971,9 +1970,8 @@ function showLoginWall(){} // stub
                     <thead><tr>
                       <th>Ressource</th><th>Catégorie</th>
                       <th title="Pas de qualité assignée" style="color:var(--text-dim);white-space:nowrap;">⚪ Qté<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
-                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 Vente<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
-                      <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;white-space:nowrap;">🔵 Craft V.<div style="font-size:8px;opacity:.7;">500–800</div></th>
-                      <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);white-space:nowrap;">🟢 Craft FPS<div style="font-size:8px;opacity:.7;">800–1000</div></th>
+                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 &lt;500</th>
+                      <th title="Qualité ≥500 — Craft (Vaisseau &amp; FPS)" style="color:var(--green);white-space:nowrap;">🟢 500&lt;<div style="font-size:8px;opacity:.7;">≥500</div></th>
                       <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
                       <th>Val. achat</th><th>Val. vente</th><th>Profit</th>
                       <th>📍 Localisation</th><th>Date</th><th>Action</th>
@@ -2007,9 +2005,8 @@ function showLoginWall(){} // stub
                     <thead><tr>
                       <th>Ressource</th><th>Catégorie</th>
                       <th title="Pas de qualité assignée" style="color:var(--text-dim);white-space:nowrap;">⚪ Qté<div style="font-size:8px;opacity:.7;">sans qual.</div></th>
-                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 Vente<div style="font-size:8px;opacity:.7;">&lt;500</div></th>
-                      <th title="Qualité 500–800 — Craft Vaisseau" style="color:#60a5fa;white-space:nowrap;">🔵 Craft V.<div style="font-size:8px;opacity:.7;">500–800</div></th>
-                      <th title="Qualité 800–1000 — Craft FPS" style="color:var(--green);white-space:nowrap;">🟢 Craft FPS<div style="font-size:8px;opacity:.7;">800–1000</div></th>
+                      <th title="Qualité &lt; 500 — vente uniquement" style="color:var(--orange);white-space:nowrap;">🔴 &lt;500</th>
+                      <th title="Qualité ≥500 — Craft (Vaisseau &amp; FPS)" style="color:var(--green);white-space:nowrap;">🟢 500&lt;<div style="font-size:8px;opacity:.7;">≥500</div></th>
                       <th>Prix achat</th><th>Prix vente</th><th>Marge</th>
                       <th>Val. achat</th><th>Val. vente</th><th>Profit</th>
                       <th>📍 Localisation</th><th>Date</th><th>Action</th>
@@ -4750,12 +4747,13 @@ async function renderStocksFromPlayers() {
   consolidated.sort((a,b)=>{
     const val = r=>{
       switch(stockSort.k){
-        case 'profit':  return r.totalSellVal-r.totalBuyVal;
-        case 'margin':  return r.totalBuyVal>0?(r.totalSellVal-r.totalBuyVal)/r.totalBuyVal:0;
-        case 'buyval':  return r.totalBuyVal;
-        case 'sellval': return r.totalSellVal;
-        case 'qty':     return r.totalQty;
-        default:        return r[stockSort.k]||r.name;
+        case 'profit':      return r.totalSellVal-r.totalBuyVal;
+        case 'margin':      return r.totalBuyVal>0?(r.totalSellVal-r.totalBuyVal)/r.totalBuyVal:0;
+        case 'buyval':      return r.totalBuyVal;
+        case 'sellval':     return r.totalSellVal;
+        case 'qty':         return r.totalQty;
+        case 'qty_craft500': return (r.qtyVaisseau||0)+(r.qtyFps||0);
+        default:            return r[stockSort.k]||r.name;
       }
     };
     const va=val(a),vb=val(b);
@@ -4804,8 +4802,7 @@ async function renderStocksFromPlayers() {
       </td>
       ${qtyCell(g.qtyAucune,  'aucune')}
       ${qtyCell(g.qtyVente,   'vente')}
-      ${qtyCell(g.qtyVaisseau,'vaisseau')}
-      ${qtyCell(g.qtyFps,     'fps')}
+      ${qtyCell((g.qtyVaisseau||0)+(g.qtyFps||0), 'craft500')}
       <td class="td-dim">${avgBuy?avgBuy.toFixed(2)+' aUEC':'—'}</td>
       <td style="color:var(--blue);">${avgSell?avgSell.toFixed(2)+' aUEC':'—'}</td>
       <td class="${mCls}">${margin!==null?(margin>=0?'+':'')+margin.toFixed(1)+'%':'—'}</td>
@@ -6009,8 +6006,8 @@ function onObjQualityChange(val) {
   if (!val) { badge.style.display = 'none'; return; }
   const meta = QUALITY_META[val];
   if (!meta || !meta.label) { badge.style.display = 'none'; return; }
-  const bucketMap = { mediocre:'🔴 Vente uniquement', basique:'🔵 Craft Vaisseau', acceptable:'🔵 Craft Vaisseau',
-    honnete:'🔵 Craft Vaisseau', moyenne:'🟢 Craft FPS', haute:'🟢 Craft FPS' };
+  const bucketMap = { mediocre:'🔴 Vente uniquement', basique:'🟢 500<', acceptable:'🟢 500<',
+    honnete:'🟢 500<', moyenne:'🟢 500<', haute:'🟢 500<' };
   badge.style.display = 'block';
   badge.style.borderLeftColor = meta.color;
   badge.style.color = meta.color;
@@ -6424,7 +6421,7 @@ function renderCommandes() {
       <div class="cmd-body">
         <div class="cmd-field"><div class="cmd-lbl">Commanditaire</div><div class="cmd-val">${esc(players.find(p=>p.id===c.client)?.name || c.client || '—')}</div></div>
         ${(()=>{
-          const craftLabels = { craft_vaisseau:'🚀 Craft Vaisseau', craft_fps:'🛡 Craft FPS', vente:'🔴 Vente', autre:'○ Autre' };
+          const craftLabels = { craft_vaisseau:'🟢 500<', craft_fps:'🟢 500<', vente:'🔴 Vente', autre:'○ Autre' };
           const ct = c.craftType || c.assigned || '';
           return ct ? '<div class="cmd-field"><div class="cmd-lbl">Type craft</div><div class="cmd-val" style="color:var(--blue);">'+(craftLabels[ct]||ct)+'</div></div>' : '';
         })()}
@@ -6577,7 +6574,7 @@ function openStockDetail(key) {
   const res  = entries[0].res;
   const QUALITY_LABELS = { mediocre:'💀 Médiocre', basique:'🔴 Basique', acceptable:'🟠 Acceptable', honnete:'🟡 Honnête', moyenne:'🟢 Moyenne', haute:'💎 Haute' };
   const QUALITY_COLORS = { mediocre:'#6b7280', basique:'var(--red)', acceptable:'var(--orange)', honnete:'#eab308', moyenne:'var(--green)', haute:'#a855f7' };
-  const BUCKET_LABELS  = { aucune:'⚪ Sans qualité', vente:'🔴 Vente (<500)', vaisseau:'🔵 Craft Vaisseau', fps:'🟢 Craft FPS' };
+  const BUCKET_LABELS  = { aucune:'⚪ Sans qualité', vente:'🔴 Vente (<500)', vaisseau:'🟢 500<', fps:'🟢 500<' };
 
   document.getElementById('sdp-res-name').textContent = res;
 
@@ -6717,12 +6714,12 @@ function filterCmdBlueprints(selectedBpId) {
   if (craftType === 'craft_fps') {
     bps = bps.filter(b => {
       const cat = (b.cat||b.type||b.category||'').toLowerCase();
-      return cat.includes('fps') || cat.includes('arme') || cat.includes('armor') || cat.includes('armure') || cat === '';
+      return cat === 'fps' || cat.includes('fps') || cat.includes('arme') || cat.includes('armor') || cat.includes('armure');
     });
   } else if (craftType === 'craft_vaisseau') {
     bps = bps.filter(b => {
       const cat = (b.cat||b.type||b.category||'').toLowerCase();
-      return cat.includes('vaisseau') || cat.includes('ship') || cat.includes('composant') || cat === '';
+      return cat === 'vaisseau' || cat.includes('vaisseau') || cat.includes('ship') || cat.includes('composant');
     });
   }
   // vente/autre/vide → tout afficher
@@ -7118,15 +7115,15 @@ async function notifyDiscord(commande, event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'TELOS Corp',
-        avatar_url: 'https://i.imgur.com/4M7IWwP.png',
+        username: 'MobiGlass Telos',
+        avatar_url: 'https://media.alienwarearena.com/media/00825a3ff4d68867c811e8e36c2e828b.png?quality=75&width=184',
         embeds: [{
           title,
           description: desc,
           color,
           fields,
-          footer: { text: `TELOS MobiGlass • ${new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` },
-          thumbnail: { url: 'https://i.imgur.com/4M7IWwP.png' }
+          footer: { text: `MobiGlass Telos • ${new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` },
+          thumbnail: { url: 'https://media.alienwarearena.com/media/00825a3ff4d68867c811e8e36c2e828b.png?quality=75&width=184' }
         }]
       })
     });
@@ -8451,18 +8448,11 @@ function renderTierBar(summary, containerId) {
         <div style="font-size:9px;color:var(--text-dim);margin-top:1px;">${fmtK(summary.vente.valVente)} aUEC · &lt;500</div>
       </div>
 
-      <!-- Craft Vaisseau -->
-      <div style="padding:7px 14px;border-right:1px solid var(--border);min-width:150px;flex-shrink:0;" title="500–600 aUEC/SCU — Utilisable pour le craft de vaisseaux">
-        <div style="font-size:9px;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;margin-bottom:2px;">🟠 Craft Vaisseau</div>
-        <div style="font-family:var(--mono);font-size:14px;color:#f97316;font-weight:700;">${fmt(summary.craft_ship.qty)} <span style="font-size:9px;color:var(--text-dim);">SCU</span></div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:1px;">${fmtK(summary.craft_ship.valVente)} aUEC · 500–600</div>
-      </div>
-
-      <!-- Craft FPS -->
-      <div style="padding:7px 14px;border-right:1px solid var(--border);min-width:130px;flex-shrink:0;" title="> 600 aUEC/SCU — Utilisable pour le craft FPS">
-        <div style="font-size:9px;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;margin-bottom:2px;">💎 Craft FPS</div>
-        <div style="font-family:var(--mono);font-size:14px;color:#60a5fa;font-weight:700;">${fmt(summary.craft_fps.qty)} <span style="font-size:9px;color:var(--text-dim);">SCU</span></div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:1px;">${fmtK(summary.craft_fps.valVente)} aUEC · &gt;600</div>
+      <!-- 500< (Craft Vaisseau + FPS) -->
+      <div style="padding:7px 14px;border-right:1px solid var(--border);min-width:150px;flex-shrink:0;" title="≥500 aUEC/SCU — Craft Vaisseau &amp; FPS">
+        <div style="font-size:9px;letter-spacing:1.5px;color:var(--green);text-transform:uppercase;margin-bottom:2px;">🟢 500&lt;</div>
+        <div style="font-family:var(--mono);font-size:14px;color:var(--green);font-weight:700;">${fmt((summary.craft_ship.qty||0)+(summary.craft_fps.qty||0))} <span style="font-size:9px;color:var(--text-dim);">SCU</span></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:1px;">${fmtK((summary.craft_ship.valVente||0)+(summary.craft_fps.valVente||0))} aUEC · ≥500</div>
       </div>
 
       ${summary.unknown.qty > 0 ? `
@@ -8491,7 +8481,7 @@ function qualityBucket(s) {
 // Colore une quantité selon la bucket
 function qtyCell(qty, bucket) {
   if (!qty) return '<td class="td-dim" style="text-align:center;">—</td>';
-  const colors = { aucune:'var(--text-bright)', vente:'var(--orange)', vaisseau:'#60a5fa', fps:'var(--green)' };
+  const colors = { aucune:'var(--text-bright)', vente:'var(--orange)', vaisseau:'#60a5fa', fps:'var(--green)', craft500:'var(--green)' };
   const col = colors[bucket] || 'var(--text)';
   return '<td style="text-align:center;color:'+col+';font-weight:600;">'+Number(qty).toLocaleString('fr-FR')+'</td>';
 }
@@ -8565,8 +8555,7 @@ function renderStockTable(stocks){
       <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
       ${qtyCell(g.qa,'aucune')}
       ${qtyCell(g.qv,'vente')}
-      ${qtyCell(g.qc,'vaisseau')}
-      ${qtyCell(g.qf,'fps')}
+      ${qtyCell((g.qc||0)+(g.qf||0),'craft500')}
       <td class="td-dim">${g.price ? g.price.toFixed(2)+' aUEC' : '—'}</td>
       <td style="color:var(--blue);">${g.sellprice ? g.sellprice.toFixed(2)+' aUEC' : '—'}</td>
       <td class="${marginCls}">${margin !== null ? (parseFloat(margin)>=0?'+':'')+margin+'%' : '—'}</td>
@@ -8647,7 +8636,7 @@ function renderPersoTable(stocks) {
         ${g.note?`<div style="font-size:9px;color:var(--text-dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;" title="${esc(g.note)}">${esc(g.note)}</div>`:''}
       </td>
       <td><span class="cat-badge ${catCls(g.cat)}">${catLbl(g.cat)}</span></td>
-      ${qtyCell(g.qa,'aucune')}${qtyCell(g.qv,'vente')}${qtyCell(g.qc,'vaisseau')}${qtyCell(g.qf,'fps')}
+      ${qtyCell(g.qa,'aucune')}${qtyCell(g.qv,'vente')}${qtyCell((g.qc||0)+(g.qf||0),'craft500')}
       <td class="td-dim">${g.price?g.price.toFixed(2)+' aUEC':'—'}</td>
       <td style="color:var(--blue);">${g.sellprice?g.sellprice.toFixed(2)+' aUEC':'—'}</td>
       <td class="${marginCls}">${margin!==null?(parseFloat(margin)>=0?'+':'')+margin+'%':'—'}</td>
@@ -10788,7 +10777,7 @@ async function loadPlayerOwnedBlueprints() {
 }
 async function loadAllPlayerBpCounts(){window._playerBpCache=window._playerBpCache||{};for(const p of players){if(!window._playerBpCache[p.id]){const bps=(await DB.get('player-blueprints-'+p.id))||[];window._playerBpCache[p.id]=bps;}}}
 var UEX_PRICE_MAP={'Agricium':9700,'Agricultural Supplies':1400,'Aluminum':3700,'Ammonia':1000,'Aphorite':101100,'Argon':446,'Aslarite':5100,'Astatine':3500,'Atlasium':91900,'Beradom':144200,'Beryl':19900,'Bexalite':28800,'Bioplastic':7600,'Borase':27600,'Carbon':357,'Carbon Silk':20800,'CK13 Gid Seed Blend':533,'Chlorine':1500,'Cobalt':20800,'Compboard':29600,'Construction Materials':12500,'Copper':3700,'Corundum':3700,'DCSR2':1200,'Degnous Root':60300,'Diamond Laminate':87300,'Diamond':7500,'Distilled Spirits':1900,'Dolivine':146300,'Dymantium':22800,'Dynaflex':1900,'Etam':23200,'Feynmaline':341500,'Fresh Food':24800,'Fluorine':1300,'Foam':6300,'Gasping Weevil Eggs':63900,'Glacosite':98600,'Gold':30000,'Golden Medmon':59200,'Hadanite':544300,'Heart Of The Woods':35800,'Helium':1000,'Hephaestanite':4600,'Human Food Bars':487,'Hydrogen Fuel':180,'Hydrogen':1000,'Iodine':11500,'Iron':3400,'Janalite':2900000,'Kopion Horn':35500,'Laranite':8600,'Lindinium':47000,'Marok Gem':52900,'Maze':230000,'Medical Supplies':5200,'Mercury':1000,'Methane':3600,'Neograph':93900,'Neon':18500,'Nitrogen':3000,'Omnapoxy':4600,'Organics':12800,'Osoian Hides':870000,'Ouratite':42300,'Partillium':89900,'Pitambu':60300,'Potassium':569,'Processed Food':1400,'Prota':62400,'Quantanium':150400,'Quantum Fuel':928,'Quartz':4300,'Recycled Material Composite':7200,'Revenant Pod':9600,'Revenant Tree Pollen':1200,'Riccite':67900,'Sadaryx':500000,'Savrilium':123200,'Scrap':3500,'Silicon':2400,'Slam':37900,'Steel':2000,'Stileron':136700,'Stims':5400,'Sunset Berries':82100,'Taranite':25800,'Tin':4000,'Titanium':8100,'Torite':7700,'Tritium':33300,'Tungsten':10300,'Waste':342,'Widow':7400,'Xapyen':4800};
-function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟠 Craft Vaisseau',color:'#f97316',range:'500–600'};return{key:'craft_fps',label:'💎 Craft FPS',color:'#60a5fa',range:'600+'};}
+function getUexTier(n){const p=typeof n==='number'?n:(UEX_PRICE_MAP[n]||0);if(!p)return null;if(p<500)return{key:'vente',label:'🔴 Vente directe',color:'#ef4444',range:'< 500'};if(p<600)return{key:'craft_vaisseau',label:'🟢 500<',color:'var(--green)',range:'500–600'};return{key:'craft_fps',label:'🟢 500<',color:'var(--green)',range:'600+'};}
 var ROLE_COLORS_DEFAULT={Trader:'#60a5fa',Mineur:'#f79028',Transporteur:'#00ffa3',Explorateur:'#a78bfa',Gestionnaire:'#ff4444'};
 var ROLE_COLORS_POOL=['#60a5fa','#f79028','#00ffa3','#a78bfa','#ff4444','#59d0ff','#f472b6','#a3e635','#fb923c','#34d399'];
 var ROLE_COLORS = new Proxy({}, { get(t,k){
@@ -11255,6 +11244,10 @@ function closeBankTransaction() {
 }
 
 function openBankTransaction(editId) {
+  if (!editId && !hasDroit('add_transaction')) {
+    toast('Accès refusé', 'Votre rôle ne permet pas de créer une transaction.', 'error');
+    return;
+  }
   _bankEditId = editId||null;
   const t = editId ? BANK_DATA.find(x=>x.id===editId) : null;
   // Peupler le select membres
@@ -11277,6 +11270,10 @@ function openBankTransaction(editId) {
 }
 
 async function saveBankTransaction() {
+  if (!_bankEditId && !hasDroit('add_transaction')) {
+    toast('Accès refusé', 'Votre rôle ne permet pas de créer une transaction.', 'error');
+    return;
+  }
   const memberId = document.getElementById('bt-member')?.value||'';
   const amount   = parseFloat(document.getElementById('bt-amount')?.value)||0;
   const desc     = document.getElementById('bt-desc')?.value.trim()||'';
@@ -11427,11 +11424,11 @@ async function saveBankTransaction() {
           <select class="form-input" id="obj-quality" style="height:auto;padding:9px 11px;" onchange="onObjQualityChange(this.value)">
             <option value="">⚪ Sans qualité (stock non classé)</option>
             <option value="mediocre">🔴 Médiocre — &lt;500 (vente uniquement)</option>
-            <option value="basique">🟠 Basique — 500–600 (Craft Vaisseau)</option>
-            <option value="acceptable">🟠 Acceptable — 600–700 (Craft Vaisseau)</option>
-            <option value="honnete">🟡 Honnête — 700–800 (Craft Vaisseau)</option>
-            <option value="moyenne">🟢 Moyenne — 800–900 (Craft FPS)</option>
-            <option value="haute">💎 Haute — 900–1000 (Craft FPS)</option>
+            <option value="basique">🟢 Basique — 500–600 (500&lt;)</option>
+            <option value="acceptable">🟢 Acceptable — 600–700 (500&lt;)</option>
+            <option value="honnete">🟢 Honnête — 700–800 (500&lt;)</option>
+            <option value="moyenne">🟢 Moyenne — 800–900 (500&lt;)</option>
+            <option value="haute">🟢 Haute — 900–1000 (500&lt;)</option>
           </select>
           <div id="obj-quality-badge" style="margin-top:5px;display:none;padding:4px 10px;font-size:10px;border-left:3px solid var(--border);font-family:var(--mono);"></div>
         </div>
@@ -11554,8 +11551,8 @@ async function saveBankTransaction() {
           <label class="form-lbl">Type de craft</label>
           <select class="form-input" id="cmd-assigned" style="height:auto;padding:9px 11px;" onchange="filterCmdBlueprints()">
             <option value="">— Non défini —</option>
-            <option value="craft_vaisseau">🚀 Craft Vaisseau</option>
-            <option value="craft_fps">🛡 Craft FPS</option>
+            <option value="craft_vaisseau">🟢 500&lt; — Craft Vaisseau</option>
+            <option value="craft_fps">🟢 500&lt; — Craft FPS</option>
             <option value="vente">🔴 Vente directe</option>
             <option value="autre">○ Autre</option>
           </select>
