@@ -8509,7 +8509,7 @@ async function selectPlayer(id){
   // Hero
   const tv=stocks.reduce((a,s)=>a+(s.price||0)*s.qty,0);
   const tu=stocks.reduce((a,s)=>a+Number(s.qty),0);
-  const marketVal=stocks.reduce((a,s)=>{const m=MARKET_PRICES[s.res.toLowerCase()];return a+(m?m.sell*s.qty:(s.sellprice||s.price||0)*s.qty);},0);
+  const marketVal=stocks.reduce((a,s)=>{const m=s.res?MARKET_PRICES[(s.res||'').toLowerCase()]:null;return a+(m?m.sell*s.qty:(s.sellprice||s.price||0)*s.qty);},0);
   const plMarket=marketVal-tv;
   const plSign=plMarket>=0?'+':'';
   const plCol=plMarket>=0?'var(--green)':'var(--red)';
@@ -8669,6 +8669,9 @@ function renderStockTable(stocks){
   const body  = document.getElementById('pl-stock-body');
   const noMsg = document.getElementById('pl-no-stock');
 
+  // Filtrer les entrées invalides (sans res/name ou qty <= 0)
+  stocks = stocks.map(s => ({ ...s, res: s.res || s.name || s.resource || '' }));
+  stocks = stocks.filter(s => s.res && (parseFloat(s.qty)||0) > 0);
   if (!stocks.length) { body.innerHTML=''; noMsg.style.display='block'; return; }
   noMsg.style.display = 'none';
 
