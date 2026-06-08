@@ -3024,6 +3024,11 @@ async function sha256(msg) {
 function isLoggedIn()   { return SESSION !== null; }
 function isAdmin()      { return SESSION && SESSION.isAdmin; }
 function canEdit(pid)   { return SESSION && (SESSION.isAdmin || SESSION.pid === pid); }
+function requireAuth(pid, callback) {
+  if (canEdit(pid)) return true;
+  openLoginModal(pid, callback);
+  return false;
+}
 function canManageRoles() {
   if (!SESSION) return false;
   const p = players.find(x => x.id === SESSION.pid);
