@@ -3001,6 +3001,11 @@ async function sha256(msg) {
 function isLoggedIn()   { return SESSION !== null; }
 function isAdmin()      { return SESSION && SESSION.isAdmin; }
 function canEdit(pid)   { return SESSION && (SESSION.isAdmin || SESSION.pid === pid); }
+function requireAuth(pid, callback) {
+  if (canEdit(pid)) return true;
+  openLoginModal(pid, callback);
+  return false;
+}
 function canManageRoles() {
   if (!SESSION) return false;
   const p = players.find(x => x.id === SESSION.pid);
@@ -6750,12 +6755,12 @@ function filterCmdBlueprints(selectedBpId) {
   if (craftType === 'craft_fps') {
     bps = bps.filter(b => {
       const cat = (b.cat||b.type||b.category||'').toLowerCase();
-      return cat === 'vaisseau' || cat.includes('vaisseau') || cat.includes('ship') || cat.includes('composant');
+      return cat === 'fps' || cat.includes('fps') || cat.includes('arme') || cat.includes('armor') || cat.includes('armure');
     });
   } else if (craftType === 'craft_vaisseau') {
     bps = bps.filter(b => {
       const cat = (b.cat||b.type||b.category||'').toLowerCase();
-      return cat === 'fps' || cat.includes('fps') || cat.includes('arme') || cat.includes('armor') || cat.includes('armure');
+      return cat === 'vaisseau' || cat.includes('vaisseau') || cat.includes('ship') || cat.includes('composant');
     });
   }
   // vente/autre/vide → tout afficher
