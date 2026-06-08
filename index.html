@@ -3121,7 +3121,7 @@ async function renderAuthBar() {
     const player = players.find(p => p.id === SESSION.pid);
     const stocks = player ? (await DB.get('uex-stocks-' + player.id)) || [] : [];
     const totalVal = stocks.reduce((a,s) => a + (s.price||0)*s.qty, 0);
-    const totalRes = stocks.length;
+    const totalRes = stocks.filter(s => (parseFloat(s.qty)||0) > 0).length;
     const rang     = SESSION.isAdmin ? 'ADMIN' : (player?.role || 'PARTENAIRE');
     const barPct   = Math.min(100, Math.round(totalRes / 20 * 100));
 
@@ -7036,35 +7036,10 @@ async function saveCommande() {
 // collecte/autre → uniquement stock 'aucune' (sans qualité)
 // Les ressources 'vente' (<500) ne comptent JAMAIS
 function objStockBucket(obj) {
-  const cat       = obj.cat       || '';
-  const action    = obj.action    || '';
-  const craftType = obj.craftType || '';
-  const bpId      = obj.bpId     || '';
-  const quality   = obj.quality  || '';
-
-  // Priorité 0 : qualité explicite choisie dans le modal
-  if (quality) {
-    const scores = { mediocre:250, basique:550, acceptable:650, honnete:750, moyenne:850, haute:950 };
-    const score = scores[quality] || 0;
-    if (score < 500)  return ['vente'];    // médiocre → vente (ne compte pas)
-    if (score < 800)  return ['vaisseau']; // basique/acceptable/honnête
-    return ['fps'];                        // moyenne/haute
-  }
-
-  // Priorité 1 : craftType explicite de la commande source
-  if (craftType === 'craft_fps')      return ['fps'];
-  if (craftType === 'craft_vaisseau') return ['vaisseau'];
-
-  // Priorité 2 : blueprint associé
-  if (cat === 'craft' || action === 'craft') {
-    const bp = bpId ? (BLUEPRINTS||[]).find(x=>x.id===bpId) : null;
-    if (bp?.cat === 'fps')      return ['fps'];
-    if (bp?.cat === 'vaisseau') return ['vaisseau'];
-    return ['vaisseau', 'fps'];
-  }
-
-  // Par défaut : toutes les qualités ≥500 + sans qualité (exclut uniquement 'vente')
-  return ['aucune', 'vaisseau', 'fps'];
+  // Tous les objectifs comptabilisent TOUT le stock ≥500 (vaisseau + fps),
+  // sans exception, quel que soit le craftType ou blueprint associé.
+  // Seul le stock 'vente' (<500) et 'aucune' (non classé) sont exclus.
+  return ['vaisseau', 'fps'];
 }
 
 async function getStockNetForObjectif(obj) {
@@ -8442,13 +8417,14 @@ async function renderPlayerList(filter=''){
   }
   const items=await Promise.all(filtered.map(async p=>{
     const stocks=(await DB.get('uex-stocks-'+p.id))||[];
+    const stockCount = stocks.filter(s => (parseFloat(s.qty)||0) > 0).length;
     return `<div class="pl-item ${selectedPid===p.id?'sel':''}" onclick="selectPlayer('${p.id}')">
       <div class="pl-avatar" style="overflow:hidden;">${avHtml(p,32)}</div>
       <div class="pl-info">
         <div class="pl-name">${esc(p.name)}</div>
         <div class="pl-meta">${p.role} · ${fmtDate(p.joinedAt)}</div>
       </div>
-      <span class="pl-badge ${stocks.length?'pb-stock':'pb-empty'}">${stocks.length?stocks.length+' res.':'vide'}</span>
+      <span class="pl-badge ${stockCount?'pb-stock':'pb-empty'}">${stockCount?stockCount+' res.':'vide'}</span>
     </div>`;
   }));
   list.innerHTML=items.join('');
@@ -12028,5 +12004,3 @@ async function saveBankTransaction() {
 </div>
 </div></body>
 </html>
-
-
